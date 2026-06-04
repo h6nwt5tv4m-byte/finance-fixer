@@ -22,12 +22,18 @@ window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".hero .reveal").forEach((el) => el.classList.add("in"));
 });
 
-// contact form (no backend yet — opens a prefilled mail draft)
+// contact form — submits directly via FormSubmit (no backend needed)
+const FORM_ENDPOINT = "https://formsubmit.co/ajax/hyungjun@finance-fixer.com";
 const form = document.getElementById("consult-form");
 const note = document.getElementById("form-note");
+const submitBtn = form.querySelector('button[type="submit"]');
 
-form.addEventListener("submit", (ev) => {
+form.addEventListener("submit", async (ev) => {
   ev.preventDefault();
+
+  // honeypot: bots fill this hidden field
+  if (form._honey && form._honey.value) return;
+
   const name = form.name.value.trim();
   const phone = form.phone.value.trim();
   const topic = form.topic.value;
@@ -39,13 +45,38 @@ form.addEventListener("submit", (ev) => {
     return;
   }
 
-  const subject = encodeURIComponent(`[상담신청] ${topic} — ${name}`);
-  const body = encodeURIComponent(
-    `성함/상호: ${name}\n연락처: ${phone}\n상담 분야: ${topic}\n\n내용:\n${message || "(없음)"}`
-  );
-  window.location.href = `mailto:hyungjun@finance-fixer.com?subject=${subject}&body=${body}`;
+  const original = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "전송 중…";
+  note.textContent = "";
+  note.className = "form-note";
 
-  note.textContent = "메일 작성 창이 열립니다. 보내주시면 확인 후 바로 연락드립니다.";
-  note.className = "form-note ok";
-  form.reset();
+  try {
+    const res = await fetch(FORM_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        "성함/상호": name,
+        연락처: phone,
+        "상담 분야": topic,
+        내용: message || "(없음)",
+        _subject: `[상담신청] ${topic} — ${name}`,
+        _template: "table",
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && (data.success === "true" || data.success === true)) {
+      note.textContent = "상담 신청이 전송되었습니다. 확인 후 바로 연락드리겠습니다.";
+      note.className = "form-note ok";
+      form.reset();
+    } else {
+      throw new Error("submit failed");
+    }
+  } catch (err) {
+    note.textContent = "전송에 실패했습니다. 전화(010-3339-5356)로 연락 부탁드립니다.";
+    note.className = "form-note err";
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = original;
+  }
 });
