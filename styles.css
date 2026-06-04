@@ -346,6 +346,49 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
   font-size: 0.85rem; color: rgba(244, 241, 234, 0.55);
 }
 
+/* ── KakaoTalk buttons ── */
+.kakao-fab {
+  position: fixed;
+  right: clamp(1rem, 3vw, 1.8rem);
+  bottom: clamp(1rem, 3vw, 1.8rem);
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fee500;
+  color: #371d1e;
+  padding: 0.8rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 26px -8px rgba(28, 28, 23, 0.45);
+  transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.22s;
+}
+.kakao-fab:hover { transform: translateY(-3px); box-shadow: 0 16px 32px -8px rgba(28, 28, 23, 0.55); }
+.kakao-fab svg { width: 22px; height: 22px; fill: #371d1e; flex-shrink: 0; }
+
+.kakao-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 2rem;
+  background: #fee500;
+  color: #371d1e;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: var(--radius);
+  transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.22s;
+}
+.kakao-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.5); }
+.kakao-btn svg { width: 20px; height: 20px; fill: #371d1e; }
+
+@media (max-width: 560px) {
+  .kakao-fab span { display: none; }
+  .kakao-fab { padding: 0.9rem; }
+  .kakao-fab svg { width: 26px; height: 26px; }
+}
+
 /* ── Reveal animation ── */
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.3, 1); transition-delay: var(--d, 0s); }
 .reveal.in { opacity: 1; transform: none; }
