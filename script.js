@@ -69,6 +69,11 @@ form.addEventListener("submit", async (ev) => {
       note.textContent = "상담 신청이 전송되었습니다. 확인 후 바로 연락드리겠습니다.";
       note.className = "form-note ok";
       form.reset();
+    } else if (data.message && /activ/i.test(data.message)) {
+      // FormSubmit one-time activation pending
+      note.textContent = "접수되었습니다. 확인 후 연락드리겠습니다.";
+      note.className = "form-note ok";
+      form.reset();
     } else {
       throw new Error("submit failed");
     }
