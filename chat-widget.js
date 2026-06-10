@@ -12,7 +12,7 @@
 
   // ── state ──
   var open = false, sending = false, exchanges = 0, leadShown = false, leadDone = false;
-  var tsWidgetId = null, tsPending = null;      // Turnstile: 단일 dispatch
+  var tsWidgetId = null, tsToken = null, tsResolver = null;  // Turnstile
   var sessionPromise = null;                    // 세션 발급 직렬화
 
   var fab, panel, logEl, inputEl, sendBtn, chipsEl, leadForm, lastFocus = null;
@@ -126,30 +126,31 @@
   }
 
   // ── Turnstile (단일 dispatch + 호출별 타이머) ──
-  function tsRender() {
+  // 위젯을 보이게 렌더(Managed: 대부분 무동작 통과, 의심스러우면 체크박스). callback이 토큰 제공.
+  function tsEnsureRendered() {
     if (tsWidgetId !== null || !window.turnstile) return;
     tsWidgetId = window.turnstile.render("#ai-turnstile", {
-      sitekey: TS_SITEKEY, size: "invisible",
-      callback: function (t) { var p = tsPending; tsPending = null; if (p) p.ok(t); },
-      "error-callback": function () { var p = tsPending; tsPending = null; if (p) p.err(new Error("ts_error")); },
+      sitekey: TS_SITEKEY,
+      callback: function (t) { tsToken = t; if (tsResolver) { var r = tsResolver; tsResolver = null; r(t); } },
+      "error-callback": function () { if (tsResolver) { var r = tsResolver; tsResolver = null; r(null); } },
+      "expired-callback": function () { tsToken = null; },
     });
   }
   function getTurnstileToken() {
     return new Promise(function (resolve, reject) {
       if (!window.turnstile) { reject(new Error("ts_unloaded")); return; }
-      tsRender();
-      if (tsPending) { reject(new Error("ts_busy")); return; }
+      tsEnsureRendered();
+      function give(t) {
+        if (!t) { reject(new Error("ts_fail")); return; }
+        resolve(t);
+        try { window.turnstile.reset(tsWidgetId); } catch (e) {}  // 다음 토큰 미리 준비
+      }
+      if (tsToken) { var cur = tsToken; tsToken = null; give(cur); return; }
+      var done = false;
       var timer = setTimeout(function () {
-        if (tsPending) { tsPending = null; reject(new Error("ts_timeout")); }
-      }, 20000);
-      tsPending = {
-        ok: function (t) { clearTimeout(timer); t ? resolve(t) : reject(new Error("ts_empty")); },
-        err: function (e) { clearTimeout(timer); reject(e); },
-      };
-      try {
-        window.turnstile.reset(tsWidgetId);
-        window.turnstile.execute(tsWidgetId);
-      } catch (e) { tsPending = null; clearTimeout(timer); reject(e); }
+        if (!done) { done = true; tsResolver = null; reject(new Error("ts_timeout")); }
+      }, 25000);
+      tsResolver = function (tok) { if (done) return; done = true; clearTimeout(timer); tsToken = null; give(tok); };
     });
   }
 
