@@ -242,8 +242,8 @@
     <header class="ai-head">
       <span class="ai-dot" aria-hidden="true"></span>
       <h2 id="ai-panel-title">재무해결사 AI 상담</h2>
-      <button class="ai-min" id="ai-min" aria-label="상담창 최소화" title="최소화">–</button>
-      <button class="ai-close" id="ai-close" aria-label="상담창 닫기" title="닫기">✕</button>
+      <button class="ai-min" id="ai-min" aria-label="상담창 최소화" title="최소화"></button>
+      <button class="ai-close" id="ai-close" aria-label="상담창 닫기" title="닫기"></button>
     </header>
     <div class="ai-log" id="ai-log" role="log" aria-live="polite" aria-relevant="additions"></div>
     <div class="ai-chips" id="ai-chips" role="group" aria-label="추천 질문" hidden>
@@ -261,13 +261,14 @@
         <button type="button" class="ai-lead-skip" id="ai-lead-skip">괜찮아요</button>
       </div>
     </form>
+    <div id="ai-verify" class="ai-verify" hidden>대화를 시작하려면 아래 확인을 완료해 주세요</div>
+    <div id="ai-turnstile" class="ai-turnstile"></div>
     <form class="ai-input" id="ai-input">
       <label for="ai-text" class="sr-only">메시지 입력</label>
       <textarea id="ai-text" rows="1" placeholder="세무·정산·감사 관련 질문을 입력하세요" autocomplete="off" enterkeyhint="send"></textarea>
       <button type="submit" class="ai-send" id="ai-send" aria-label="보내기" disabled>→</button>
     </form>
     <p class="ai-foot">AI 답변은 참고용입니다 · 정확한 상담은 <a href="tel:01033395356">010-3339-5356</a></p>
-    <div id="ai-turnstile" class="ai-turnstile"></div>
   </div>
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>

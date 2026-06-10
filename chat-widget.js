@@ -11,11 +11,11 @@
   var RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ── state ──
-  var open = false, sending = false, exchanges = 0, leadShown = false, leadDone = false;
+  var open = false, sending = false, verifying = false, exchanges = 0, leadShown = false, leadDone = false;
   var tsWidgetId = null, tsToken = null, tsResolver = null;  // Turnstile
   var sessionPromise = null;                    // 세션 발급 직렬화
 
-  var fab, panel, logEl, inputEl, sendBtn, chipsEl, leadForm, lastFocus = null;
+  var fab, panel, logEl, inputEl, sendBtn, chipsEl, leadForm, verifyEl, lastFocus = null;
 
   document.addEventListener("DOMContentLoaded", init);
 
@@ -27,6 +27,7 @@
     sendBtn = document.getElementById("ai-send");
     chipsEl = document.getElementById("ai-chips");
     leadForm = document.getElementById("ai-lead");
+    verifyEl = document.getElementById("ai-verify");
     if (!fab || !panel) return;
 
     fab.addEventListener("click", openPanel);
@@ -80,8 +81,30 @@
     requestAnimationFrame(function () { panel.classList.add("open"); });
     fab.setAttribute("aria-expanded", "true");
     if (!logEl.dataset.greeted) greet();
-    setTimeout(function () { inputEl.focus(); }, 60);
-    ensureSession().catch(function () {}); // prewarm(실패해도 전송 때 다시 시도)
+    if (validToken()) {            // 이미 인증된 세션(30분 이내) — 바로 입력 가능
+      setVerifying(false);
+      setTimeout(function () { inputEl.focus(); }, 60);
+    } else {
+      startVerification();         // 인증 전까지 입력 잠금
+    }
+  }
+
+  // 사람 확인(Turnstile) 게이트 — 완료 전까진 입력 잠금
+  function setVerifying(on) {
+    verifying = on;
+    inputEl.disabled = on;
+    sendBtn.disabled = on || !inputEl.value.trim();
+    if (verifyEl) verifyEl.hidden = !on;
+    inputEl.placeholder = on ? "사람인지 확인 중…" : "세무·정산·감사 관련 질문을 입력하세요";
+  }
+  function startVerification() {
+    setVerifying(true);
+    ensureSession().then(function () {
+      setVerifying(false);
+      setTimeout(function () { inputEl.focus(); }, 60);
+    }).catch(function () {
+      if (verifyEl) { verifyEl.hidden = false; verifyEl.textContent = "확인에 실패했어요. 새로고침 후 다시 시도하거나 전화(010-3339-5356)로 문의해 주세요."; }
+    });
   }
   function closePanel() {
     open = false;
@@ -123,7 +146,7 @@
   function autosize() {
     inputEl.style.height = "auto";
     inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
-    sendBtn.disabled = !inputEl.value.trim();
+    sendBtn.disabled = verifying || !inputEl.value.trim();
   }
 
   // ── Turnstile (단일 dispatch + 호출별 타이머) ──
@@ -150,7 +173,7 @@
       var done = false;
       var timer = setTimeout(function () {
         if (!done) { done = true; tsResolver = null; reject(new Error("ts_timeout")); }
-      }, 25000);
+      }, 120000);  // 체크박스 클릭까지 시간 확보
       tsResolver = function (tok) { if (done) return; done = true; clearTimeout(timer); tsToken = null; give(tok); };
     });
   }
@@ -198,7 +221,7 @@
     }).catch(function () {
       showError(bubble);
     }).finally(function () {
-      sending = false; sendBtn.disabled = !inputEl.value.trim();
+      sending = false; sendBtn.disabled = verifying || !inputEl.value.trim();
     });
   }
 
