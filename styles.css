@@ -397,11 +397,12 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 }
 .ai-head h2 { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; flex: 1; }
 .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brass); flex-shrink: 0; }
-.ai-close {
+.ai-close, .ai-min {
   background: none; border: none; color: rgba(244, 241, 234, 0.7); cursor: pointer;
-  font-size: 1.1rem; line-height: 1; padding: 0.2rem;
+  font-size: 1.1rem; line-height: 1; padding: 0.2rem 0.35rem;
 }
-.ai-close:hover { color: var(--paper); }
+.ai-min { font-size: 1.5rem; }
+.ai-close:hover, .ai-min:hover { color: var(--paper); }
 
 .ai-log {
   flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.7rem;

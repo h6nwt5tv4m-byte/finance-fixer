@@ -30,7 +30,8 @@
     if (!fab || !panel) return;
 
     fab.addEventListener("click", openPanel);
-    document.getElementById("ai-close").addEventListener("click", closePanel);
+    document.getElementById("ai-min").addEventListener("click", closePanel);   // 최소화(대화 유지)
+    document.getElementById("ai-close").addEventListener("click", closePanel); // 닫기
     var openers = document.querySelectorAll("[data-ai-open]");
     for (var i = 0; i < openers.length; i++) {
       openers[i].addEventListener("click", function (e) { e.preventDefault(); openPanel(); });
