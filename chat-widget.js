@@ -207,21 +207,66 @@
   function onSend(e) {
     if (e) e.preventDefault();
     var msg = inputEl.value.trim();
-    if (!msg || sending) return;
+    if (!msg || sending || verifying) return;
     if (chipsEl) chipsEl.hidden = true;
     addUser(msg);
     inputEl.value = ""; autosize();
     sending = true; sendBtn.disabled = true;
-    var bubble = typing();
-    doSend({ message: msg }, false).then(function (d) {
-      removeRow(bubble);
-      addBot(d && d.reply ? d.reply : "답변을 받지 못했어요.");
-      exchanges++;
-      maybeLead(d);
-    }).catch(function () {
-      showError(bubble);
-    }).finally(function () {
+    streamChat({ message: msg }, typing(), false);
+  }
+
+  // SSE 스트리밍 수신 — 상태/토큰이 오는 대로 말풍선에 채움
+  function streamChat(payload, row, retried) {
+    var bubble = row.firstChild, acc = "", leadSent = false, finished = false;
+    function finish(ok) {
+      if (finished) return; finished = true;
       sending = false; sendBtn.disabled = verifying || !inputEl.value.trim();
+      if (ok) { exchanges++; maybeLead({ lead_sent: leadSent }); }
+    }
+    return ensureSession().then(function (token) {
+      return fetch(API_BASE + "/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify(payload),
+      }).then(function (res) {
+        if (res.status === 401 && !retried) {
+          localStorage.removeItem(LS_TOKEN);
+          return streamChat(payload, row, true);   // 같은 말풍선 재사용
+        }
+        if ((res.headers.get("content-type") || "").indexOf("text/event-stream") === -1) {
+          return res.json().then(function (d) {     // JSON(에러/메시지) 폴백
+            bubble.className = "ai-bubble"; bubble.textContent = (d && d.reply) || "답변을 받지 못했어요.";
+            row.removeAttribute("aria-hidden"); scroll(); finish(false);
+          });
+        }
+        var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
+        function pump() {
+          return reader.read().then(function (r) {
+            if (r.done) { finish(true); return; }
+            buf += dec.decode(r.value, { stream: true });
+            var parts = buf.split("\n\n"); buf = parts.pop();
+            for (var i = 0; i < parts.length; i++) {
+              var line = parts[i].replace(/^data: ?/, "").trim();
+              if (!line) continue;
+              var o; try { o = JSON.parse(line); } catch (e) { continue; }
+              if (o.status && !acc) {
+                bubble.className = "ai-bubble ai-status"; bubble.textContent = o.status; scroll();
+              } else if (o.delta) {
+                if (!acc) { bubble.className = "ai-bubble"; bubble.textContent = ""; row.removeAttribute("aria-hidden"); }
+                acc += o.delta; bubble.textContent = acc; scroll();
+              } else if (o.error) {
+                bubble.className = "ai-bubble"; bubble.textContent = o.reply || "오류가 발생했어요.";
+                row.removeAttribute("aria-hidden"); scroll();
+              } else if (o.done) { leadSent = !!o.lead_sent; }
+            }
+            return pump();
+          });
+        }
+        return pump();
+      });
+    }).catch(function () {
+      if (!retried && !acc) showError(row);
+      finish(false);
     });
   }
 

@@ -425,6 +425,7 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 .ai-msg--bot .ai-bubble { background: var(--paper-2); color: var(--ink); }
 .ai-msg--user .ai-bubble { background: var(--green); color: var(--paper); }
 .ai-bubble.ai-err { background: #f6e7e3; color: #8a3322; }
+.ai-bubble.ai-status { background: var(--paper-2); color: var(--ink-faint); font-style: italic; }
 .ai-bubble.ai-err a, .ai-link {
   color: #8a3322; text-decoration: underline; background: none; border: none;
   cursor: pointer; font: inherit; padding: 0;
