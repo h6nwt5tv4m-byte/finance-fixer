@@ -147,17 +147,19 @@
 
 .r-section > p { color: var(--ink-soft); font-size: 0.98rem; max-width: 68ch; }
 
-/* 세 줄 요약 */
+/* 세 줄 요약 — 번호는 absolute, 본문은 한 흐름으로(grid 쓰면 strong이 별도 셀로 쪼개짐) */
 .summary-list { list-style: none; counter-reset: sum; }
 .summary-list li {
   counter-increment: sum;
-  display: grid; grid-template-columns: auto 1fr; gap: 1rem;
-  padding: 0.9rem 0; border-bottom: 1px solid var(--line);
+  position: relative;
+  padding: 0.9rem 0 0.9rem 2.8rem;
+  border-bottom: 1px solid var(--line);
   font-size: 1rem; color: var(--ink);
 }
 .summary-list li::before {
   content: counter(sum, decimal-leading-zero);
-  font-family: var(--font-mono); font-size: 0.85rem; color: var(--brass); padding-top: 0.15rem;
+  position: absolute; left: 0.15rem; top: 1.12rem;
+  font-family: var(--font-mono); font-size: 0.85rem; color: var(--brass);
 }
 .summary-list strong { color: var(--green); }
 
