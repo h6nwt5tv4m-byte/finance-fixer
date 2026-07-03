@@ -1,0 +1,298 @@
+/* ──────────────────────────────────────────────
+   재무해결사 — 업체 인사이트 리포트 (insight/*)
+   base: ../styles.css (Editorial Ledger)
+   ────────────────────────────────────────────── */
+
+/* ── 공통: 서브페이지 헤더 활성 표시 ── */
+.site-nav a.active { color: var(--ink); }
+.site-nav a.active::after { width: 100%; }
+
+/* 한글 버튼 중간 줄바꿈 방지 */
+.btn { word-break: keep-all; text-align: center; }
+
+/* 3단계 프로세스 (소개 페이지) */
+.process-steps.steps-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 860px) { .process-steps.steps-3 { grid-template-columns: 1fr; } }
+
+/* ── 소개 페이지 ── */
+.ins-hero { padding-top: clamp(3.5rem, 8vw, 6rem); max-width: 1100px; }
+.ins-hero h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6.5vw, 4.3rem);
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+}
+.ins-hero h1 span { display: block; }
+.ins-hero h1 em { font-style: normal; color: var(--green); }
+
+/* 데이터 소스 그리드 */
+.src-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.src-grid li { background: var(--paper); padding: 1.6rem 1.3rem; }
+.src-grid .src-no { font-family: var(--font-mono); font-size: 0.8rem; color: var(--brass); }
+.src-grid h3 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin: 0.7rem 0 0.5rem; }
+.src-grid p { font-size: 0.92rem; color: var(--ink-soft); }
+
+/* 이메일 미리보기 카드 */
+.mail-card {
+  max-width: 620px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 44px -18px rgba(26, 26, 23, 0.35);
+}
+.mail-head {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.75rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-2);
+  font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint);
+}
+.mail-tag {
+  margin-left: auto; padding: 0.08rem 0.5rem;
+  border: 1px solid var(--brass); border-radius: 999px;
+  color: var(--brass); font-size: 0.66rem; letter-spacing: 0.1em; white-space: nowrap;
+}
+.mail-caption { margin-top: 0.7rem; font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-soft); }
+.mail-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green-glow); }
+.mail-body { padding: 1.3rem 1.4rem 1.5rem; }
+.mail-body .mail-subject { font-weight: 600; font-size: 1.02rem; color: var(--ink); }
+.mail-body .mail-meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint); margin-top: 0.35rem; }
+.mail-body .mail-preview {
+  margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line);
+  font-size: 0.93rem; color: var(--ink-soft); line-height: 1.7;
+}
+.mail-body .mail-preview strong { color: var(--green-2); }
+
+/* CTA 밴드 */
+.ins-cta {
+  background: var(--green); color: var(--paper);
+  text-align: left;
+}
+.ins-cta h2 {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(1.8rem, 4.5vw, 3rem); line-height: 1.18;
+}
+.ins-cta p { margin-top: 1.1rem; color: rgba(244, 241, 234, 0.75); max-width: 52ch; }
+/* .btn-brass / .btn-ghost-light 는 ../styles.css 에 정의(중복 정의 금지) */
+
+.pilot-note {
+  margin-top: 2.2rem; padding-top: 1.4rem;
+  border-top: 1px solid rgba(244, 241, 234, 0.15);
+  font-size: 0.88rem; color: rgba(244, 241, 234, 0.6); max-width: 60ch;
+}
+
+/* ── 샘플 리포트 페이지 ── */
+.portal-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.6rem clamp(1.5rem, 6vw, 7rem);
+  background: var(--ink); color: rgba(244, 241, 234, 0.75);
+  font-family: var(--font-mono); font-size: 0.76rem; letter-spacing: 0.04em;
+}
+.portal-bar .who { color: var(--paper); }
+.badge-sample {
+  display: inline-block; margin-left: 0.6rem; padding: 0.1rem 0.55rem;
+  border: 1px solid var(--brass); color: var(--brass); border-radius: 999px;
+  font-size: 0.7rem; letter-spacing: 0.12em;
+}
+
+.report { max-width: 880px; margin: 0 auto; padding: clamp(2.5rem, 6vw, 4.5rem) clamp(1.5rem, 5vw, 3rem) 4rem; }
+
+.report-head { position: relative; border-bottom: 2px solid var(--ink); padding-bottom: 1.8rem; }
+.report-head .eyebrow { margin-bottom: 0.9rem; }
+.report-head h1 {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(1.9rem, 5.5vw, 3.2rem); line-height: 1.15; letter-spacing: -0.01em;
+}
+.report-meta { list-style: none; margin-top: 1.6rem; max-width: 480px; }
+.report-meta li {
+  display: flex; justify-content: space-between; gap: 1.5rem;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.report-meta li span:first-child { color: var(--ink-faint); font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; padding-top: 0.15rem; }
+
+/* 견본 도장 */
+.stamp {
+  position: absolute; top: 0.2rem; right: 0;
+  width: 92px; height: 92px; border-radius: 50%;
+  border: 2.5px solid #b03a2a; color: #b03a2a;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+  font-family: var(--font-display); font-weight: 700;
+  transform: rotate(-11deg);
+  opacity: 0.85;
+  user-select: none;
+}
+.stamp .big { font-size: 1.35rem; letter-spacing: 0.28em; text-indent: 0.28em; }
+.stamp .small { font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.14em; }
+
+/* 섹션 — styles.css 전역 section 패딩이 리포트 안에서 새지 않게 리셋 */
+.r-section { margin-top: clamp(2.8rem, 6vw, 4rem); padding: 0; }
+.r-title {
+  display: flex; align-items: baseline; gap: 0.9rem;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.7rem; margin-bottom: 1.4rem;
+}
+.r-title .no { font-family: var(--font-mono); font-size: 0.9rem; color: var(--brass); }
+.r-title h2 { font-family: var(--font-display); font-size: clamp(1.3rem, 3vw, 1.7rem); font-weight: 700; }
+.r-title .tag { margin-left: auto; font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-faint); letter-spacing: 0.06em; text-align: right; }
+
+.r-section > p { color: var(--ink-soft); font-size: 0.98rem; max-width: 68ch; }
+
+/* 세 줄 요약 */
+.summary-list { list-style: none; counter-reset: sum; }
+.summary-list li {
+  counter-increment: sum;
+  display: grid; grid-template-columns: auto 1fr; gap: 1rem;
+  padding: 0.9rem 0; border-bottom: 1px solid var(--line);
+  font-size: 1rem; color: var(--ink);
+}
+.summary-list li::before {
+  content: counter(sum, decimal-leading-zero);
+  font-family: var(--font-mono); font-size: 0.85rem; color: var(--brass); padding-top: 0.15rem;
+}
+.summary-list strong { color: var(--green); }
+
+/* 스탯 타일 */
+.stat-tiles {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: var(--line); border: 1px solid var(--line);
+}
+.stat-tiles.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.tile { background: var(--paper); padding: 1.25rem 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.tile .t-label { font-size: 0.78rem; color: var(--ink-faint); letter-spacing: 0.04em; }
+.tile .t-value { font-family: var(--font-mono); font-size: clamp(1.25rem, 3vw, 1.6rem); font-weight: 500; color: var(--ink); letter-spacing: -0.02em; }
+.tile .t-delta { font-family: var(--font-mono); font-size: 0.78rem; }
+.t-delta.good { color: var(--green-2); }
+.t-delta.bad { color: #a23b2e; }
+.t-delta.flat { color: var(--ink-faint); }
+
+/* 막대 차트 (월별 매출) */
+.chart { margin-top: 1.6rem; }
+.chart-title { font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-faint); letter-spacing: 0.08em; margin-bottom: 0.9rem; }
+.bars {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: clamp(0.5rem, 2vw, 1.1rem);
+  align-items: end; height: 170px;
+  border-bottom: 1px solid var(--ink); padding: 0 0.2rem;
+}
+.bar { position: relative; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.bar i {
+  display: block; width: 100%;
+  background: var(--green-2); opacity: 0.55;
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+  transition: opacity 0.2s;
+}
+.bar:hover i { opacity: 0.8; }
+.bar.cur i { background: var(--green); opacity: 1; }
+.bar .v {
+  position: absolute; top: -1.5rem; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 0.76rem; color: var(--green); white-space: nowrap;
+}
+.bar-labels { display: grid; grid-template-columns: repeat(6, 1fr); gap: clamp(0.5rem, 2vw, 1.1rem); padding: 0.45rem 0.2rem 0; }
+.bar-labels span { text-align: center; font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); }
+
+/* 가로 믹스 바 (시간대) */
+.mix { margin-top: 1.4rem; display: grid; gap: 0.55rem; }
+.mix-row { display: grid; grid-template-columns: 5.5rem 1fr 3.4rem; align-items: center; gap: 0.8rem; font-size: 0.85rem; }
+.mix-row .m-label { color: var(--ink-soft); }
+.mix-row .track { height: 14px; background: var(--paper-2); border-radius: 2px; overflow: hidden; }
+.mix-row .fill { height: 100%; background: var(--green-2); opacity: 0.55; border-radius: 2px; }
+.mix-row.hot .fill { background: var(--green); opacity: 1; }
+.mix-row .m-pct { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink); text-align: right; }
+
+/* 인사이트 코멘트 박스 */
+.note {
+  margin-top: 1.5rem;
+  border-left: 2px solid var(--brass);
+  background: var(--paper-2);
+  padding: 1rem 1.2rem;
+  font-size: 0.95rem; color: var(--ink-soft);
+}
+.note strong { color: var(--ink); }
+.note .who { display: block; margin-top: 0.6rem; font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); }
+
+/* 절세 진단 */
+.diag { border-top: 1px solid var(--ink); }
+.diag-row {
+  display: grid; grid-template-columns: 7.2rem 1fr auto; gap: 1.1rem;
+  padding: 1.15rem 0; border-bottom: 1px solid var(--line);
+  align-items: start;
+}
+.badge {
+  display: inline-block; padding: 0.28rem 0.6rem; border-radius: 2px;
+  font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em;
+  text-align: center; white-space: nowrap;
+}
+.badge.ok { background: var(--green); color: var(--paper); }
+.badge.review { background: transparent; border: 1px solid var(--brass); color: var(--brass); }
+.badge.check { background: transparent; border: 1px solid var(--green-2); color: var(--green-2); }
+.badge.no { background: var(--paper-2); color: var(--ink-faint); border: 1px solid var(--line); }
+.diag-row h3 { font-size: 1.02rem; font-weight: 600; color: var(--ink); }
+.diag-row h3 .law { font-family: var(--font-mono); font-weight: 400; font-size: 0.72rem; color: var(--ink-faint); margin-left: 0.5rem; }
+.diag-row p { margin-top: 0.4rem; font-size: 0.9rem; color: var(--ink-soft); max-width: 60ch; }
+.diag-row .amt { font-family: var(--font-mono); font-size: 1rem; color: var(--green); white-space: nowrap; text-align: right; }
+.diag-row .amt small { display: block; font-size: 0.68rem; color: var(--ink-faint); }
+.diag-total {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+  padding: 1.1rem 0 0.3rem;
+  font-family: var(--font-display); font-weight: 700; font-size: 1.15rem;
+}
+.diag-total .num { color: var(--green); font-size: 1.45rem; }
+
+/* 액션 리스트 */
+.action-list { list-style: none; }
+.action-list li {
+  position: relative; padding: 0.8rem 0 0.8rem 2rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.97rem; color: var(--ink);
+}
+.action-list li::before {
+  content: ""; position: absolute; left: 0.15rem; top: 1.05rem;
+  width: 0.85rem; height: 0.85rem;
+  border: 1.5px solid var(--green-2); border-radius: 2px;
+}
+.action-list li small { display: block; margin-top: 0.2rem; color: var(--ink-faint); font-size: 0.82rem; }
+
+/* 출처 표기 */
+.src-line { margin-top: 1rem; font-family: var(--font-mono); font-size: 0.7rem; color: var(--ink-soft); letter-spacing: 0.02em; line-height: 1.8; }
+
+/* 디스클레이머 + CTA */
+.report-foot {
+  margin-top: clamp(3rem, 6vw, 4.5rem);
+  border-top: 2px solid var(--ink);
+  padding-top: 1.6rem;
+}
+.report-foot .disclaimer { font-size: 0.85rem; color: var(--ink-faint); line-height: 1.8; max-width: 72ch; }
+.report-foot .disclaimer strong { color: var(--ink-soft); }
+.foot-cta {
+  margin-top: 2rem; padding: clamp(1.6rem, 4vw, 2.4rem);
+  background: var(--green); color: var(--paper); border-radius: var(--radius);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.2rem;
+}
+.foot-cta p { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.15rem, 3vw, 1.5rem); line-height: 1.3; }
+.foot-cta small { display: block; margin-top: 0.4rem; font-family: var(--font-sans); font-weight: 300; font-size: 0.88rem; color: rgba(244, 241, 234, 0.7); }
+
+/* ── 반응형 ── */
+@media (max-width: 860px) {
+  .src-grid { grid-template-columns: 1fr 1fr; }
+  .stat-tiles { grid-template-columns: 1fr 1fr; }
+  .stat-tiles.cols-3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .src-grid { grid-template-columns: 1fr; }
+  .stamp { width: 74px; height: 74px; }
+  .stamp .big { font-size: 1.05rem; }
+  .diag-row { grid-template-columns: 1fr; gap: 0.5rem; }
+  .diag-row .amt { text-align: left; }
+  .mix-row { grid-template-columns: 4.2rem 1fr 3rem; }
+  .portal-bar { flex-wrap: wrap; row-gap: 0.2rem; }
+}

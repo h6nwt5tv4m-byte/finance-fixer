@@ -288,6 +288,29 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 }
 .step:hover::before { width: 100%; }
 
+/* ── Insight Teaser ── */
+.insight-teaser { background: var(--ink); color: var(--paper); }
+.insight-teaser .teaser-inner { max-width: 880px; }
+.insight-teaser h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4.8vw, 3.2rem);
+  font-weight: 700; line-height: 1.18; letter-spacing: -0.01em;
+}
+.insight-teaser p { margin-top: 1.3rem; color: rgba(244, 241, 234, 0.72); max-width: 56ch; font-size: 1.02rem; }
+.teaser-actions { display: flex; gap: 1rem; margin-top: 2.2rem; flex-wrap: wrap; }
+.btn-brass {
+  background: var(--brass); color: #1a1a17; border-color: var(--brass); font-weight: 600;
+}
+.btn-brass:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -12px rgba(168, 132, 63, 0.8); }
+.btn-ghost-light { border: 1px solid rgba(244, 241, 234, 0.4); color: var(--paper); }
+.btn-ghost-light:hover { border-color: var(--paper); background: rgba(244, 241, 234, 0.08); }
+.teaser-src {
+  margin-top: 2.4rem !important; padding-top: 1.3rem;
+  border-top: 1px solid rgba(244, 241, 234, 0.14);
+  font-size: 0.8rem !important; color: rgba(244, 241, 234, 0.5) !important;
+  letter-spacing: 0.08em;
+}
+
 /* ── Contact ── */
 .contact { background: var(--green); color: var(--paper); }
 .contact-inner { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2.5rem, 6vw, 5rem); align-items: start; }
