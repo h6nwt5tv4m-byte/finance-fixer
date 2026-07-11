@@ -401,6 +401,18 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 }
 .ai-inline-open:hover { border-bottom-color: #c8b07a; }
 
+/* ── KakaoTalk channel button ── */
+.contact-channels { margin-top: 1.6rem; }
+.kakao-btn {
+  display: inline-flex; align-items: center; gap: 0.55rem;
+  background: #FEE500; color: #181600;
+  font-family: var(--font-sans); font-weight: 600; font-size: 0.95rem;
+  padding: 0.72rem 1.25rem; border-radius: var(--radius);
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+.kakao-btn:hover { filter: brightness(0.96); transform: translateY(-1px); }
+.kakao-btn svg { width: 20px; height: 20px; flex: none; }
+
 .ai-fab {
   position: fixed;
   right: clamp(1rem, 3vw, 1.8rem); bottom: clamp(1rem, 3vw, 1.8rem);
