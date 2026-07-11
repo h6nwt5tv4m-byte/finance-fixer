@@ -14,14 +14,26 @@
   </url>
   <url>
     <loc>https://finance-fixer.net/insight/</loc>
-    <lastmod>2026-07-03</lastmod>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://finance-fixer.net/insight/sample.html</loc>
-    <lastmod>2026-07-03</lastmod>
+    <loc>https://finance-fixer.net/insight/en/</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://finance-fixer.net/insight/sample.html</loc>
+    <lastmod>2026-07-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://finance-fixer.net/insight/en/sample.html</loc>
+    <lastmod>2026-07-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
 </urlset>
