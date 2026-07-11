@@ -116,6 +116,22 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 }
 .nav-cta:hover { background: var(--ink); color: var(--paper); }
 
+/* ── Language switch ── */
+.header-actions { display: flex; align-items: center; gap: clamp(0.85rem, 2vw, 1.4rem); }
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.lang-switch a { color: var(--ink-soft); transition: color 0.25s; }
+.lang-switch a:hover { color: var(--ink); }
+.lang-switch .active { color: var(--green); font-weight: 600; }
+.lang-switch .sep { color: var(--line); }
+
 /* ── Hero ── */
 .hero {
   padding-top: clamp(4rem, 9vw, 7rem);

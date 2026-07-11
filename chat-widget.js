@@ -10,6 +10,42 @@
   var LS_TOKEN = "ff_chat_token", LS_EXP = "ff_chat_exp", LS_SID = "ff_chat_sid";
   var RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // ── i18n: 페이지 <html lang> 로 UI 문자열 선택 (백엔드 계약은 불변) ──
+  var LANG = ((document.documentElement.lang || "ko").toLowerCase().indexOf("en") === 0) ? "en" : "ko";
+  var STR = {
+    ko: {
+      verifying: "사람인지 확인 중…",
+      inputPh: "세무·정산·감사 관련 질문을 입력하세요",
+      verifyFail: "확인에 실패했어요. 새로고침 후 다시 시도하거나 전화(010-3339-5356)로 문의해 주세요.",
+      greet: "안녕하세요, 재무해결사 AI 상담입니다. 세무·보조금 정산·회계감사·회생 관련해 궁금한 점을 편하게 물어보세요.",
+      noReply: "답변을 받지 못했어요.",
+      genericErr: "오류가 발생했어요.",
+      connFail: "연결에 실패했어요. ",
+      telLabel: "전화 010-3339-5356",
+      orText: " 또는 ",
+      toForm: "상담폼으로",
+      leadPrompt: "전화로 더 정확히 도와드릴까요? 연락처를 남겨주시면 담당 회계사가 연락드립니다.",
+      leadThanks: "연락처 감사합니다. 곧 연락드릴게요.",
+      leadFail: "연락처 전송에 실패했어요. 다시 시도하시거나 전화(010-3339-5356)로 부탁드려요.",
+    },
+    en: {
+      verifying: "Verifying you're human…",
+      inputPh: "Ask about tax, settlement, or audit",
+      verifyFail: "Verification failed. Refresh and try again, or call us at 010-3339-5356.",
+      greet: "Hi, this is the Finance Fixer AI assistant. Ask anything about tax, grant settlement, accounting audit, or corporate rehabilitation — feel free to write in English.",
+      noReply: "No response received.",
+      genericErr: "Something went wrong.",
+      connFail: "Connection failed. ",
+      telLabel: "Call 010-3339-5356",
+      orText: " or ",
+      toForm: "use the contact form",
+      leadPrompt: "Want more precise help by phone? Leave your contact and our accountant will reach out.",
+      leadThanks: "Thanks for your details. We'll be in touch soon.",
+      leadFail: "Failed to send your contact. Please try again or call 010-3339-5356.",
+    },
+  };
+  var T = STR[LANG];
+
   // ── state ──
   var open = false, sending = false, verifying = false, exchanges = 0, leadShown = false, leadDone = false;
   var tsWidgetId = null, tsToken = null, tsResolver = null;  // Turnstile
@@ -95,7 +131,7 @@
     inputEl.disabled = on;
     sendBtn.disabled = on || !inputEl.value.trim();
     if (verifyEl) verifyEl.hidden = !on;
-    inputEl.placeholder = on ? "사람인지 확인 중…" : "세무·정산·감사 관련 질문을 입력하세요";
+    inputEl.placeholder = on ? T.verifying : T.inputPh;
   }
   function startVerification() {
     setVerifying(true);
@@ -103,7 +139,7 @@
       setVerifying(false);
       setTimeout(function () { inputEl.focus(); }, 60);
     }).catch(function () {
-      if (verifyEl) { verifyEl.hidden = false; verifyEl.textContent = "확인에 실패했어요. 새로고침 후 다시 시도하거나 전화(010-3339-5356)로 문의해 주세요."; }
+      if (verifyEl) { verifyEl.hidden = false; verifyEl.textContent = T.verifyFail; }
     });
   }
   function closePanel() {
@@ -116,7 +152,7 @@
 
   function greet() {
     logEl.dataset.greeted = "1";
-    addBot("안녕하세요, 재무해결사 AI 상담입니다. 세무·보조금 정산·회계감사·회생 관련해 궁금한 점을 편하게 물어보세요.");
+    addBot(T.greet);
     if (chipsEl) chipsEl.hidden = false;
   }
 
@@ -235,7 +271,7 @@
         }
         if ((res.headers.get("content-type") || "").indexOf("text/event-stream") === -1) {
           return res.json().then(function (d) {     // JSON(에러/메시지) 폴백
-            bubble.className = "ai-bubble"; bubble.textContent = (d && d.reply) || "답변을 받지 못했어요.";
+            bubble.className = "ai-bubble"; bubble.textContent = (d && d.reply) || T.noReply;
             row.removeAttribute("aria-hidden"); scroll(); finish(false);
           });
         }
@@ -255,7 +291,7 @@
                 if (!acc) { bubble.className = "ai-bubble"; bubble.textContent = ""; row.removeAttribute("aria-hidden"); }
                 acc += o.delta; bubble.textContent = acc; scroll();
               } else if (o.error) {
-                bubble.className = "ai-bubble"; bubble.textContent = o.reply || "오류가 발생했어요.";
+                bubble.className = "ai-bubble"; bubble.textContent = o.reply || T.genericErr;
                 row.removeAttribute("aria-hidden"); scroll();
               } else if (o.done) { leadSent = !!o.lead_sent; }
             }
@@ -289,13 +325,13 @@
 
   function showError(bubble) {
     var b = bubble.firstChild;
-    b.className = "ai-bubble ai-err"; b.textContent = "연결에 실패했어요. ";
+    b.className = "ai-bubble ai-err"; b.textContent = T.connFail;
     var tel = document.createElement("a");
-    tel.href = "tel:01033395356"; tel.textContent = "전화 010-3339-5356";
+    tel.href = "tel:01033395356"; tel.textContent = T.telLabel;
     b.appendChild(tel);
-    b.appendChild(document.createTextNode(" 또는 "));
+    b.appendChild(document.createTextNode(T.orText));
     var f = document.createElement("button");
-    f.type = "button"; f.className = "ai-link"; f.textContent = "상담폼으로";
+    f.type = "button"; f.className = "ai-link"; f.textContent = T.toForm;
     f.addEventListener("click", function () {
       closePanel();
       var c = document.getElementById("contact");
@@ -312,7 +348,7 @@
     if (d && d.lead_sent) { leadDone = true; return; }
     if (exchanges >= 2) {
       leadShown = true;
-      addBot("전화로 더 정확히 도와드릴까요? 연락처를 남겨주시면 담당 회계사가 연락드립니다.");
+      addBot(T.leadPrompt);
       leadForm.hidden = false;
       scroll();
     }
@@ -329,10 +365,10 @@
     leadForm.hidden = true;
     doSend({ lead: { name: name, phone: phone } }, false).then(function (d) {
       leadDone = true;
-      addBot(d && d.reply ? d.reply : "연락처 감사합니다. 곧 연락드릴게요.");
+      addBot(d && d.reply ? d.reply : T.leadThanks);
     }).catch(function () {
       leadForm.hidden = false; btn.disabled = false;
-      addBot("연락처 전송에 실패했어요. 다시 시도하시거나 전화(010-3339-5356)로 부탁드려요.");
+      addBot(T.leadFail);
     });
   }
 })();
