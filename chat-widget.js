@@ -15,9 +15,9 @@
   var STR = {
     ko: {
       verifying: "사람인지 확인 중…",
-      inputPh: "세무·정산·감사 관련 질문을 입력하세요",
+      inputPh: "기장·신고·결산·감사 관련 질문을 입력하세요",
       verifyFail: "확인에 실패했어요. 새로고침 후 다시 시도하거나 전화(010-3339-5356)로 문의해 주세요.",
-      greet: "안녕하세요, 재무해결사 AI 상담입니다. 세무·보조금 정산·회계감사·회생 관련해 궁금한 점을 편하게 물어보세요.",
+      greet: "안녕하세요, 재무해결사 AI 상담입니다. 기장·세금 신고·결산 리포트·회계감사 관련해 궁금한 점을 편하게 물어보세요.",
       noReply: "답변을 받지 못했어요.",
       genericErr: "오류가 발생했어요.",
       connFail: "연결에 실패했어요. ",
@@ -30,9 +30,9 @@
     },
     en: {
       verifying: "Verifying you're human…",
-      inputPh: "Ask about tax, settlement, or audit",
+      inputPh: "Ask about bookkeeping, filing, closing, or audit",
       verifyFail: "Verification failed. Refresh and try again, or call us at 010-3339-5356.",
-      greet: "Hi, this is the Finance Fixer AI assistant. Ask anything about tax, grant settlement, accounting audit, or corporate rehabilitation — feel free to write in English.",
+      greet: "Hi, this is the Finance Fixer AI assistant. Ask anything about bookkeeping, tax filing, closing reports, or accounting audit — feel free to write in English.",
       noReply: "No response received.",
       genericErr: "Something went wrong.",
       connFail: "Connection failed. ",
