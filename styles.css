@@ -278,6 +278,39 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 }
 .service-link:hover { color: var(--green); }
 
+/* ── Mission · Vision · Values ── */
+.mission { background: var(--paper-2); }
+.mv-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1px; background: var(--line); border: 1px solid var(--line);
+}
+.mv-block { background: var(--paper); padding: clamp(1.8rem, 4vw, 3rem); }
+.mv-label {
+  display: block;
+  font-size: 0.75rem; letter-spacing: 0.18em;
+  color: var(--brass); margin-bottom: 1.1rem;
+}
+.mv-block h3 {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.8vw, 1.95rem);
+  font-weight: 700; line-height: 1.3; letter-spacing: -0.01em;
+}
+.mv-block p { margin-top: 1rem; color: var(--ink-soft); font-size: 1rem; max-width: 52ch; }
+
+.values-grid {
+  list-style: none; margin-top: 1.5rem;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--line); border: 1px solid var(--line);
+}
+.value-card { background: var(--paper); padding: clamp(1.6rem, 3vw, 2.2rem); }
+.value-no { font-size: 0.8rem; color: var(--brass); }
+.value-card h4 {
+  font-family: var(--font-display);
+  font-size: 1.35rem; font-weight: 700;
+  margin: 0.7rem 0 0.5rem;
+}
+.value-card p { font-size: 0.95rem; color: var(--ink-soft); }
+
 /* ── About ── */
 .about { background: var(--paper-2); }
 .about-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: clamp(2.5rem, 6vw, 6rem); align-items: center; }
@@ -592,10 +625,14 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 }
 
 /* ── Responsive ── */
-@media (max-width: 860px) {
+/* 네비 6항목 + CTA가 태블릿 폭에서 줄바꿈되지 않게 — 콘텐츠 그리드(860)보다 먼저 숨김 */
+@media (max-width: 960px) {
   .site-nav { display: none; }
-  .about-grid, .contact-inner { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  .about-grid, .contact-inner, .mv-grid { grid-template-columns: 1fr; }
   .process-steps { grid-template-columns: 1fr 1fr; }
+  .values-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .nav-cta { display: none; }
