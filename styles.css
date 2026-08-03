@@ -353,6 +353,43 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 }
 .profile-creds .num { color: var(--ink-faint); font-size: 0.85rem; }
 
+/* people cards */
+.people {
+  margin-top: clamp(3rem, 6vw, 5rem);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--line); border: 1px solid var(--line);
+}
+.person {
+  background: var(--paper);
+  padding: clamp(1.6rem, 3vw, 2.4rem);
+  display: grid; grid-template-columns: minmax(0, 170px) 1fr;
+  gap: clamp(1.2rem, 3vw, 2rem);
+  align-items: start;
+}
+.person picture { display: block; }
+.person img {
+  display: block; width: 100%; height: auto;
+  aspect-ratio: 600 / 769; object-fit: cover;
+  border: 1px solid var(--line);
+  filter: grayscale(1) contrast(1.02);
+  transition: filter 0.5s ease;
+}
+.person:hover img { filter: grayscale(0); }
+.person-body h3 {
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+  font-weight: 700; line-height: 1.2;
+}
+.person-role {
+  margin-top: 0.5rem;
+  font-size: 0.9rem; font-weight: 500; color: var(--green);
+}
+.person-role .num { color: var(--ink-faint); font-size: 0.8rem; }
+.person-desc {
+  margin-top: 0.9rem;
+  font-size: 0.92rem; color: var(--ink-soft); line-height: 1.75;
+}
+
 /* ── Process ── */
 .process { background: var(--paper); }
 .process-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
@@ -631,12 +668,14 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 }
 @media (max-width: 860px) {
   .about-grid, .contact-inner, .mv-grid { grid-template-columns: 1fr; }
+  .people { grid-template-columns: 1fr; }
   .process-steps { grid-template-columns: 1fr 1fr; }
   .values-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .nav-cta { display: none; }
   .process-steps, .about-stats { grid-template-columns: 1fr; }
+  .person { grid-template-columns: minmax(0, 110px) 1fr; gap: 1.1rem; }
   .service-row { grid-template-columns: auto 1fr; }
   .service-arrow { display: none; }
   .hero-actions .btn { flex: 1; justify-content: center; }
