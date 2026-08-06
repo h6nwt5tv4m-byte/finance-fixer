@@ -354,8 +354,12 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 .profile-creds .num { color: var(--ink-faint); font-size: 0.85rem; }
 
 /* people cards */
-.people {
+.people-note {
   margin-top: clamp(3rem, 6vw, 5rem);
+  font-size: 0.95rem; color: var(--ink-soft); line-height: 1.75;
+}
+.people {
+  margin-top: 1.2rem;
   display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
   background: var(--line); border: 1px solid var(--line);
 }
@@ -389,6 +393,15 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
   margin-top: 0.9rem;
   font-size: 0.92rem; color: var(--ink-soft); line-height: 1.75;
 }
+.person-contact {
+  list-style: none;
+  margin-top: 0.9rem; padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 0.3rem 1.4rem;
+  font-size: 0.85rem;
+}
+.person-contact a { color: var(--ink-soft); transition: color 0.25s; }
+.person-contact a:hover { color: var(--green); }
 
 /* ── Process ── */
 .process { background: var(--paper); }
