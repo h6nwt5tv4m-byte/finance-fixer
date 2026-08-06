@@ -356,7 +356,10 @@ section { padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 6vw, 7rem); }
 /* people cards */
 .people-note {
   margin-top: clamp(3rem, 6vw, 5rem);
-  font-size: 0.95rem; color: var(--ink-soft); line-height: 1.75;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  color: var(--ink-soft);
+  line-height: 1.7;
 }
 .people {
   margin-top: 1.2rem;
