@@ -23,7 +23,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // contact form — submits directly via FormSubmit (no backend needed)
-const FORM_ENDPOINT = "https://formsubmit.co/ajax/hyungjun@finance-fixer.com";
+const FORM_ENDPOINT = "https://formsubmit.co/ajax/313218d208f93efd5e357fad964bf6bc";
 const form = document.getElementById("consult-form");
 const note = document.getElementById("form-note");
 const submitBtn = form.querySelector('button[type="submit"]');
