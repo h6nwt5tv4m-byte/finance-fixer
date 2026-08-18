@@ -16,32 +16,32 @@
     ko: {
       verifying: "사람인지 확인 중…",
       inputPh: "기장·신고·결산·감사 관련 질문을 입력하세요",
-      verifyFail: "확인에 실패했어요. 새로고침 후 다시 시도하거나 전화(010-3339-5356)로 문의해 주세요.",
+      verifyFail: "확인에 실패했어요. 새로고침 후 다시 시도하거나 전화(070-8657-1080)로 문의해 주세요.",
       greet: "안녕하세요, 재무해결사 AI 상담입니다. 기장·세금 신고·결산 리포트·회계감사 관련해 궁금한 점을 편하게 물어보세요.",
       noReply: "답변을 받지 못했어요.",
       genericErr: "오류가 발생했어요.",
       connFail: "연결에 실패했어요. ",
-      telLabel: "전화 010-3339-5356",
+      telLabel: "전화 070-8657-1080",
       orText: " 또는 ",
       toForm: "상담폼으로",
       leadPrompt: "전화로 더 정확히 도와드릴까요? 연락처를 남겨주시면 담당 회계사가 연락드립니다.",
       leadThanks: "연락처 감사합니다. 곧 연락드릴게요.",
-      leadFail: "연락처 전송에 실패했어요. 다시 시도하시거나 전화(010-3339-5356)로 부탁드려요.",
+      leadFail: "연락처 전송에 실패했어요. 다시 시도하시거나 전화(070-8657-1080)로 부탁드려요.",
     },
     en: {
       verifying: "Verifying you're human…",
       inputPh: "Ask about bookkeeping, filing, closing, or audit",
-      verifyFail: "Verification failed. Refresh and try again, or call us at 010-3339-5356.",
+      verifyFail: "Verification failed. Refresh and try again, or call us at 070-8657-1080.",
       greet: "Hi, this is the Finance Fixer AI assistant. Ask anything about bookkeeping, tax filing, closing reports, or accounting audit — feel free to write in English.",
       noReply: "No response received.",
       genericErr: "Something went wrong.",
       connFail: "Connection failed. ",
-      telLabel: "Call 010-3339-5356",
+      telLabel: "Call 070-8657-1080",
       orText: " or ",
       toForm: "use the contact form",
       leadPrompt: "Want more precise help by phone? Leave your contact and our accountant will reach out.",
       leadThanks: "Thanks for your details. We'll be in touch soon.",
-      leadFail: "Failed to send your contact. Please try again or call 010-3339-5356.",
+      leadFail: "Failed to send your contact. Please try again or call 070-8657-1080.",
     },
   };
   var T = STR[LANG];
@@ -327,7 +327,7 @@
     var b = bubble.firstChild;
     b.className = "ai-bubble ai-err"; b.textContent = T.connFail;
     var tel = document.createElement("a");
-    tel.href = "tel:01033395356"; tel.textContent = T.telLabel;
+    tel.href = "tel:07086571080"; tel.textContent = T.telLabel;
     b.appendChild(tel);
     b.appendChild(document.createTextNode(T.orText));
     var f = document.createElement("button");

@@ -78,7 +78,7 @@ form.addEventListener("submit", async (ev) => {
       throw new Error("submit failed");
     }
   } catch (err) {
-    note.textContent = "전송에 실패했습니다. 전화(010-3339-5356)로 연락 부탁드립니다.";
+    note.textContent = "전송에 실패했습니다. 전화(070-8657-1080)로 연락 부탁드립니다.";
     note.className = "form-note err";
   } finally {
     submitBtn.disabled = false;

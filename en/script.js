@@ -78,7 +78,7 @@ form.addEventListener("submit", async (ev) => {
       throw new Error("submit failed");
     }
   } catch (err) {
-    note.textContent = "Sending failed. Please call us at 010-3339-5356.";
+    note.textContent = "Sending failed. Please call us at 070-8657-1080.";
     note.className = "form-note err";
   }
   finally {
