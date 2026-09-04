@@ -97,6 +97,15 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .contact dt { color: var(--ink-faint); font-size: .875rem; line-height: 1.8; }
 .contact dd { line-height: 1.8; }
 
+.kakao {
+  display: inline-flex; align-items: center; gap: .5rem;
+  margin-top: 2rem; padding: .7rem 1.1rem;
+  background: #fae100; color: #1a1a17; border-radius: 4px; border-bottom: 0;
+  font-size: .9375rem; font-weight: 400; transition: background .2s;
+}
+.kakao svg { width: 1.125rem; height: 1.125rem; fill: #3c1e1e; }
+.kakao:hover { background: #f0d800; border-bottom: 0; }
+
 /* 바닥 */
 .foot {
   max-width: var(--measure); margin: 0 auto;
