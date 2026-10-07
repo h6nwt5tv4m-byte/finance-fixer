@@ -114,6 +114,7 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
   display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
   font-size: .8125rem; color: var(--ink-faint);
 }
+.foot a { color: inherit; }
 
 /* 반응형 */
 @media (min-width: 740px) {
