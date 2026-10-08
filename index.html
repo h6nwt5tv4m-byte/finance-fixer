@@ -30,17 +30,11 @@
     <nav aria-label="주요 메뉴">
       <a href="#services">하는 일</a>
       <a href="#people">사람</a>
-      <div class="menu">
-        <button type="button" class="menu-btn" aria-haspopup="true" aria-expanded="false" aria-controls="tools-menu">도구 <span aria-hidden="true">▾</span></button>
-        <ul class="menu-list" id="tools-menu" hidden>
-          <li><a href="https://aptfee.finance-fixer.net/">아파트 감사보수·관리비</a></li>
-          <li><a href="https://sangkwon.finance-fixer.net/">서울 상권 조회</a></li>
-          <li><a href="/oegam/">외부감사 대상 판정</a></li>
-          <li><a href="/rates/">업종별 경비율</a></li>
-          <li><a href="https://jobs.finance-fixer.net/">공공채용·위원모집</a></li>
-          <li><a href="#tools">도구 소개</a></li>
-        </ul>
-      </div>
+      <a href="https://aptfee.finance-fixer.net/">아파트</a>
+      <a href="https://sangkwon.finance-fixer.net/">상권</a>
+      <a href="/oegam/">외감 판정</a>
+      <a href="/rates/">경비율</a>
+      <a href="https://jobs.finance-fixer.net/">채용·위원</a>
       <a href="#contact">문의</a>
     </nav>
   </header>
@@ -159,15 +153,5 @@
     <span>기장 · 신고 · 결산 · 감사 · 정산</span>
     <span><a href="https://aptfee.finance-fixer.net/">아파트 감사보수 비교</a> · <a href="https://sangkwon.finance-fixer.net/">서울 상권 조회</a> · <a href="https://jobs.finance-fixer.net/">공공채용·위원모집 모아보기</a> · <a href="https://www.youtube.com/channel/UCeJEHaCCFxNoNe1nMzr8KAg">YouTube 재무해결사 채널</a> · <a href="/privacy/">개인정보처리방침</a> · <a href="/terms/">이용약관</a></span>
   </footer>
-  <script>
-    (() => {
-      const btn = document.querySelector('.menu-btn'), list = document.getElementById('tools-menu'), menu = document.querySelector('.menu');
-      const set = (open) => { list.hidden = !open; btn.setAttribute('aria-expanded', String(open)); };
-      btn.addEventListener('click', (e) => { e.stopPropagation(); set(list.hidden); });
-      document.addEventListener('click', (e) => { if (!menu.contains(e.target)) set(false); });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
-      list.addEventListener('click', (e) => { if (e.target.closest('a')) set(false); });
-    })();
-  </script>
 </body>
 </html>
