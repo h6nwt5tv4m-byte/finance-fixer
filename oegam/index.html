@@ -108,10 +108,15 @@
           </div>
           <div class="two" id="ltd-only" hidden>
             <label>직전 사업연도 말 사원 수 <span class="muted">(정관 기재 사원)</span><div class="field"><input type="text" inputmode="numeric" id="members" placeholder="예: 10" /><span class="unit">명</span></div></label>
+            <label>주식회사에서 전환한 등기일 <span class="muted">(해당 시)</span><div class="field"><input type="date" id="conv" min="2019-11-01" /><span class="unit">선택</span></div></label>
+          </div>
+          <div>
+            <label>판정할 사업연도 <span class="muted">(12월 결산 기준)</span></label>
+            <div class="seg" role="group" aria-label="사업연도" id="fy-seg"></div>
           </div>
           <div><button class="btn" type="button" id="go">판정</button></div>
         </form>
-        <p class="muted" style="margin-top:.75rem">사업연도가 12개월 미만이면 매출액은 12개월로 환산해 넣어 주세요(1개월 미만은 1개월로 봅니다). 종업원은 근로기준법상 근로자이며 소득세법 시행령 제20조제1항의 사람과 파견근로자는 뺍니다.</p>
+        <p class="muted" style="margin-top:.75rem">유한회사가 2019년 11월 1일 이후 주식회사에서 조직을 변경한 경우, 전환 등기일부터 5년까지는 주식회사 기준(제5조제1항)으로 판정합니다(제5조제2항 단서). 사업연도가 12개월 미만이면 매출액은 12개월로 환산해 넣어 주세요(1개월 미만은 1개월로 봅니다). 종업원은 근로기준법상 근로자이며 소득세법 시행령 제20조제1항의 사람과 파견근로자는 뺍니다.</p>
       </section>
 
       <section id="out" hidden>
@@ -128,7 +133,7 @@
 
         <h2>감사인 선임 기한 <span class="cite">외부감사법 제10조</span></h2>
         <dl class="facts" id="v-deadline"></dl>
-        <p class="muted" style="margin-top:.75rem">12월 결산 법인 기준입니다. 계속 감사를 받는 회사는 매 사업연도 개시일부터 45일 이내(제10조제1항), 직전 사업연도에 회계감사를 받지 않은 회사는 해당 사업연도 개시일부터 4개월 이내(제10조제2항)에 감사인을 선임합니다. 감사위원회 설치 의무 회사는 사업연도 개시 전입니다.</p>
+        <p class="muted" style="margin-top:.75rem">12월 결산 법인 기준입니다. 계속 감사를 받는 회사는 매 사업연도 개시일부터 45일 이내(제10조제1항), 직전 사업연도에 회계감사를 받지 않은 회사는 해당 사업연도 개시일부터 4개월 이내(제10조제2항)에 감사인을 선임합니다. 감사위원회 설치 의무 회사는 사업연도 개시 전입니다. 기한 말일이 토요일·공휴일이면 다음 영업일로 보았습니다(민법 제161조, 공휴일표는 2026~2027년).</p>
 
         <h2>다음 문턱까지</h2>
         <table>
@@ -186,7 +191,15 @@
   const cnt = (v) => (v == null ? "—" : v.toLocaleString("ko-KR") + "명");
 
   // 판정 함수 — 입력은 원 단위, 종업원·사원은 명. 결과는 {subject, basis, hits, rows}
-  function judge(kind, a, d, s, e, m) {
+  function judge(kind, a, d, s, e, m, conv, fy) {
+    // §5②단서: 2019-11-01 이후 주식회사→유한회사 조직변경은 전환등기일부터 5년까지 ①항(주식회사 기준) 적용.
+    let converted = false;
+    if (kind === "ltd" && conv) {
+      const c = new Date(conv + "T00:00:00");
+      const lim = new Date(c); lim.setFullYear(lim.getFullYear() + 5);
+      const ref = new Date((fy || new Date().getFullYear()), 0, 1);   // 판정 사업연도 개시일 기준
+      if (c >= new Date("2019-11-01T00:00:00") && ref < lim) { converted = true; kind = "stock"; }
+    }
     const rows = [
       { label: "자산총액 500억원 이상 (단독)", in: a, base: RULES.asset500, fmt: eok, hit: a != null && a >= RULES.asset500, single: true, cite: "제5조제1항제1호" },
       { label: "매출액 500억원 이상 (단독)", in: s, base: RULES.sales500, fmt: eok, hit: s != null && s >= RULES.sales500, single: true, cite: "제5조제1항제2호" },
@@ -199,47 +212,73 @@
     const single = rows.filter((r) => r.single && r.hit);
     const multi = rows.filter((r) => !r.single && r.hit);
     const need = kind === "ltd" ? 3 : 2;
-    let subject = false, basis = "";
+    // 미입력 지표: 결론을 바꿀 수 있으면 '보류'. 모든 지표가 들어와야 '아님'을 확정한다.
+    const missing = rows.filter((r) => !r.single && r.in == null).map((r) => r.label.replace(/ \d.*$/, ""));
+    let subject = false, pending = false, basis = "";
     if (single.length) { subject = true; basis = kind === "ltd" ? "시행령 제5조제2항제1호 (제1항제1호·제2호 준용)" : single.map((r) => "시행령 " + r.cite).join(" · "); }
     else if (multi.length >= need) { subject = true; basis = kind === "ltd" ? `시행령 제5조제2항제2호 — 5개 중 ${multi.length}개 해당` : `시행령 제5조제1항제3호 — 4개 중 ${multi.length}개 해당`; }
-    return { subject, basis, single, multi, need, rows };
+    else if (missing.length) { pending = true; }
+    if (converted) basis = (basis ? basis + " · " : "") + "유한회사 전환 특례로 주식회사 기준 적용(시행령 제5조제2항 단서)";
+    return { subject, pending, missing, basis, single, multi, need, rows, kind, converted };
   }
   window.__judge = judge; // 테스트용
 
-  function deadlines() {
-    const y = new Date().getFullYear();
-    const fy = (new Date().getMonth() >= 10) ? y + 1 : y; // 11~12월이면 다음 사업연도 기준으로
-    const d45 = new Date(fy, 0, 1); d45.setDate(d45.getDate() + 44);
-    const fmt = (dt) => `${dt.getFullYear()}년 ${dt.getMonth() + 1}월 ${dt.getDate()}일`;
-    return { fy, cont: fmt(d45), first: `${fy}년 4월 30일` };
+  // 법정공휴일(공휴일에 관한 법률·대체공휴일 포함) 2026~2027. 설·추석은 음력이라 해마다 다르다.
+  const HOLIDAYS = new Set([
+    "2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18", "2026-03-01", "2026-03-02", "2026-05-05", "2026-05-24", "2026-05-25",
+    "2026-06-03", "2026-06-06", "2026-08-15", "2026-08-17", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-28",
+    "2026-10-03", "2026-10-05", "2026-10-09", "2026-12-25",
+    "2027-01-01", "2027-02-05", "2027-02-06", "2027-02-07", "2027-02-08", "2027-02-09", "2027-03-01", "2027-03-03", "2027-05-05", "2027-05-13",
+    "2027-06-06", "2027-06-07", "2027-08-15", "2027-08-16", "2027-09-14", "2027-09-15", "2027-09-16", "2027-10-03", "2027-10-04",
+    "2027-10-09", "2027-10-11", "2027-12-25", "2027-12-27",
+  ]);
+  const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  const DOW = ["일", "월", "화", "수", "목", "금", "토"];
+  // 민법 §161: 기간 말일이 토요일 또는 공휴일이면 그 익일에 만료.
+  function nextBusinessDay(dt) {
+    const d = new Date(dt);
+    while (d.getDay() === 0 || d.getDay() === 6 || HOLIDAYS.has(iso(d))) d.setDate(d.getDate() + 1);
+    return d;
   }
+  const fmt = (dt) => `${dt.getFullYear()}년 ${dt.getMonth() + 1}월 ${dt.getDate()}일(${DOW[dt.getDay()]})`;
+  function deadlines(fy) {
+    const raw45 = new Date(fy, 0, 1); raw45.setDate(raw45.getDate() + 44);   // 개시일 1/1부터 45일 → 2/14
+    const raw4m = new Date(fy, 3, 30);                                         // 개시일부터 4개월 → 4/30
+    const d45 = nextBusinessDay(raw45), d4m = nextBusinessDay(raw4m);
+    return { fy, cont: fmt(d45), contRaw: iso(raw45) !== iso(d45) ? fmt(raw45) : null,
+             first: fmt(d4m), firstRaw: iso(raw4m) !== iso(d4m) ? fmt(raw4m) : null, contIso: iso(d45), firstIso: iso(d4m) };
+  }
+  window.__deadlines = deadlines;
 
   function render() {
     const kind = state.kind;
+    const conv = kind === "ltd" ? ($("conv").value || null) : null;
     const a = num("asset") == null ? null : num("asset") * EOK;
     const d = num("debt") == null ? null : num("debt") * EOK;
     const s = num("sales") == null ? null : num("sales") * EOK;
     const e = num("emp");
     const m = kind === "ltd" ? num("members") : null;
     if (a == null && d == null && s == null && e == null && m == null) { $("out").hidden = true; return; }
-    const r = judge(kind, a, d, s, e, m);
-    $("v-title").textContent = r.subject ? "외부감사 대상입니다." : "외부감사 대상이 아닙니다.";
+    const r = judge(kind, a, d, s, e, m, conv, state.fy);
+    const k = r.kind;   // 전환 특례가 적용되면 'stock'
+    $("v-title").textContent = r.subject ? "외부감사 대상입니다." : r.pending ? "판정 보류" : "외부감사 대상이 아닙니다.";
     $("v-title").className = r.subject ? "yes" : "";
-    const missing = [["asset", a], ["debt", d], ["sales", s], ["emp", e]].concat(kind === "ltd" ? [["members", m]] : []).filter((x) => x[1] == null).length;
+    const n = k === "ltd" ? "5개 지표 중" : "4개 지표 중";
     $("v-why").textContent = r.subject
       ? `근거: ${r.basis}.`
-      : (kind === "ltd" ? `단독 기준(자산·매출 500억원)에 해당하지 않고, 5개 지표 중 ${r.multi.length}개만 해당합니다(3개 이상이어야 대상).` : `단독 기준(자산·매출 500억원)에 해당하지 않고, 4개 지표 중 ${r.multi.length}개만 해당합니다(2개 이상이어야 대상).`)
-        + (missing ? ` 비워 둔 항목 ${missing}개는 '해당 없음'으로 보았습니다.` : "");
-    $("v-cite").textContent = kind === "ltd" ? "시행령 제5조제2항" : "시행령 제5조제1항";
+      : r.pending
+        ? `${r.missing.join("·")}을(를) 입력해야 확정됩니다. 지금까지 ${n} ${r.multi.length}개 해당(${r.need}개 이상이면 대상).`
+        : `단독 기준(자산·매출 500억원)에 해당하지 않고, ${n} ${r.multi.length}개만 해당합니다(${r.need}개 이상이어야 대상).` + (r.converted ? " 유한회사 전환 특례로 주식회사 기준을 적용했습니다(시행령 제5조제2항 단서)." : "");
+    $("v-cite").textContent = k === "ltd" ? "시행령 제5조제2항" : (r.converted ? "시행령 제5조제1항 (제2항 단서로 적용)" : "시행령 제5조제1항");
     $("v-rows").replaceChildren(...r.rows.map((row) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `<td>${row.label}<div class="muted">${row.cite}</div></td><td class="n">${row.fmt(row.in)}</td><td class="n">${row.fmt(row.base)}</td><td>${row.hit ? '<span class="tag hit">해당</span>' : (row.in == null ? '<span class="tag">미입력</span>' : '<span class="tag">아님</span>')}</td>`;
       return tr;
     }));
-    const dl = deadlines();
+    const dl = deadlines(state.fy);
     $("v-deadline").innerHTML = `
-      <div class="fact"><dt>계속 감사 회사 (${dl.fy}년 사업연도)</dt><dd style="font-size:1.25rem">${dl.cont}까지<small>사업연도 개시일부터 45일 · 제10조제1항</small></dd></div>
-      <div class="fact"><dt>직전 연도 미감사 회사 (첫 외부감사)</dt><dd style="font-size:1.25rem">${dl.first}까지<small>사업연도 개시일부터 4개월 · 제10조제2항</small></dd></div>`;
+      <div class="fact"><dt>계속 감사 회사 (${dl.fy}년 사업연도)</dt><dd style="font-size:1.25rem">${dl.cont}까지<small>사업연도 개시일부터 45일 · 제10조제1항${dl.contRaw ? ` · 말일 ${dl.contRaw}이 토요일·공휴일이라 다음 영업일` : ""}</small></dd></div>
+      <div class="fact"><dt>직전 연도 미감사 회사 (첫 외부감사)</dt><dd style="font-size:1.25rem">${dl.first}까지<small>사업연도 개시일부터 4개월 · 제10조제2항${dl.firstRaw ? ` · 말일 ${dl.firstRaw}이 토요일·공휴일이라 다음 영업일` : ""}</small></dd></div>`;
     $("v-next").replaceChildren(...NEXT.map((n) => {
       const tr = document.createElement("tr");
       const cur = a;
@@ -251,6 +290,17 @@
     $("out").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // 사업연도 선택(기본=올해). 기한은 그 사업연도 개시일 기준.
+  const thisYear = new Date().getFullYear();
+  state.fy = thisYear;
+  const fySeg = $("fy-seg");
+  for (const y of [thisYear, thisYear + 1]) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = `${y}년`; b.dataset.fy = y;
+    b.setAttribute("aria-pressed", String(y === state.fy));
+    b.onclick = () => { state.fy = y; for (const x of fySeg.children) x.setAttribute("aria-pressed", String(+x.dataset.fy === y)); if (!$("out").hidden) render(); };
+    fySeg.append(b);
+  }
+  $("conv").addEventListener("change", () => { if (!$("out").hidden) render(); });
   const setKind = (k) => {
     state.kind = k;
     $("k-stock").setAttribute("aria-pressed", String(k === "stock"));
