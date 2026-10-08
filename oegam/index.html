@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>외부감사 대상 판정 | 재무해결사</title>
+  <meta name="description" content="직전 사업연도 자산·부채·매출·종업원 수를 넣으면 외부감사법 시행령 제5조 기준으로 외부감사 대상인지, 어느 기준에 걸리는지, 감사인 선임 기한이 언제인지 보여 드립니다." />
+  <meta name="theme-color" content="#1c3b2e" />
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="canonical" href="https://finance-fixer.net/oegam/" />
+  <meta property="og:title" content="외부감사 대상 판정" />
+  <meta property="og:description" content="우리 회사가 올해 외부감사 대상인지, 법령 기준 그대로 계산합니다." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta property="og:url" content="https://finance-fixer.net/oegam/" />
+  <meta property="og:image" content="https://finance-fixer.net/og-image.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f4f1ea; --paper-deep: #ece7dc; --ink: #1a1a17; --ink-soft: #4a4940; --ink-faint: #68645a;
+      --green: #1c3b2e; --brass: #a8843f; --line: #d8d2c4; --warm: #9a3b26;
+      --font-display: "Gowun Batang", "Apple SD Gothic Neo", serif;
+      --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+      --wide: 48rem; --gutter: clamp(1rem, 5vw, 3rem);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    [hidden] { display: none !important; }   /* .two 의 display:grid 가 hidden 을 덮지 않게 */
+    body { font-family: var(--font-sans); font-weight: 300; font-size: 1rem; line-height: 1.7; color: var(--ink); background: var(--paper);
+      -webkit-font-smoothing: antialiased; word-break: keep-all; overflow-wrap: anywhere; }
+    a { color: var(--green); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .2s; }
+    a:hover { border-bottom-color: var(--brass); }
+    a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+    .grain { position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: .04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
+    .top { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 1.75rem 0; flex-wrap: wrap; }
+    .mark { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: .06em; color: var(--green); }
+    .mark small { font-family: var(--font-sans); font-size: .8125rem; letter-spacing: 0; color: var(--ink-faint); margin-left: .6rem; }
+    .top nav { display: flex; gap: 1.25rem; font-size: .875rem; color: var(--ink-soft); }
+    .top nav a { color: inherit; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.35; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.375rem; line-height: 1.4; color: var(--green); margin: 3rem 0 1rem; }
+    .lede { margin-top: 1rem; max-width: 36rem; color: var(--ink-soft); }
+    .muted { color: var(--ink-faint); font-size: .875rem; }
+    .rule { width: 2.5rem; height: 1px; background: var(--brass); margin: 1.5rem 0; }
+    form { margin-top: 1.75rem; display: grid; gap: 1rem; max-width: 34rem; }
+    label { display: block; font-size: .9375rem; color: var(--ink-soft); }
+    .field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .5rem; margin-top: .25rem; }
+    input[type="text"], select { font: inherit; font-size: 1rem; padding: .6rem .8rem; background: #fbf9f4; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); width: 100%; }
+    .unit { color: var(--ink-faint); font-size: .875rem; white-space: nowrap; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .seg { display: flex; gap: .5rem; margin-top: .25rem; }
+    .seg button { font: inherit; font-size: .9375rem; padding: .5rem 1rem; cursor: pointer; background: transparent; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 999px; }
+    .seg button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--paper); }
+    .btn { font: inherit; font-size: .9375rem; padding: .65rem 1.3rem; cursor: pointer; background: var(--green); color: var(--paper); border: 1px solid var(--green); border-radius: 4px; }
+    .btn:hover { background: #163023; }
+    .verdict { margin-top: 2.5rem; padding: 1.5rem 0 0; border-top: 1px solid var(--brass); }
+    .verdict h2 { margin: 0 0 .5rem; font-size: 1.75rem; }
+    .verdict h2.yes { color: var(--warm); }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem 2rem; margin-top: 1.5rem; }
+    .fact dt { color: var(--ink-faint); font-size: .8125rem; }
+    .fact dd { font-family: var(--font-display); font-size: 1.375rem; line-height: 1.3; }
+    .fact dd small { font-family: var(--font-sans); font-size: .875rem; color: var(--ink-soft); display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: .9375rem; margin-top: 1rem; }
+    th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 400; color: var(--ink-faint); font-size: .8125rem; border-bottom-color: var(--brass); white-space: nowrap; }
+    td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .tag { display: inline-block; white-space: nowrap; font-size: .75rem; padding: .05rem .5rem; background: var(--paper-deep); color: var(--ink-soft); border-radius: 3px; }
+    .tag.hit { background: #e9efe9; color: var(--green); }
+    .tag.warm { background: #f1e2dc; color: var(--warm); }
+    .note { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: .875rem; max-width: 40rem; }
+    .foot { margin-top: 3rem; padding: 1.5rem 0 3rem; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .8125rem; color: var(--ink-faint); }
+    .foot a { color: inherit; }
+    .cite { font-size: .8125rem; color: var(--ink-faint); }
+    @media (max-width: 560px) { .two { grid-template-columns: 1fr; } .hide-sm { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="wrap">
+    <header class="top">
+      <a class="mark" href="https://finance-fixer.net/">외부감사 대상 판정<small>재무해결사</small></a>
+      <nav aria-label="바로가기"><a href="https://finance-fixer.net/">재무해결사 홈</a></nav>
+    </header>
+
+    <main>
+      <section style="padding: 2.5rem 0 1rem">
+        <h1>우리 회사,<br />올해 외부감사 대상인가.</h1>
+        <p class="lede">직전 사업연도 숫자를 넣으면 「주식회사 등의 외부감사에 관한 법률 시행령」 제5조 기준을 그대로 적용해, 대상인지와 어느 기준에 걸리는지를 보여 드립니다. 입력값은 저장하지 않습니다.</p>
+
+        <form id="f" onsubmit="return false">
+          <div>
+            <label>회사 형태</label>
+            <div class="seg" role="group" aria-label="회사 형태">
+              <button type="button" id="k-stock" aria-pressed="true">주식회사</button>
+              <button type="button" id="k-ltd" aria-pressed="false">유한회사</button>
+            </div>
+          </div>
+          <div class="two">
+            <label>직전 사업연도 말 자산총액<div class="field"><input type="text" inputmode="decimal" id="asset" placeholder="예: 130" /><span class="unit">억원</span></div></label>
+            <label>직전 사업연도 말 부채총액<div class="field"><input type="text" inputmode="decimal" id="debt" placeholder="예: 60" /><span class="unit">억원</span></div></label>
+          </div>
+          <div class="two">
+            <label>직전 사업연도 매출액<div class="field"><input type="text" inputmode="decimal" id="sales" placeholder="예: 110" /><span class="unit">억원</span></div></label>
+            <label>직전 사업연도 말 종업원 수<div class="field"><input type="text" inputmode="numeric" id="emp" placeholder="예: 80" /><span class="unit">명</span></div></label>
+          </div>
+          <div class="two" id="ltd-only" hidden>
+            <label>직전 사업연도 말 사원 수 <span class="muted">(정관 기재 사원)</span><div class="field"><input type="text" inputmode="numeric" id="members" placeholder="예: 10" /><span class="unit">명</span></div></label>
+          </div>
+          <div><button class="btn" type="button" id="go">판정</button></div>
+        </form>
+        <p class="muted" style="margin-top:.75rem">사업연도가 12개월 미만이면 매출액은 12개월로 환산해 넣어 주세요(1개월 미만은 1개월로 봅니다). 종업원은 근로기준법상 근로자이며 소득세법 시행령 제20조제1항의 사람과 파견근로자는 뺍니다.</p>
+      </section>
+
+      <section id="out" hidden>
+        <div class="verdict">
+          <h2 id="v-title"></h2>
+          <p id="v-why" class="muted"></p>
+        </div>
+
+        <h2 style="margin-top:2.5rem">기준별 확인 <span class="cite" id="v-cite"></span></h2>
+        <table>
+          <thead><tr><th>기준</th><th class="n">입력값</th><th class="n">기준값</th><th>해당</th></tr></thead>
+          <tbody id="v-rows"></tbody>
+        </table>
+
+        <h2>감사인 선임 기한 <span class="cite">외부감사법 제10조</span></h2>
+        <dl class="facts" id="v-deadline"></dl>
+        <p class="muted" style="margin-top:.75rem">12월 결산 법인 기준입니다. 계속 감사를 받는 회사는 매 사업연도 개시일부터 45일 이내(제10조제1항), 직전 사업연도에 회계감사를 받지 않은 회사는 해당 사업연도 개시일부터 4개월 이내(제10조제2항)에 감사인을 선임합니다. 감사위원회 설치 의무 회사는 사업연도 개시 전입니다.</p>
+
+        <h2>다음 문턱까지</h2>
+        <table>
+          <thead><tr><th>문턱</th><th class="n">기준</th><th class="n">남은 금액</th><th class="hide-sm">근거</th></tr></thead>
+          <tbody id="v-next"></tbody>
+        </table>
+        <p class="muted" style="margin-top:.75rem">비상장·비공시대상기업집단·사업보고서 미제출·비금융 회사는 직전 사업연도 말 자산총액 5천억원 미만이면 내부회계관리제도 적용이 제외됩니다(시행령 제9조제1항제3호). 대형비상장주식회사 기준도 자산총액 5천억원입니다(시행령 제4조). 자산 1천억원은 한국공인회계사회 표준감사시간 적용 그룹이 바뀌는 경계입니다.</p>
+      </section>
+
+      <h2>비상장 외부감사 시장 <span class="cite">재무해결사 DART 집계, 2026-09</span></h2>
+      <dl class="facts">
+        <div class="fact"><dt>2026년 비상장 감사보고서 제출</dt><dd>38,824곳</dd></div>
+        <div class="fact"><dt>매년 처음 외부감사를 받는 회사</dt><dd>약 3,000~3,600곳</dd></div>
+        <div class="fact"><dt>첫 감사인 구성</dt><dd style="font-size:1.125rem">중소회계법인 80%<small>감사반 14% · Big4 6%</small></dd></div>
+        <div class="fact"><dt>비상장 연간 감사인 교체</dt><dd>약 30%</dd></div>
+      </dl>
+      <p class="muted" style="margin-top:.75rem">전자공시(DART)에 제출된 비상장회사 감사보고서를 집계한 값입니다. 상장회사·대형비상장주식회사·금융회사가 아닌 회사는 3개 사업연도 동일 감사인 의무(제10조제3항)가 없어 매년 감사인을 바꿀 수 있습니다.</p>
+
+      <div class="note">
+        <p>이 판정은 법령에 적힌 숫자 기준을 산술로 적용한 결과이며 법률 자문이 아닙니다. 외부감사 대상에서 제외되는 회사(해당 사업연도에 설립등기한 회사, 지방공기업, 투자회사 등 시행령 제5조제3항)와 회계 기준에 따라 자산·부채·매출액이 달라지는 경우는 별도 확인이 필요합니다. 조문은 국가법령정보센터(law.go.kr)의 현행 외부감사법·시행령을 기준으로 했습니다.</p>
+        <p style="margin-top:.75rem">외부감사 준비나 감사인 선임에 대해 상의하실 일이 있으면 <a href="https://finance-fixer.net/#contact">재무해결사</a>로 연락 주세요.</p>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <span>© 2026 재무해결사</span>
+      <span>근거: 주식회사 등의 외부감사에 관한 법률 제10조 · 같은 법 시행령 제4조·제5조·제9조</span>
+      <span><a href="https://finance-fixer.net/">finance-fixer.net</a></span>
+    </footer>
+  </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { kind: "stock" };
+  const EOK = 1e8;
+
+  // 시행령 제5조(2026-05-26 시행 기준) — 단위: 원
+  const RULES = {
+    asset500: 500 * EOK, sales500: 500 * EOK,
+    asset: 120 * EOK, debt: 70 * EOK, sales: 100 * EOK, emp: 100, members: 50,
+  };
+  const NEXT = [
+    { label: "자산총액 1,000억원 (표준감사시간 그룹 경계)", key: "asset", v: 1000 * EOK, cite: "한국공인회계사회 표준감사시간" },
+    { label: "자산총액 5,000억원 (내부회계관리제도·대형비상장)", key: "asset", v: 5000 * EOK, cite: "시행령 제9조제1항제3호 · 제4조" },
+  ];
+
+  const num = (id) => {
+    const raw = ($(id).value || "").replace(/,/g, "").trim();
+    if (raw === "") return null;
+    const v = Number(raw);
+    return Number.isFinite(v) && v >= 0 ? v : null;
+  };
+  const eok = (v) => (v == null ? "—" : (v / EOK).toLocaleString("ko-KR", { maximumFractionDigits: 1 }) + "억원");
+  const cnt = (v) => (v == null ? "—" : v.toLocaleString("ko-KR") + "명");
+
+  // 판정 함수 — 입력은 원 단위, 종업원·사원은 명. 결과는 {subject, basis, hits, rows}
+  function judge(kind, a, d, s, e, m) {
+    const rows = [
+      { label: "자산총액 500억원 이상 (단독)", in: a, base: RULES.asset500, fmt: eok, hit: a != null && a >= RULES.asset500, single: true, cite: "제5조제1항제1호" },
+      { label: "매출액 500억원 이상 (단독)", in: s, base: RULES.sales500, fmt: eok, hit: s != null && s >= RULES.sales500, single: true, cite: "제5조제1항제2호" },
+      { label: "자산총액 120억원 이상", in: a, base: RULES.asset, fmt: eok, hit: a != null && a >= RULES.asset, cite: "제5조제1항제3호가목" },
+      { label: "부채총액 70억원 이상", in: d, base: RULES.debt, fmt: eok, hit: d != null && d >= RULES.debt, cite: "제5조제1항제3호나목" },
+      { label: "매출액 100억원 이상", in: s, base: RULES.sales, fmt: eok, hit: s != null && s >= RULES.sales, cite: "제5조제1항제3호다목" },
+      { label: "종업원 100명 이상", in: e, base: RULES.emp, fmt: cnt, hit: e != null && e >= RULES.emp, cite: "제5조제1항제3호라목" },
+    ];
+    if (kind === "ltd") rows.push({ label: "사원 50명 이상", in: m, base: RULES.members, fmt: cnt, hit: m != null && m >= RULES.members, cite: "제5조제2항제2호마목" });
+    const single = rows.filter((r) => r.single && r.hit);
+    const multi = rows.filter((r) => !r.single && r.hit);
+    const need = kind === "ltd" ? 3 : 2;
+    let subject = false, basis = "";
+    if (single.length) { subject = true; basis = kind === "ltd" ? "시행령 제5조제2항제1호 (제1항제1호·제2호 준용)" : single.map((r) => "시행령 " + r.cite).join(" · "); }
+    else if (multi.length >= need) { subject = true; basis = kind === "ltd" ? `시행령 제5조제2항제2호 — 5개 중 ${multi.length}개 해당` : `시행령 제5조제1항제3호 — 4개 중 ${multi.length}개 해당`; }
+    return { subject, basis, single, multi, need, rows };
+  }
+  window.__judge = judge; // 테스트용
+
+  function deadlines() {
+    const y = new Date().getFullYear();
+    const fy = (new Date().getMonth() >= 10) ? y + 1 : y; // 11~12월이면 다음 사업연도 기준으로
+    const d45 = new Date(fy, 0, 1); d45.setDate(d45.getDate() + 44);
+    const fmt = (dt) => `${dt.getFullYear()}년 ${dt.getMonth() + 1}월 ${dt.getDate()}일`;
+    return { fy, cont: fmt(d45), first: `${fy}년 4월 30일` };
+  }
+
+  function render() {
+    const kind = state.kind;
+    const a = num("asset") == null ? null : num("asset") * EOK;
+    const d = num("debt") == null ? null : num("debt") * EOK;
+    const s = num("sales") == null ? null : num("sales") * EOK;
+    const e = num("emp");
+    const m = kind === "ltd" ? num("members") : null;
+    if (a == null && d == null && s == null && e == null && m == null) { $("out").hidden = true; return; }
+    const r = judge(kind, a, d, s, e, m);
+    $("v-title").textContent = r.subject ? "외부감사 대상입니다." : "외부감사 대상이 아닙니다.";
+    $("v-title").className = r.subject ? "yes" : "";
+    const missing = [["asset", a], ["debt", d], ["sales", s], ["emp", e]].concat(kind === "ltd" ? [["members", m]] : []).filter((x) => x[1] == null).length;
+    $("v-why").textContent = r.subject
+      ? `근거: ${r.basis}.`
+      : (kind === "ltd" ? `단독 기준(자산·매출 500억원)에 해당하지 않고, 5개 지표 중 ${r.multi.length}개만 해당합니다(3개 이상이어야 대상).` : `단독 기준(자산·매출 500억원)에 해당하지 않고, 4개 지표 중 ${r.multi.length}개만 해당합니다(2개 이상이어야 대상).`)
+        + (missing ? ` 비워 둔 항목 ${missing}개는 '해당 없음'으로 보았습니다.` : "");
+    $("v-cite").textContent = kind === "ltd" ? "시행령 제5조제2항" : "시행령 제5조제1항";
+    $("v-rows").replaceChildren(...r.rows.map((row) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${row.label}<div class="muted">${row.cite}</div></td><td class="n">${row.fmt(row.in)}</td><td class="n">${row.fmt(row.base)}</td><td>${row.hit ? '<span class="tag hit">해당</span>' : (row.in == null ? '<span class="tag">미입력</span>' : '<span class="tag">아님</span>')}</td>`;
+      return tr;
+    }));
+    const dl = deadlines();
+    $("v-deadline").innerHTML = `
+      <div class="fact"><dt>계속 감사 회사 (${dl.fy}년 사업연도)</dt><dd style="font-size:1.25rem">${dl.cont}까지<small>사업연도 개시일부터 45일 · 제10조제1항</small></dd></div>
+      <div class="fact"><dt>직전 연도 미감사 회사 (첫 외부감사)</dt><dd style="font-size:1.25rem">${dl.first}까지<small>사업연도 개시일부터 4개월 · 제10조제2항</small></dd></div>`;
+    $("v-next").replaceChildren(...NEXT.map((n) => {
+      const tr = document.createElement("tr");
+      const cur = a;
+      const gap = cur == null ? "—" : (cur >= n.v ? '<span class="tag warm">이미 해당</span>' : eok(n.v - cur) + " 남음");
+      tr.innerHTML = `<td>${n.label}</td><td class="n">${eok(n.v)}</td><td class="n">${gap}</td><td class="hide-sm muted">${n.cite}</td>`;
+      return tr;
+    }));
+    $("out").hidden = false;
+    $("out").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const setKind = (k) => {
+    state.kind = k;
+    $("k-stock").setAttribute("aria-pressed", String(k === "stock"));
+    $("k-ltd").setAttribute("aria-pressed", String(k === "ltd"));
+    $("ltd-only").hidden = k !== "ltd";
+    if (!$("out").hidden) render();
+  };
+  $("k-stock").onclick = () => setKind("stock");
+  $("k-ltd").onclick = () => setKind("ltd");
+  $("go").onclick = render;
+  $("f").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); render(); } });
+})();
+</script>
+</body>
+</html>

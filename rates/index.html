@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>업종별 경비율 조회 | 재무해결사</title>
+  <meta name="description" content="2025년 귀속 국세청 경비율 고시의 업종코드별 단순경비율·기준경비율·소득률을 찾고, 수입금액을 넣어 추계 소득금액을 가늠해 봅니다." />
+  <meta name="theme-color" content="#1c3b2e" />
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="canonical" href="https://finance-fixer.net/rates/" />
+  <meta property="og:title" content="업종별 경비율 조회" />
+  <meta property="og:description" content="단순경비율·기준경비율·소득률, 2025년 귀속 국세청 고시 그대로." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta property="og:url" content="https://finance-fixer.net/rates/" />
+  <meta property="og:image" content="https://finance-fixer.net/og-image.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* 재무해결사 홈 토큰. 표가 있어 단은 홈보다 넓게. */
+    :root {
+      --paper: #f4f1ea; --paper-deep: #ece7dc; --ink: #1a1a17; --ink-soft: #4a4940; --ink-faint: #68645a;
+      --green: #1c3b2e; --brass: #a8843f; --line: #d8d2c4;
+      --font-display: "Gowun Batang", "Apple SD Gothic Neo", serif;
+      --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+      --wide: 52rem; --gutter: clamp(1rem, 5vw, 3rem);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--font-sans); font-weight: 300; font-size: 1rem; line-height: 1.7; color: var(--ink); background: var(--paper);
+      -webkit-font-smoothing: antialiased; word-break: keep-all; overflow-wrap: anywhere; }
+    a { color: var(--green); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .2s; }
+    a:hover { border-bottom-color: var(--brass); }
+    a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+    .grain { position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: .04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
+    .top { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 1.75rem 0; flex-wrap: wrap; }
+    .mark { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: .06em; color: var(--green); }
+    .mark small { font-family: var(--font-sans); font-size: .8125rem; letter-spacing: 0; color: var(--ink-faint); margin-left: .6rem; }
+    .top nav { display: flex; gap: 1.25rem; font-size: .875rem; color: var(--ink-soft); }
+    .top nav a { color: inherit; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.35; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.375rem; line-height: 1.4; color: var(--green); margin: 3rem 0 1rem; }
+    .lede { margin-top: 1rem; max-width: 36rem; color: var(--ink-soft); }
+    .muted { color: var(--ink-faint); font-size: .875rem; }
+    .rule { width: 2.5rem; height: 1px; background: var(--brass); margin: 1.5rem 0; }
+    .search { display: flex; gap: .5rem; margin-top: 1.75rem; max-width: 36rem; }
+    .search input, .num { flex: 1; min-width: 0; font: inherit; font-size: 1rem; padding: .7rem .9rem; background: #fbf9f4; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); }
+    .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0 1.25rem; }
+    .chip { font: inherit; font-size: .8125rem; padding: .25rem .7rem; cursor: pointer; background: transparent; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); }
+    .chip:hover { border-color: var(--brass); }
+    .chip[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--paper); }
+    table { width: 100%; border-collapse: collapse; font-size: .9375rem; }
+    th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 400; color: var(--ink-faint); font-size: .8125rem; border-bottom-color: var(--brass); white-space: nowrap; }
+    td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover td { background: #efebe2; }
+    tr.on td { background: #e9efe9; }
+    .count { font-size: .8125rem; color: var(--ink-faint); margin: .25rem 0 .75rem; }
+    .calc { margin-top: 2rem; padding: 1.5rem; background: #fbf9f4; border: 1px solid var(--line); border-radius: 6px; }
+    .calc h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; color: var(--green); }
+    .calc .row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1rem; max-width: 30rem; }
+    .btn { font: inherit; font-size: .9375rem; padding: .65rem 1.2rem; cursor: pointer; background: var(--green); color: var(--paper); border: 1px solid var(--green); border-radius: 4px; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem 2rem; margin-top: 1.25rem; }
+    .fact dt { color: var(--ink-faint); font-size: .8125rem; }
+    .fact dd { font-family: var(--font-display); font-size: 1.5rem; line-height: 1.3; }
+    .fact dd small { font-family: var(--font-sans); font-size: .875rem; color: var(--ink-soft); display: block; }
+    .note { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: .875rem; max-width: 40rem; }
+    .note p + p, .note ul { margin-top: .75rem; }
+    .note ul { padding-left: 1.25rem; }
+    .foot { margin-top: 3rem; padding: 1.5rem 0 3rem; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .8125rem; color: var(--ink-faint); }
+    .foot a { color: inherit; }
+    .hidden { display: none; }
+    @media (max-width: 600px) { table { font-size: .875rem; } th, td { padding: .5rem .35rem; } .hide-sm { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="wrap">
+    <header class="top">
+      <a class="mark" href="/">재무해결사<small>업종별 경비율</small></a>
+      <nav aria-label="바로가기"><a href="https://sangkwon.finance-fixer.net/diagnose">상권 자가진단</a><a href="/">재무해결사 홈</a></nav>
+    </header>
+
+    <section style="padding: 2.5rem 0 1rem">
+      <h1>내 업종 경비율,<br />고시 그대로.</h1>
+      <p class="lede">국세청 「2025년 귀속 경비율 고시」(국세청고시 제2026-14호, 2026. 3. 30.)의 업종코드별 단순경비율·기준경비율입니다. 2026년 5월에 신고하는 2025년 소득에 적용됩니다. 업종을 고르면 수입금액으로 추계 소득금액을 가늠해 볼 수 있습니다.</p>
+      <form class="search" role="search" onsubmit="return false">
+        <input type="search" id="q" placeholder="업종명 또는 업종코드 (예: 한식, 커피, 552101)" aria-label="업종 검색" autocomplete="off" />
+      </form>
+      <div class="chips" id="sectors" role="group" aria-label="대분류"></div>
+      <div class="count" id="count"></div>
+      <table id="tbl">
+        <thead><tr><th>코드</th><th>업종</th><th class="n">단순경비율</th><th class="n hide-sm">초과율</th><th class="n">기준경비율</th><th class="n">소득률</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="6" class="muted">경비율 표를 불러오는 중입니다.</td></tr></tbody>
+      </table>
+      <p class="muted" style="margin-top:.5rem">소득률 = 100 − 단순경비율. 업종을 누르면 아래에서 계산합니다. 결과는 50건까지 보입니다.</p>
+    </section>
+
+    <section class="calc hidden" id="calc">
+      <h3 id="calc-title"></h3>
+      <p class="muted" id="calc-sub"></p>
+      <div class="row">
+        <label for="rev" style="white-space:nowrap">연 수입금액(만원)</label>
+        <input class="num" id="rev" type="text" inputmode="numeric" placeholder="예: 5000" aria-label="연 수입금액(만원)" />
+        <button class="btn" type="button" id="go">계산</button>
+      </div>
+      <dl class="facts hidden" id="result">
+        <div class="fact"><dt>단순경비율로 본 소득금액</dt><dd id="r-simple"></dd></div>
+        <div class="fact"><dt>필요경비(단순경비율)</dt><dd id="r-exp"></dd></div>
+        <div class="fact"><dt>기준경비율만 적용한 소득금액</dt><dd id="r-std"></dd></div>
+      </dl>
+      <p class="muted" id="r-note" style="margin-top:1rem"></p>
+    </section>
+
+    <h2>누가 단순경비율을 쓰나</h2>
+    <p>소득세법 시행령 제143조 제4항: 해당 연도에 새로 사업을 시작했거나, <b>직전 연도 수입금액이 아래 금액에 못 미치는</b> 사업자가 단순경비율 적용대상입니다(단, 해당 연도 수입금액이 복식부기 기준 이상이면 제외). 그 이상이면 기준경비율로 추계하거나 장부를 써야 합니다.</p>
+    <table style="margin-top:1rem">
+      <thead><tr><th>업종군(시행령 제143조④2호)</th><th class="n">단순경비율 기준<br /><span class="muted">직전연도 수입금액 미만</span></th><th class="n">간편장부 기준<br /><span class="muted">제208조⑤, 미만이면 간편장부</span></th></tr></thead>
+      <tbody>
+        <tr><td>가. 농업·임업·어업, 광업, 도매·소매업(상품중개업 제외), 부동산매매업, 그 밖에 나·다에 없는 사업</td><td class="n">6,000만원</td><td class="n">3억원</td></tr>
+        <tr><td>나. 제조업, 숙박·음식점업, 전기·가스·수도, 건설업(비주거용 건물 제외), 주거용 부동산 개발·공급, 운수·창고, 정보통신, 금융·보험, 상품중개, 인적용역(940 업종)</td><td class="n">3,600만원</td><td class="n">1억 5,000만원</td></tr>
+        <tr><td>다. 부동산임대·부동산업, 전문·과학·기술서비스, 사업시설관리·임대서비스, 교육, 보건·사회복지, 예술·스포츠·여가, 협회·단체, 인적용역 외 개인서비스, 가구내 고용</td><td class="n">2,400만원</td><td class="n">7,500만원</td></tr>
+      </tbody>
+    </table>
+    <ul class="muted" style="margin-top:1rem; padding-left:1.25rem; display:grid; gap:.35rem">
+      <li>기준경비율 적용 시 소득금액 = 수입금액 − (증빙 있는 매입비용·임차료 + 증빙 있는 인건비 + 수입금액 × 기준경비율). 복식부기의무자는 기준경비율의 1/2만 씁니다(제143조③1호).</li>
+      <li>간편장부 기준 이상이면 복식부기의무자입니다. 장부를 쓰면 실제 경비로 신고하고, 추계신고보다 유리한지는 경비 수준에 따라 다릅니다.</li>
+      <li>업종을 두 가지 이상 하거나 사업장이 둘 이상이면 주업종 기준으로 환산해 판정합니다(제143조⑥·제208조⑦).</li>
+      <li>의사·변호사 등 전문직(제147조의2)과 현금영수증 미가입·발급거부 통보 사업자는 단순경비율을 쓸 수 없습니다(제143조⑦).</li>
+    </ul>
+    <p style="margin-top:1.25rem">월매출을 넣어 같은 업종 서울 상권 중 어디쯤인지 보려면 <a href="https://sangkwon.finance-fixer.net/diagnose">서울 상권 자가진단 →</a></p>
+
+    <div class="note">
+      <p><b>출처</b> 국세청 「2025년 귀속 경비율 고시」(국세청고시 제2026-14호, 2026. 3. 30. 고시·시행). 적용 기준은 소득세법 시행령 제143조·제145조·제208조(2026. 10. 1. 시행 기준). 인적용역(940 업종)의 초과율은 고시에 따라 2025년 귀속 수입금액 4천만원 초과분에 적용합니다.</p>
+      <p>이 페이지의 계산은 경비율을 수입금액에 곱한 추계 소득금액일 뿐이며, 소득공제·세율·세액공제를 거친 세액이 아닙니다. 어떤 신고 방법이 유리한지는 실제 경비와 증빙에 따라 다릅니다. 입력값은 저장하지 않습니다.</p>
+      <p>회계사무소 재무해결사가 운영합니다. 오류를 발견하시거나 신고를 맡기고 싶으시면 <a href="/#contact">재무해결사 문의</a>로 연락 주세요.</p>
+    </div>
+
+    <footer class="foot">
+      <span>© 2026 재무해결사</span>
+      <span>자료: 국세청 경비율 고시</span>
+      <span><a href="/">finance-fixer.net</a></span>
+    </footer>
+  </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const EXCESS_BASE = 4000 * 10000; // 인적용역(940) 초과율 기준: 수입금액 4천만원 초과분
+  let ROWS = [], sector = "", picked = null;
+  const won = (v) => {
+    v = Math.round(v);
+    if (Math.abs(v) >= 1e8) return (v / 1e8).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) + "억원";
+    return Math.round(v / 1e4).toLocaleString("ko-KR") + "만원";
+  };
+  const pct = (v) => (v == null ? "—" : v.toFixed(1) + "%");
+
+  // 한글 초성·자모 입력 중에도 걸리게: 완성형은 그대로, 검색어가 자모(ㄱ~ㅎ)뿐이면 업종명의 초성과 비교
+  const norm = (s) => (s || "").toLowerCase().replace(/[\s·,()\/]/g, "");
+  const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+  const chosung = (s) => [...s].map((ch) => { const c = ch.charCodeAt(0) - 0xAC00; return c >= 0 && c < 11172 ? CHO[Math.floor(c / 588)] : ch; }).join("");
+  const isJamo = (s) => /^[ㄱ-ㅎ]+$/.test(s);
+  const hit = (r, w) => isJamo(w) ? chosung(norm(r.n)).includes(w) : norm(r.c + r.n + r.s).includes(w);
+  const render = () => {
+    const q = norm($("q").value);
+    const words = q.split(/\s+/).filter(Boolean);
+    let rows = ROWS.filter((r) => (!sector || r.s === sector) && words.every((w) => hit(r, w)));
+    // 코드가 정확히 맞는 건 맨 위로
+    if (q) rows.sort((a, b) => (b.c.startsWith(q) - a.c.startsWith(q)) || (b.n.toLowerCase().startsWith(q) - a.n.toLowerCase().startsWith(q)));
+    $("count").textContent = rows.length ? `${rows.length.toLocaleString()}개 업종` + (rows.length > 50 ? " (앞의 50개만 표시)" : "") : "맞는 업종이 없습니다.";
+    const tb = $("rows");
+    tb.replaceChildren();
+    for (const r of rows.slice(0, 50)) {
+      const tr = document.createElement("tr");
+      tr.dataset.code = r.c;
+      if (picked && picked.c === r.c) tr.className = "on";
+      const cells = [r.c, `${r.n} <span class="muted">${r.s}</span>`, pct(r.b), r.x == null ? "—" : pct(r.x), pct(r.k), r.b == null ? "—" : (100 - r.b).toFixed(1) + "%"];
+      cells.forEach((c, i) => { const td = document.createElement("td"); if (i >= 2) td.className = "n" + (i === 3 ? " hide-sm" : ""); if (i === 0) td.style.whiteSpace = "nowrap"; td.innerHTML = c; tr.append(td); });
+      tr.onclick = () => pick(r);
+      tb.append(tr);
+    }
+  };
+
+  const pick = (r) => {
+    picked = r;
+    render();
+    $("calc").classList.remove("hidden");
+    $("calc-title").textContent = `${r.c} ${r.n}`;
+    $("calc-sub").textContent = `${r.s} · 단순경비율 ${pct(r.b)}${r.x != null ? " (4천만원 초과분 " + pct(r.x) + ")" : ""} · 기준경비율 ${pct(r.k)}`;
+    $("result").classList.add("hidden");
+    $("r-note").textContent = "";
+    $("calc").scrollIntoView({ behavior: "smooth", block: "start" });
+    if ($("rev").value) calc();
+  };
+
+  const calc = () => {
+    if (!picked) return;
+    const rev = parseFloat(($("rev").value || "").replace(/,/g, "")) * 1e4;
+    if (!(rev > 0 && rev < 1e14)) { $("result").classList.add("hidden"); $("r-note").textContent = "수입금액을 만원 단위 숫자로 넣어 주세요."; return; }
+    let exp;
+    let note = "";
+    if (picked.x != null && rev > EXCESS_BASE) {
+      exp = EXCESS_BASE * picked.b / 100 + (rev - EXCESS_BASE) * picked.x / 100;
+      note = `인적용역 업종이라 4천만원까지는 기본율 ${pct(picked.b)}, 초과분 ${won(rev - EXCESS_BASE)}에는 초과율 ${pct(picked.x)}을 적용했습니다. `;
+    } else {
+      exp = rev * picked.b / 100;
+    }
+    const simple = Math.max(rev - exp, 0);
+    const std = Math.max(rev - rev * picked.k / 100, 0);
+    $("r-simple").innerHTML = `${won(simple)}<small>소득률 ${(simple / rev * 100).toFixed(1)}%</small>`;
+    $("r-exp").innerHTML = `${won(exp)}<small>수입 ${won(rev)}의 ${(exp / rev * 100).toFixed(1)}%</small>`;
+    $("r-std").innerHTML = `${won(std)}<small>매입·임차·인건비 증빙이 0일 때</small>`;
+    $("result").classList.remove("hidden");
+    $("r-note").textContent = note + "단순경비율 금액은 단순경비율 적용대상자일 때의 추계 소득금액입니다. 기준경비율 금액은 증빙 있는 주요경비를 빼기 전 값이라 실제 추계액은 이보다 작습니다. 둘 다 세액이 아니라 소득금액입니다.";
+  };
+
+  fetch("rates-2025.json", { cache: "no-cache" }).then((r) => r.json()).then((d) => {
+    ROWS = d.rows;
+    const sectors = [...new Set(ROWS.map((r) => r.s))].sort((a, b) => ROWS.filter((r) => r.s === b).length - ROWS.filter((r) => r.s === a).length);
+    const box = $("sectors");
+    for (const s of ["", ...sectors]) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip"; b.textContent = s || "전체";
+      b.setAttribute("aria-pressed", String(s === sector));
+      b.onclick = () => { sector = s; for (const c of box.children) c.setAttribute("aria-pressed", String(c.textContent === (s || "전체"))); render(); };
+      box.append(b);
+    }
+    render();
+  }).catch(() => { $("rows").innerHTML = '<tr><td colspan="6" class="muted">경비율 표를 불러오지 못했습니다. 잠시 후 다시 열어 주세요.</td></tr>'; });
+
+  let t;
+  $("q").addEventListener("input", () => { clearTimeout(t); t = setTimeout(render, 120); });
+  $("go").onclick = calc;
+  $("rev").addEventListener("keydown", (e) => { if (e.key === "Enter") calc(); });
+})();
+</script>
+</body>
+</html>
