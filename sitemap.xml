@@ -8,4 +8,5 @@
   </url>
   <url><loc>https://finance-fixer.net/oegam/</loc><lastmod>2026-10-08</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://finance-fixer.net/rates/</loc><lastmod>2026-10-08</lastmod><changefreq>yearly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://finance-fixer.net/faq/</loc><lastmod>2026-10-08</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
 </urlset>
