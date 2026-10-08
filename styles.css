@@ -44,8 +44,22 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .mark {
   font-family: var(--font-display); font-size: 1.25rem; letter-spacing: .06em; color: var(--green);
 }
-.top nav { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; font-size: .875rem; color: var(--ink-soft); justify-content: flex-end; }
+.top nav { display: flex; gap: 1.5rem; font-size: .875rem; color: var(--ink-soft); }
 .top nav a { color: inherit; }
+
+/* 도구 드롭다운 */
+.menu { position: relative; }
+.menu-btn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; border-bottom: 1px solid transparent; }
+.menu-btn:hover, .menu-btn[aria-expanded="true"] { border-bottom-color: var(--brass); }
+.menu-btn span { font-size: .75em; }
+.menu-list {
+  position: absolute; right: 0; top: calc(100% + .6rem); z-index: 10; list-style: none; min-width: 14rem;
+  background: #fbf9f4; border: 1px solid var(--line); border-radius: 4px; padding: .4rem 0;
+  box-shadow: 0 8px 24px rgba(26, 26, 23, .08);
+}
+.menu-list li a { display: block; padding: .5rem 1rem; color: var(--ink); border-bottom: 0; white-space: nowrap; }
+.menu-list li a:hover { background: #ece7dc; color: var(--green); }
+.menu-list li:last-child a { border-top: 1px solid var(--line); margin-top: .3rem; color: var(--ink-faint); font-size: .8125rem; }
 
 /* 히어로 = 표지 한 장 */
 .hero {
@@ -125,6 +139,7 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 }
 @media (max-width: 480px) {
   .top { flex-direction: column; gap: .5rem; align-items: flex-start; }
+  .menu-list { right: auto; left: 0; }
   .top nav { gap: 1.25rem; }
   .services > div, .contact > div { grid-template-columns: 1fr; }
   .services dt { margin-bottom: .125rem; }
