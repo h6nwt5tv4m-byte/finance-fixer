@@ -92,6 +92,24 @@ def para(text: str) -> str:
     return "\n".join(out)
 
 
+# 같은 세목이 이름만 달라 필터 칩이 갈라지지 않게 한 이름으로 모은다.
+SEMOK_ALIAS = {"양도소득세": "양도세", "상속·증여": "증여·상속", "증여세": "증여·상속", "상속세": "증여·상속", "종부세": "종합부동산세", "부가세": "부가가치세"}
+
+
+def semok(item: dict) -> str:
+    s = item.get("semok") or "기타"
+    return SEMOK_ALIAS.get(s, s)
+
+
+def source_label(item: dict) -> str:
+    """질문 출처. W*=지식iN·카페 주간 수집, src=synth=회계사DB 보강 질문, 그 외=부동산 세금 오픈채팅."""
+    if item.get("src") == "synth":
+        return ""
+    if item["id"].startswith("W"):
+        return "네이버 지식iN·카카오 카페"
+    return "부동산 세금 오픈채팅"
+
+
 def slug(item: dict) -> str:
     return item["id"].lower()
 
@@ -100,7 +118,7 @@ def page(item: dict) -> str:
     title = item.get("title") or item.get("question", "")[:30]
     desc = (item.get("answer") or "").split("\n")[0][:150]
     body = [HEAD.format(title=esc(title), desc=esc(desc), canonical=BASE + slug(item) + ".html")]
-    body.append(f'<div class="crumb"><a href="/faq/">세금 FAQ</a> › {esc(item.get("semok") or "")}</div>')
+    body.append(f'<div class="crumb"><a href="/faq/">세금 FAQ</a> › {esc(semok(item))}</div>')
     body.append(f"<h1>{esc(title)}</h1>")
     body.append('<p class="muted">' + " ".join(f'<span class="tag">{esc(t)}</span>' for t in item.get("tags") or [])
                 + f' 기준일 {esc(item.get("basis_date") or item.get("generated"))}'
@@ -114,24 +132,24 @@ def page(item: dict) -> str:
         body.append("</ul>")
     if item.get("caveats"):
         body.append("<h2>달라지는 경우</h2><ul class=\"caveats\">" + "".join(f"<li>{esc(c)}</li>" for c in item["caveats"]) + "</ul>")
-    if item.get("n_asked"):
-        body.append(f'<p class="muted" style="margin-top:2rem">같은 주제의 질문이 부동산 세금 오픈채팅에서 {int(item["n_asked"])}번 나왔습니다. 질문은 요지만 옮기고 질문자 정보는 담지 않습니다.</p>')
+    if item.get("n_asked") and source_label(item):
+        body.append(f'<p class="muted" style="margin-top:2rem">같은 주제의 질문이 {source_label(item)}에서 {int(item["n_asked"])}번 나왔습니다. 질문은 요지만 옮기고 질문자 정보는 담지 않습니다.</p>')
     body.append(f'<div class="note"><p>{DISCLAIMER}</p><p style="margin-top:.75rem">상담이 필요하시면 <a href="https://finance-fixer.net/#contact">재무해결사</a>로 연락 주세요.</p></div>')
     body.append(FOOT)
     return "\n".join(body)
 
 
 def index(items: list[dict]) -> str:
-    semoks = sorted({i.get("semok") or "기타" for i in items})
-    body = [HEAD.format(title="세금 FAQ", desc="부동산 세금 오픈채팅에서 실제로 많이 나온 질문에 법령 원문을 찾아 답했습니다. 양도세·취득세·증여상속·임대사업자.", canonical=BASE)]
+    semoks = sorted({semok(i) for i in items})
+    body = [HEAD.format(title="세금 FAQ", desc="오픈채팅·지식iN·카페에서 실제로 많이 나온 세금 질문에 법령 원문을 찾아 답했습니다. 양도세·취득세·증여상속·임대사업자.", canonical=BASE)]
     body.append("<h1>자주 묻는 세금 질문,<br />조문을 찾아 답했습니다.</h1>")
-    body.append(f'<p class="muted" style="margin-top:1rem">부동산 세금 오픈채팅에서 실제로 나온 질문 가운데 많이 묻는 것부터. 답은 회계사DB(법령·해석례)를 검색해 쓰고 근거 조문을 붙였습니다. {len(items)}건 · 갱신 {date.today().isoformat()}</p>')
+    body.append(f'<p class="muted" style="margin-top:1rem">부동산 세금 오픈채팅과 네이버 지식iN·카카오 카페에서 실제로 나온 질문 가운데 많이 묻는 것부터. 답은 회계사DB(법령·해석례)를 검색해 쓰고 근거 조문을 붙였습니다. {len(items)}건 · 갱신 {date.today().isoformat()}</p>')
     body.append('<input class="search" id="q" type="search" placeholder="질문 검색 (예: 일시적 2주택, 상생임대)" aria-label="검색" />')
     body.append('<div class="chips" id="chips"><button class="chip on" data-s="">전체</button>' + "".join(f'<button class="chip" data-s="{esc(s)}">{esc(s)}</button>' for s in semoks) + "</div>")
     body.append('<ul class="list" id="list">')
     for i in sorted(items, key=lambda x: (-(x.get("n_asked") or 0), x["id"])):
-        body.append(f'<li data-s="{esc(i.get("semok") or "기타")}" data-t="{esc((i.get("title") or "") + " " + (i.get("question") or "") + " " + " ".join(i.get("tags") or []))}">'
-                    f'<a href="/faq/{slug(i)}.html">{esc(i.get("title"))}</a><div class="muted">{esc(i.get("semok") or "")} · {esc(i.get("topic") or "")}</div></li>')
+        body.append(f'<li data-s="{esc(semok(i))}" data-t="{esc((i.get("title") or "") + " " + (i.get("question") or "") + " " + " ".join(i.get("tags") or []))}">'
+                    f'<a href="/faq/{slug(i)}.html">{esc(i.get("title"))}</a><div class="muted">{esc(semok(i))} · {esc(i.get("topic") or "")}</div></li>')
     body.append("</ul>")
     body.append(f'<div class="note"><p>{DISCLAIMER}</p></div>')
     body.append("""<script>
