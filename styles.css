@@ -93,6 +93,34 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .people p + p { margin-top: .75rem; }
 .contact-list { list-style: none; margin-top: 1.25rem; font-size: .9375rem; line-height: 2; }
 
+/* 일하는 방식 — 예시 화면은 업무 화면을 가상 데이터로 다시 그린 것 */
+.case + .case { margin-top: 5rem; }
+.case h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; line-height: 1.4; color: var(--ink); }
+.case-lede { margin-top: .5rem; color: var(--ink-soft); }
+.steps { list-style: none; counter-reset: step; display: grid; gap: .75rem; margin: 1.5rem 0 2rem; color: var(--ink-soft); }
+.steps li { counter-increment: step; position: relative; padding-left: 1.75rem; }
+.steps li::before { content: counter(step); position: absolute; left: 0; font-family: var(--font-display); color: var(--brass); }
+.steps b { font-weight: 500; color: var(--ink); margin-right: .4rem; }
+.screen { border: 1px solid var(--line); background: #faf8f3; border-radius: 2px; font-size: .8125rem; line-height: 1.6; }
+.screen header, .screen-sum { display: flex; flex-wrap: wrap; gap: .25rem 1rem; padding: .6rem .9rem; border-bottom: 1px solid var(--line); }
+.screen header { justify-content: space-between; color: var(--ink-faint); font-size: .75rem; letter-spacing: .02em; }
+.screen-sum { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.screen .scroll { overflow-x: auto; }
+.screen table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.screen th, .screen td { padding: .55rem .9rem; text-align: left; vertical-align: top; }
+.screen td { border-top: 1px solid var(--line); }
+.screen th { font-weight: 400; font-size: .75rem; color: var(--ink-faint); }
+.screen .num { text-align: right; white-space: nowrap; }
+.screen td small { display: block; font-size: .75rem; color: var(--ink-faint); }
+.tag { display: inline-block; padding: 0 .45rem; border: 1px solid currentColor; border-radius: 2px; font-size: .75rem; white-space: nowrap; }
+.tag.ok { color: var(--green); }
+.tag.hold { color: #7d5f24; }
+.tag.no { color: #8e3b2c; }
+.quality { margin-top: 1.5rem; }
+.quality > div { grid-template-columns: 7.5rem 1fr; }
+.quality dt { font-size: 1rem; }
+.screen-note { margin-top: 2.5rem; font-size: .8125rem; color: var(--ink-faint); }
+
 /* 문의 */
 .contact > div { display: grid; grid-template-columns: 4.5rem 1fr; gap: 0 1rem; padding: .375rem 0; }
 .contact dt { color: var(--ink-faint); font-size: .875rem; line-height: 1.8; }
