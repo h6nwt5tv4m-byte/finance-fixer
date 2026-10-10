@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>특수관계 거래 검토 | 재무해결사</title>
+  <meta name="description" content="보조금과 용역비가 사업자 본인이나 가족·임직원이 운영하는 업체로 흘러가지 않았는지, 재무해결사가 정산검증에서 특수관계 거래를 검토하는 방법입니다." />
+  <meta name="theme-color" content="#1c3b2e" />
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="canonical" href="https://finance-fixer.net/related-party/" />
+  <meta property="og:title" content="특수관계 거래 검토" />
+  <meta property="og:description" content="보조금이 가까운 사람의 업체로 흘러가지 않았는지, 이렇게 확인합니다." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta property="og:url" content="https://finance-fixer.net/related-party/" />
+  <meta property="og:image" content="https://finance-fixer.net/og-image.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f4f1ea; --paper-deep: #ece7dc; --sheet: #faf8f3; --ink: #1a1a17; --ink-soft: #4a4940; --ink-faint: #68645a;
+      --green: #1c3b2e; --brass: #a8843f; --brass-ink: #7d5f24; --line: #d8d2c4; --warm: #8e3b2c;
+      --font-display: "Gowun Batang", "Apple SD Gothic Neo", serif;
+      --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+      --wide: 44rem; --gutter: clamp(1rem, 5vw, 3rem);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--font-sans); font-weight: 300; font-size: 1rem; line-height: 1.8; color: var(--ink); background: var(--paper);
+      -webkit-font-smoothing: antialiased; word-break: keep-all; overflow-wrap: anywhere; }
+    a { color: var(--green); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .2s; }
+    a:hover { border-bottom-color: var(--brass); }
+    a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+    .grain { position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: .04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
+    .top { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 1.75rem 0; flex-wrap: wrap; }
+    .mark { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: .06em; color: var(--green); }
+    .mark small { font-family: var(--font-sans); font-size: .8125rem; letter-spacing: 0; color: var(--ink-faint); margin-left: .6rem; }
+    .top nav { display: flex; gap: 1.25rem; font-size: .875rem; color: var(--ink-soft); }
+    .top nav a { color: inherit; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.4; text-wrap: balance; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.375rem; line-height: 1.4; color: var(--green); margin: 4.5rem 0 1.25rem; }
+    .lede { margin-top: 1.25rem; color: var(--ink-soft); }
+    .rule { width: 2.5rem; height: 1px; background: var(--brass); margin: 4.5rem 0 0; }
+    .rule + h2 { margin-top: 2rem; }
+    p + p { margin-top: .75rem; }
+    .soft { color: var(--ink-soft); }
+
+    .rel { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0 2rem; }
+    .rel li { padding: .9rem 0; border-top: 1px solid var(--line); color: var(--ink-soft); }
+    .rel b { display: block; font-weight: 500; color: var(--ink); }
+
+    .steps { list-style: none; counter-reset: step; }
+    .steps li { counter-increment: step; position: relative; padding: 1.25rem 0 1.25rem 2.5rem; border-top: 1px solid var(--line); color: var(--ink-soft); }
+    .steps li:last-child { border-bottom: 1px solid var(--line); }
+    .steps li::before { content: counter(step); position: absolute; left: 0; top: 1.15rem; font-family: var(--font-display); font-size: 1.25rem; color: var(--brass); }
+    .steps h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.125rem; color: var(--ink); margin-bottom: .25rem; }
+
+    .screen { margin-top: 1.5rem; border: 1px solid var(--line); background: var(--sheet); border-radius: 2px; font-size: .8125rem; line-height: 1.6; }
+    .screen header, .screen-sum { display: flex; flex-wrap: wrap; gap: .25rem 1rem; padding: .6rem .9rem; border-bottom: 1px solid var(--line); }
+    .screen header { justify-content: space-between; color: var(--ink-faint); font-size: .75rem; letter-spacing: .02em; }
+    .screen-sum { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+    .scroll { overflow-x: auto; }
+    table { width: 100%; min-width: 32rem; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { padding: .55rem .9rem; text-align: left; vertical-align: top; }
+    td { border-top: 1px solid var(--line); }
+    th { font-weight: 400; font-size: .75rem; color: var(--ink-faint); white-space: nowrap; }
+    td.n { text-align: right; white-space: nowrap; }
+    td small { display: block; font-size: .75rem; color: var(--ink-faint); }
+    .tag { display: inline-block; padding: 0 .45rem; border: 1px solid currentColor; border-radius: 2px; font-size: .75rem; white-space: nowrap; }
+    .tag.ok { color: var(--green); }
+    .tag.hold { color: var(--brass-ink); }
+    .tag.no { color: var(--warm); }
+    figcaption { margin-top: .6rem; font-size: .75rem; color: var(--ink-faint); }
+
+    .cta { margin-top: 4.5rem; padding-top: 1.5rem; border-top: 1px solid var(--brass); }
+    .cta p { color: var(--ink-soft); }
+    .foot { margin-top: 4rem; padding: 1.5rem 0 3rem; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .8125rem; color: var(--ink-faint); }
+    .foot a { color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="wrap">
+    <header class="top">
+      <a class="mark" href="https://finance-fixer.net/">특수관계 거래 검토<small>재무해결사</small></a>
+      <nav aria-label="바로가기"><a href="https://finance-fixer.net/#services">하는 일</a><a href="https://finance-fixer.net/">재무해결사 홈</a></nav>
+    </header>
+
+    <main>
+      <section style="padding: 2.5rem 0 0">
+        <h1>보조금이 가까운 사람의 업체로<br />흘러가지 않았는지 확인합니다.</h1>
+        <p class="lede">보조사업자가 대표자 본인이나 가족, 임직원이 운영하는 업체와 거래하면 그 집행은 보조금으로 인정되지 않을 수 있습니다. 재무해결사는 정산검증을 할 때 집행 건의 거래처를 하나씩 대조해 이런 거래를 찾고, 소명을 받은 뒤 판단합니다.</p>
+      </section>
+
+      <div class="rule"></div>
+      <h2>왜 보는가</h2>
+      <p class="soft">예를 들어 「고용노동분야 국고보조사업 관리규정」(고용노동부훈령) 제16조제7항은 보조사업자가 사적이해관계자나 임직원이 운영하는 업체·단체와 거래하는 것을 원칙적으로 막고, 소관 부서나 소속기관의 장이 승인한 경우만 예외로 둡니다. 사적이해관계자의 범위는 「공직자의 이해충돌 방지법」 제2조를 따릅니다.</p>
+      <p class="soft">근거 규정과 예외 요건은 사업과 부처마다 다릅니다. 그래서 해당 사업의 규정과 협약 내용부터 확인하고, 그 기준으로 검토합니다.</p>
+
+      <h2>어떤 관계를 보는가</h2>
+      <ul class="rel">
+        <li><b>사람이 겹치는 업체</b>거래처의 대표자나 임원이 보조사업자의 대표자·임원과 같은 경우</li>
+        <li><b>지분으로 이어진 업체</b>보조사업자나 그 대표자가 거래처의 주주인 경우, 또는 그 반대</li>
+        <li><b>주소와 연락처가 겹치는 업체</b>같은 건물 같은 호실, 같은 전화번호를 쓰는 경우</li>
+        <li><b>가족이 운영하는 업체</b>배우자, 직계혈족, 형제자매 등이 운영하는 경우. 가족관계는 제3자가 조회할 수 없어 보조사업자의 확인서로 받습니다.</li>
+      </ul>
+
+      <div class="rule"></div>
+      <h2>어떻게 검토하는가</h2>
+      <ol class="steps">
+        <li>
+          <h3>거래처 목록 정리</h3>
+          집행내역에서 거래처 사업자등록번호를 빠짐없이 뽑아, 사업장별 거래처 목록을 만듭니다.
+        </li>
+        <li>
+          <h3>기초 사실 확인</h3>
+          국세청 사업자 상태 조회, 법인 등기의 임원 사항, 공시 자료로 보조사업자와 거래처 각각의 대표자·임원·주소를 확인합니다.
+        </li>
+        <li>
+          <h3>관계 대조</h3>
+          보조사업자와 거래처의 대표자·임원·주주·주소를 기업관계망 자료와 맞춰 보고, 겹치는 거래를 표시합니다. 관계는 집행일 기준으로 봅니다. 나중에 관계가 끊겼더라도 집행 당시 관계가 있었다면 검토 대상입니다.
+        </li>
+        <li>
+          <h3>서류 대조</h3>
+          보조사업자에게 받은 특수관계 확인서를 법인세 신고 때 낸 주주 명세, 특수관계인 거래 명세와 비교합니다. 서로 맞지 않으면 그 자체가 확인할 사항입니다.
+        </li>
+        <li>
+          <h3>소명과 판단</h3>
+          표시된 거래를 바로 불인정하지 않습니다. 보조사업자에게 관계와 거래 경위, 승인 여부를 소명받고, 회계사가 근거 규정에 비춰 인정 여부를 판단합니다.
+        </li>
+        <li>
+          <h3>기록</h3>
+          무엇을 조회했고, 무엇이 겹쳤고, 어떤 소명을 받아 어떻게 판단했는지 조서에 남깁니다. 발주기관이 다시 확인할 수 있게 하기 위해서입니다.
+        </li>
+      </ol>
+
+      <figure class="screen">
+        <header><span>특수관계 대조표 · ○○지원사업 · 2026</span><span>직접 만든 도구 · 예시</span></header>
+        <div class="screen-sum"><span>거래처 214곳</span><span>겹침 표시 6</span><span>소명 완료 4</span><span>소명 대기 2</span></div>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>거래처</th><th>겹치는 점</th><th class="n">집행액</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr><td>○○기획</td><td>거래처 대표자가 보조사업자의 사내이사<small>등기 임원 사항 대조</small></td><td class="n">4,400,000</td><td><span class="tag hold">소명 대기</span></td></tr>
+              <tr><td>△△상사</td><td>같은 건물 같은 호실<small>소명: 공유오피스, 지분·임원 관계 없음</small></td><td class="n">1,320,000</td><td><span class="tag ok">관계 없음</span></td></tr>
+              <tr><td>□□컨설팅</td><td>보조사업자 대표자가 지분 40% 보유<small>승인 문서 없음</small></td><td class="n">9,900,000</td><td><span class="tag no">불인정</span></td></tr>
+              <tr><td>◇◇인쇄</td><td>겹치는 점 없음</td><td class="n">770,000</td><td><span class="tag ok">확인 완료</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <figcaption>예시 화면은 실제 업무 도구를 가상 데이터로 다시 그린 것입니다. 업체·금액은 모두 가상입니다.</figcaption>
+      </figure>
+
+      <div class="rule"></div>
+      <h2>자료를 다루는 원칙</h2>
+      <p class="soft">검토에 쓴 거래처 정보와 확인서는 해당 정산 업무에만 씁니다. 외부에 제공하지 않고, 정산과 이의 절차가 끝나면 계약에서 정한 대로 파기합니다. 조서와 판단 기록은 보존 의무에 따라 남깁니다.</p>
+
+      <section class="cta">
+        <p>검토 범위와 방법은 발주기관과의 계약, 사업 규정에 따라 정합니다. 정산검증이나 특수관계 검토가 필요하면 <a href="https://finance-fixer.net/#contact">문의</a>로 연락 주세요.</p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>© 2026 재무해결사</span>
+      <span>근거 예시: 고용노동분야 국고보조사업 관리규정 제16조제7항 · 공직자의 이해충돌 방지법 제2조</span>
+      <span><a href="https://finance-fixer.net/">finance-fixer.net</a></span>
+    </footer>
+  </div>
+</body>
+</html>

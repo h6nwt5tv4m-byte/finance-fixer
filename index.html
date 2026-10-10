@@ -32,14 +32,17 @@
       <a href="#method">일하는 방식</a>
       <a href="#people">사람</a>
       <div class="nav-drop">
-        <a href="#tools" aria-haspopup="true">도구</a>
-        <div class="drop">
-          <a href="https://aptfee.finance-fixer.net/">아파트</a>
-          <a href="https://sangkwon.finance-fixer.net/">상권</a>
-          <a href="/oegam/">외감 판정</a>
-          <a href="/rates/">경비율</a>
-          <a href="https://jobs.finance-fixer.net/">채용·위원</a>
-          <a href="#db">회계사DB</a>
+        <button type="button" class="drop-btn" aria-expanded="false" aria-controls="tools-menu">도구들</button>
+        <div class="drop" id="tools-menu">
+          <div class="drop-inner">
+            <a href="https://aptfee.finance-fixer.net/"><b>아파트</b><span>감사보수·관리비를 동급 단지와 비교</span></a>
+            <a href="https://sangkwon.finance-fixer.net/"><b>상권</b><span>서울 상권의 매출·점포·임대료</span></a>
+            <a href="/oegam/"><b>외감 판정</b><span>올해 외부감사 대상인지 계산</span></a>
+            <a href="/rates/"><b>경비율</b><span>업종별 단순·기준경비율 조회</span></a>
+            <a href="https://jobs.finance-fixer.net/"><b>채용·위원</b><span>공공기관 채용과 위원 공개모집</span></a>
+            <a href="/related-party/"><b>특수관계 검토</b><span>정산에서 특수관계 거래를 보는 방법</span></a>
+            <a href="#db"><b>회계사DB</b><span>법령·해석 9,800여 건의 근거 DB</span></a>
+          </div>
         </div>
       </div>
       <a href="/faq/">세금 FAQ</a>
@@ -78,19 +81,11 @@
         </div>
         <div>
           <dt>정산</dt>
-          <dd>보조금 정산검증, 연구개발비 위탁정산, 민간위탁 사업과 지방자치단체·공공기관의 세입세출 결산검사. 증빙 한 장까지 확인합니다.</dd>
-        </div>
-        <div>
-          <dt>특수관계</dt>
-          <dd>보조금과 용역비가 사업자 자신이나 가족·임원이 운영하는 업체로 흘러가지 않았는지 확인합니다. 거래처의 대표자·임원·주주·주소를 기업관계망과 공시·등기 자료로 교차 대조하고, 의심되는 거래는 소명을 받아 판단합니다.</dd>
+          <dd>보조금 정산검증, 연구개발비 위탁정산, 민간위탁 사업과 지방자치단체·공공기관의 세입세출 결산검사. 증빙 한 장까지 확인합니다. 거래처가 사업자 본인이나 가족·임직원의 업체는 아닌지, 특수관계 거래도 함께 검토합니다. <a href="/related-party/">어떻게 검토하나요 →</a> 보조사업자 정산 교육도 합니다.</dd>
         </div>
         <div>
           <dt>가치평가</dt>
           <dd>비상장주식과 사업의 가치를 평가합니다. 상속·증여 신고, 투자 유치, 지분 거래에 쓰는 평가서를 근거와 함께 작성합니다.</dd>
-        </div>
-        <div>
-          <dt>교육</dt>
-          <dd>보조사업자 정산 교육과 회계·세무 실무 강의를 합니다. 기관과 기업의 요청에 맞춰 내용을 짭니다.</dd>
         </div>
         <div>
           <dt>온라인</dt>
@@ -238,6 +233,10 @@
           <dt><a href="https://jobs.finance-fixer.net/">채용</a></dt>
           <dd>공공기관 채용공고와 전국 위원회 위원 공개모집 중 지금 지원할 수 있는 것만. <a href="https://jobs.finance-fixer.net/">jobs.finance-fixer.net →</a></dd>
         </div>
+        <div>
+          <dt><a href="/related-party/">특수관계</a></dt>
+          <dd>정산검증에서 거래처가 보조사업자 본인이나 가족·임직원의 업체인지 대조하는 방법과 예시 화면. <a href="/related-party/">특수관계 거래 검토 →</a></dd>
+        </div>
         <div id="db">
           <dt>회계사DB</dt>
           <dd>법령, 조세심판례, 국세청 해석, 판례, 회계기준, 감리지적사례 9,800여 건을 모아 둔 검색 DB입니다(2026년 10월 기준). 상담과 검토의 근거를 여기서 찾고, <a href="/faq/">세금 FAQ</a> 답변의 근거 조문도 여기서 확인했습니다. 사무소 안에서만 씁니다.</dd>
@@ -267,5 +266,24 @@
     <span>기장 · 신고 · 결산 · 감사 · 정산</span>
     <span><a href="https://aptfee.finance-fixer.net/">아파트 감사보수 비교</a> · <a href="https://sangkwon.finance-fixer.net/">서울 상권 조회</a> · <a href="https://jobs.finance-fixer.net/">공공채용·위원모집 모아보기</a> · <a href="https://www.youtube.com/channel/UCeJEHaCCFxNoNe1nMzr8KAg">YouTube 재무해결사 채널</a> · <a href="/privacy/">개인정보처리방침</a> · <a href="/terms/">이용약관</a></span>
   </footer>
+<script>
+(() => {
+  const wrap = document.querySelector('.nav-drop');
+  const btn = wrap.querySelector('.drop-btn');
+  const set = (open) => { wrap.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); };
+  const mouse = matchMedia('(hover: hover)').matches;
+  // 마우스 환경에서는 올리는 순간 이미 열려 있으므로 클릭은 여는 쪽으로만 동작한다
+  btn.addEventListener('click', (e) => { e.stopPropagation(); set(mouse ? true : !wrap.classList.contains('open')); });
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) set(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { set(false); btn.focus(); } });
+  wrap.querySelectorAll('.drop a').forEach((a) => a.addEventListener('click', () => set(false)));
+  // 마우스: 올리면 열고, 벗어나도 잠깐 기다려 패널로 비스듬히 옮겨 가는 동안 닫히지 않게 한다
+  if (mouse) {
+    let t;
+    wrap.addEventListener('mouseenter', () => { clearTimeout(t); set(true); });
+    wrap.addEventListener('mouseleave', () => { t = setTimeout(() => set(false), 350); });
+  }
+})();
+</script>
 </body>
 </html>

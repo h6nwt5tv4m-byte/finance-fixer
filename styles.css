@@ -46,19 +46,27 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 }
 .top nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem 1.25rem; font-size: .875rem; color: var(--ink-soft); }
 .top nav a { color: inherit; }
-/* 도구 묶음 — 마우스를 올리거나 키보드로 들어오면 목록이 열린다. 터치에서는 #tools로 이동 */
-.nav-drop { position: relative; }
-.nav-drop > a { display: block; }
-.drop {
-  display: none; position: absolute; top: 100%; left: -.9rem; z-index: 20;
-  padding: .5rem 0; min-width: 8.5rem;
-  background: var(--paper); border: 1px solid var(--line); border-radius: 2px;
-  box-shadow: 0 .5rem 1.5rem rgba(26, 26, 23, .08);
+/* 도구들 — 마우스를 올리거나 누르면 헤더 아래로 목록 패널이 펼쳐진다 */
+.top { position: relative; }
+.drop-btn {
+  font: inherit; line-height: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer;
+  border-bottom: 1px solid transparent;
 }
-.drop a { display: block; padding: .3rem .9rem; border-bottom: 0; white-space: nowrap; }
-.drop a:hover { color: var(--green); background: rgba(168, 132, 63, .08); }
-.nav-drop:focus-within .drop { display: block; }
-@media (hover: hover) { .nav-drop:hover .drop { display: block; } }
+.drop-btn:hover, .nav-drop.open .drop-btn { border-bottom-color: var(--brass); }
+.drop-btn:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.drop {
+  display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 20;
+  padding: 1.5rem var(--gutter) 1.75rem;
+  background: var(--paper); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  box-shadow: 0 1rem 2rem rgba(26, 26, 23, .07);
+}
+.drop-inner { max-width: 64rem; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: .25rem 2rem; }
+.drop a { display: block; padding: .6rem 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.drop a b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 1rem; }
+.drop a span { display: block; font-size: .8125rem; color: var(--ink-faint); }
+.drop a:hover { border-bottom-color: var(--brass); }
+.drop a:hover b { color: var(--green); }
+.nav-drop.open .drop, .nav-drop:has(:focus-visible) .drop { display: block; }
 #db { scroll-margin-top: 2rem; }
 
 /* 히어로 = 표지 한 장 */
