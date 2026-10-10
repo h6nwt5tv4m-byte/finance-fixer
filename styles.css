@@ -92,7 +92,7 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .steps { list-style: none; counter-reset: step; display: grid; gap: .75rem; margin: 1.5rem 0 2rem; color: var(--ink-soft); }
 .steps li { counter-increment: step; position: relative; padding-left: 1.75rem; }
 .steps li::before { content: counter(step); position: absolute; left: 0; font-family: var(--font-display); color: var(--brass); }
-.steps b { font-weight: 500; color: var(--ink); margin-right: .4rem; }
+.steps b { font-family: var(--font-display); font-weight: 400; font-size: 1.0625rem; color: var(--ink); margin-right: .4rem; }  /* 소제목(h3)과 같은 서체·굵기 */
 .screen { border: 1px solid var(--line); background: #faf8f3; border-radius: 2px; font-size: .8125rem; line-height: 1.6; }
 .screen header, .screen-sum { display: flex; flex-wrap: wrap; gap: .25rem 1rem; padding: .6rem .9rem; border-bottom: 1px solid var(--line); }
 .screen header { justify-content: space-between; color: var(--ink-faint); font-size: .75rem; letter-spacing: .02em; }
