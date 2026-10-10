@@ -117,22 +117,17 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .contact dt { color: var(--ink-faint); font-size: .875rem; line-height: 1.8; }
 .contact dd { line-height: 1.8; }
 
-.kakao {
-  display: inline-flex; align-items: center; gap: .5rem;
-  padding: .7rem 1.1rem;
-  background: #fae100; color: #1a1a17; border-radius: 4px; border-bottom: 0;
-  font-size: .9375rem; font-weight: 400; transition: background .2s;
-}
-.kakao svg { width: 1.125rem; height: 1.125rem; fill: #3c1e1e; }
-.kakao:hover { background: #f0d800; border-bottom: 0; }
 .channels { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
-.yt {
+/* 카카오톡·유튜브 버튼 — 같은 모양, 아이콘 색만 각 서비스 색 */
+.kakao, .yt {
   display: inline-flex; align-items: center; gap: .5rem;
   padding: .7rem 1.1rem; border: 1px solid var(--line); border-radius: 4px;
   color: var(--ink); font-size: .9375rem; transition: border-color .2s;
 }
-.yt svg { width: 1.125rem; height: 1.125rem; fill: #c4302b; }
-.yt:hover { border-color: var(--brass); }
+.kakao svg, .yt svg { width: 1.125rem; height: 1.125rem; }
+.kakao svg { fill: #3c1e1e; }
+.yt svg { fill: #c4302b; }
+.kakao:hover, .yt:hover { border-color: var(--brass); }
 
 /* 바닥 */
 .foot {
