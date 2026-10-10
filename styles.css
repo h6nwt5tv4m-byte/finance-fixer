@@ -57,7 +57,8 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 }
 .drop a { display: block; padding: .3rem .9rem; border-bottom: 0; white-space: nowrap; }
 .drop a:hover { color: var(--green); background: rgba(168, 132, 63, .08); }
-.nav-drop:hover .drop, .nav-drop:focus-within .drop { display: block; }
+.nav-drop:focus-within .drop { display: block; }
+@media (hover: hover) { .nav-drop:hover .drop { display: block; } }
 #db { scroll-margin-top: 2rem; }
 
 /* 히어로 = 표지 한 장 */
