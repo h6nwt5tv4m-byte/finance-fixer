@@ -34,11 +34,6 @@
     .grain { position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: .04;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
     .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
-    .top { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 1.75rem 0; flex-wrap: wrap; }
-    .mark { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: .06em; color: var(--green); }
-    .mark small { font-family: var(--font-sans); font-size: .8125rem; letter-spacing: 0; color: var(--ink-faint); margin-left: .6rem; }
-    .top nav { display: flex; gap: 1.25rem; font-size: .875rem; color: var(--ink-soft); }
-    .top nav a { color: inherit; }
     h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.4; text-wrap: balance; }
     h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.375rem; line-height: 1.4; color: var(--green); margin: 4.5rem 0 1.25rem; }
     .lede { margin-top: 1.25rem; color: var(--ink-soft); }
@@ -79,14 +74,35 @@
     .foot { margin-top: 4rem; padding: 1.5rem 0 3rem; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .8125rem; color: var(--ink-faint); }
     .foot a { color: inherit; }
   </style>
+  <link rel="stylesheet" href="/nav.css" />
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
+  <header class="top">
+    <a href="/" class="mark">재무해결사</a>
+    <nav aria-label="주요 메뉴">
+      <a href="/#services">하는 일</a>
+      <a href="/#method">일하는 방식</a>
+      <a href="/#people">사람</a>
+      <div class="nav-drop">
+        <button type="button" class="drop-btn" aria-expanded="false" aria-controls="tools-menu">도구</button>
+        <div class="drop" id="tools-menu">
+          <div class="drop-inner">
+            <a href="https://aptfee.finance-fixer.net/"><b>아파트</b><span>감사보수·관리비를 동급 단지와 비교</span></a>
+            <a href="https://sangkwon.finance-fixer.net/"><b>상권</b><span>서울 상권의 매출·점포·임대료</span></a>
+            <a href="/oegam/"><b>외감 판정</b><span>올해 외부감사 대상인지 계산</span></a>
+            <a href="/rates/"><b>경비율</b><span>업종별 단순·기준경비율 조회</span></a>
+            <a href="https://jobs.finance-fixer.net/"><b>채용·위원</b><span>공공기관 채용과 위원 공개모집</span></a>
+            <a href="/related-party/"><b>특수관계 검토</b><span>정산에서 특수관계 거래를 보는 방법</span></a>
+            <a href="/#db"><b>회계사DB</b><span>법령·해석 9,800여 건의 근거 DB</span></a>
+          </div>
+        </div>
+      </div>
+      <a href="/faq/">세금 FAQ</a>
+      <a href="/#contact">문의</a>
+    </nav>
+  </header>
   <div class="wrap">
-    <header class="top">
-      <a class="mark" href="https://finance-fixer.net/">특수관계 거래 검토<small>재무해결사</small></a>
-      <nav aria-label="바로가기"><a href="https://finance-fixer.net/#services">하는 일</a><a href="https://finance-fixer.net/">재무해결사 홈</a></nav>
-    </header>
 
     <main>
       <section style="padding: 2.5rem 0 0">
@@ -168,5 +184,6 @@
       <span><a href="https://finance-fixer.net/">finance-fixer.net</a></span>
     </footer>
   </div>
+<script src="/nav.js"></script>
 </body>
 </html>

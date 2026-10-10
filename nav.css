@@ -1,0 +1,45 @@
+/* 재무해결사 공통 상단 메뉴 — 홈과 모든 하위 페이지가 같은 파일을 쓴다 */
+:root { --nav-gutter: clamp(1.5rem, 6vw, 4rem); }
+/* 상단 */
+.top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem;
+  padding: 1.75rem var(--nav-gutter);
+  font-family: var(--font-sans); font-weight: 300; line-height: 1.8;
+}
+.mark {
+  font-family: var(--font-display); font-size: 1.25rem; letter-spacing: .06em; color: var(--green);
+}
+.top nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem 1.25rem; font-size: .875rem; color: var(--ink-soft); }
+.top nav a { color: inherit; }
+/* 도구 — 마우스를 올리거나 누르면 헤더 아래로 목록 패널이 펼쳐진다 */
+/* 상단 탭은 스크롤해도 화면 위에 붙어 있다 */
+.top { position: sticky; top: 0; z-index: 30; background: var(--paper); }
+.top.stuck { border-bottom: 1px solid var(--line); }
+.top nav a.active, .drop-btn.active { color: var(--green); border-bottom-color: var(--brass); }
+.drop-btn {
+  font: inherit; line-height: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  border-bottom: 1px solid transparent;
+}
+.drop-btn:hover, .nav-drop.open .drop-btn { border-bottom-color: var(--brass); }
+.drop-btn:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.drop {
+  display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 20;
+  padding: 1.5rem var(--nav-gutter) 1.75rem;
+  background: var(--paper); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  box-shadow: 0 1rem 2rem rgba(26, 26, 23, .07);
+  max-height: calc(100svh - 8rem); overflow-y: auto; overscroll-behavior: contain;
+}
+.drop-inner { max-width: 64rem; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: .25rem 2rem; }
+@media (max-width: 480px) { .drop-inner { grid-template-columns: 1fr 1fr; gap: .25rem 1.25rem; } }
+.drop a { display: block; padding: .6rem 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.drop a b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 1rem; }
+.drop a span { display: block; font-size: .8125rem; color: var(--ink-faint); }
+.drop a:hover { border-bottom-color: var(--brass); }
+.drop a:hover b { color: var(--green); }
+.nav-drop.open .drop { display: block; }
+@media (max-width: 480px) {
+  .top { flex-direction: column; gap: .5rem; align-items: flex-start; }
+  .top nav { justify-content: flex-start; }
+  .top nav { gap: .4rem .9rem; }
+  .top { padding-top: 1.1rem; padding-bottom: 1.1rem; }
+}

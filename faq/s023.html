@@ -22,9 +22,6 @@
     body { font-family:var(--font-sans); font-weight:300; font-size:1rem; line-height:1.8; color:var(--ink); background:var(--paper); -webkit-font-smoothing:antialiased; word-break:keep-all; overflow-wrap:anywhere; }
     a { color:var(--green); text-decoration:none; border-bottom:1px solid transparent; } a:hover { border-bottom-color:var(--brass); }
     .wrap { max-width:var(--measure); margin:0 auto; padding:0 var(--gutter); }
-    .top { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; padding:1.75rem 0; flex-wrap:wrap; }
-    .mark { font-family:var(--font-display); font-size:1.25rem; letter-spacing:.06em; color:var(--green); } .mark small { font-family:var(--font-sans); font-size:.8125rem; letter-spacing:0; color:var(--ink-faint); margin-left:.6rem; }
-    .top nav { display:flex; gap:1.25rem; font-size:.875rem; color:var(--ink-soft); } .top nav a { color:inherit; }
     h1 { font-family:var(--font-display); font-weight:400; font-size:clamp(1.625rem,5vw,2.25rem); line-height:1.4; margin-top:1.5rem; }
     h2 { font-family:var(--font-display); font-weight:400; font-size:1.25rem; color:var(--green); margin:2.5rem 0 .75rem; }
     .muted { color:var(--ink-faint); font-size:.875rem; } .crumb { font-size:.875rem; color:var(--ink-faint); } .crumb a { color:inherit; }
@@ -39,13 +36,34 @@
     .foot { margin-top:3rem; padding:1.5rem 0 3rem; border-top:1px solid var(--line); display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; font-size:.8125rem; color:var(--ink-faint); } .foot a { color:inherit; }
     .search { width:100%; font:inherit; font-size:1rem; padding:.7rem .9rem; background:#fbf9f4; border:1px solid var(--line); border-radius:4px; color:var(--ink); margin-top:1.25rem; }
   </style>
+  <link rel="stylesheet" href="/nav.css" />
 </head>
 <body>
+  <header class="top">
+    <a href="/" class="mark">재무해결사</a>
+    <nav aria-label="주요 메뉴">
+      <a href="/#services">하는 일</a>
+      <a href="/#method">일하는 방식</a>
+      <a href="/#people">사람</a>
+      <div class="nav-drop">
+        <button type="button" class="drop-btn" aria-expanded="false" aria-controls="tools-menu">도구</button>
+        <div class="drop" id="tools-menu">
+          <div class="drop-inner">
+            <a href="https://aptfee.finance-fixer.net/"><b>아파트</b><span>감사보수·관리비를 동급 단지와 비교</span></a>
+            <a href="https://sangkwon.finance-fixer.net/"><b>상권</b><span>서울 상권의 매출·점포·임대료</span></a>
+            <a href="/oegam/"><b>외감 판정</b><span>올해 외부감사 대상인지 계산</span></a>
+            <a href="/rates/"><b>경비율</b><span>업종별 단순·기준경비율 조회</span></a>
+            <a href="https://jobs.finance-fixer.net/"><b>채용·위원</b><span>공공기관 채용과 위원 공개모집</span></a>
+            <a href="/related-party/"><b>특수관계 검토</b><span>정산에서 특수관계 거래를 보는 방법</span></a>
+            <a href="/#db"><b>회계사DB</b><span>법령·해석 9,800여 건의 근거 DB</span></a>
+          </div>
+        </div>
+      </div>
+      <a href="/faq/">세금 FAQ</a>
+      <a href="/#contact">문의</a>
+    </nav>
+  </header>
   <div class="wrap">
-    <header class="top">
-      <a class="mark" href="/faq/">세금 FAQ<small>재무해결사</small></a>
-      <nav><a href="/faq/">목록</a><a href="https://finance-fixer.net/">재무해결사 홈</a></nav>
-    </header>
     <main>
 
 <div class="crumb"><a href="/faq/">세금 FAQ</a> › 임대사업자</div>
@@ -75,5 +93,6 @@
     </main>
     <footer class="foot"><span>© 2026 재무해결사</span><span>법령 원문 기준 · 자문 아님</span><span><a href="https://finance-fixer.net/">finance-fixer.net</a></span></footer>
   </div>
+<script src="/nav.js"></script>
 </body>
 </html>
