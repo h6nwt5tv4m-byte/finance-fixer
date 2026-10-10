@@ -294,7 +294,7 @@
   // 고정 헤더 높이만큼 앵커 위치를 내리고, 스크롤 위치에 맞는 탭을 표시한다
   const header = document.querySelector('.top');
   const fit = () => { document.documentElement.style.scrollPaddingTop = (header.offsetHeight + 16) + 'px'; };
-  const tabs = [...document.querySelectorAll('.top nav a[href^="#"]')]
+  const tabs = [...document.querySelectorAll('.top nav > a[href^="#"]')]
     .map((a) => ({ el: a, sec: document.querySelector(a.getAttribute('href')) }))
     .concat([{ el: btn, sec: document.getElementById('tools') }])
     .filter((x) => x.sec);
