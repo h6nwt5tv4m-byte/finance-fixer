@@ -48,7 +48,7 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .top nav a { color: inherit; }
 /* 도구 묶음 — 마우스를 올리거나 키보드로 들어오면 목록이 열린다. 터치에서는 #tools로 이동 */
 .nav-drop { position: relative; }
-.nav-drop > a::after { content: ""; display: inline-block; width: .32rem; height: .32rem; margin: 0 0 .2rem .4rem; border-right: 1px solid var(--ink-faint); border-bottom: 1px solid var(--ink-faint); transform: rotate(45deg); vertical-align: middle; }
+.nav-drop > a { display: block; }
 .drop {
   display: none; position: absolute; top: 100%; left: -.9rem; z-index: 20;
   padding: .5rem 0; min-width: 8.5rem;
