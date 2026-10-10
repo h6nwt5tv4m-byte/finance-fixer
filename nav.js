@@ -27,7 +27,9 @@
   const fit = () => { document.documentElement.style.scrollPaddingTop = (header.offsetHeight + 16) + 'px'; };
   // 홈에서만: 탭의 #앵커가 이 페이지에 있으면 스크롤 위치에 맞춰 표시
   const path = location.pathname;
-  const onHome = path === '/' || path === '/index.html' || /\/finance-fixer\/index\.html$/.test(path);
+  const host = location.hostname;
+  const mainSite = host === 'finance-fixer.net' || host === 'www.finance-fixer.net' || host === 'localhost' || host === '';
+  const onHome = mainSite && (path === '/' || path === '/index.html' || /\/finance-fixer\/index\.html$/.test(path));
   const tabs = [...document.querySelectorAll('.top nav > a')]
     .map((a) => { const u = new URL(a.href, location.href); return { el: a, sec: onHome && u.hash ? document.getElementById(u.hash.slice(1)) : null }; })
     .concat([{ el: btn, sec: document.getElementById('tools') }])
@@ -51,9 +53,10 @@
   // 하위 페이지: 지금 페이지에 해당하는 탭을 표시
   if (!onHome) document.querySelectorAll('.top nav > a').forEach((a) => {
     const p = new URL(a.href, location.href).pathname;
-    if (p !== '/' && location.pathname.startsWith(p)) a.classList.add('active');
+    if (mainSite && new URL(a.href, location.href).hostname === host && p !== '/' && path.startsWith(p)) a.classList.add('active');
   });
-  if (!onHome && /^\/(oegam|rates|related-party)\//.test(location.pathname)) btn.classList.add('active');
+  // 도구 하위 페이지와 도구 서브도메인(aptfee·sangkwon·jobs)에서는 '도구'를 표시
+  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party)\//.test(path))) btn.classList.add('active');
   header.classList.add('stuck');
   fit(); if (onHome) spy();
 })();
