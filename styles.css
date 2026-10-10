@@ -47,7 +47,10 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .top nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem 1.25rem; font-size: .875rem; color: var(--ink-soft); }
 .top nav a { color: inherit; }
 /* 도구들 — 마우스를 올리거나 누르면 헤더 아래로 목록 패널이 펼쳐진다 */
-.top { position: relative; }
+/* 상단 탭은 스크롤해도 화면 위에 붙어 있다 */
+.top { position: sticky; top: 0; z-index: 30; background: var(--paper); }
+.top.stuck { border-bottom: 1px solid var(--line); }
+.top nav a.active, .drop-btn.active { color: var(--green); border-bottom-color: var(--brass); }
 .drop-btn {
   font: inherit; line-height: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer;
   border-bottom: 1px solid transparent;
@@ -66,7 +69,7 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .drop a span { display: block; font-size: .8125rem; color: var(--ink-faint); }
 .drop a:hover { border-bottom-color: var(--brass); }
 .drop a:hover b { color: var(--green); }
-.nav-drop.open .drop, .nav-drop:has(:focus-visible) .drop { display: block; }
+.nav-drop.open .drop { display: block; }
 #db { scroll-margin-top: 2rem; }
 
 /* 히어로 = 표지 한 장 */
