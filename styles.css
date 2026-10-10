@@ -8,6 +8,7 @@
   --green: #1c3b2e;
   --brass: #a8843f;
   --line: #d8d2c4;
+  --paper-deep: #ebe5d8;
   --font-display: "Gowun Batang", "Apple SD Gothic Neo", serif;
   --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
   --measure: 34rem;
@@ -156,3 +157,42 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
   html { scroll-behavior: auto; }
   .hero h1, .hero .lede { animation: none; }
 }
+
+/* 배경 리듬(10-10 D안) — 첫 화면 장부 괘선, 일하는 방식·도구 섹션 띠, 문의는 초록으로 마무리.
+   초록이 끝에서 갑자기 나오지 않게 예시 화면 머리줄에서 한 번 먼저 보여 준다. */
+.hero { position: relative; isolation: isolate; }
+.hero::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 calc(2.25rem - 1px), rgba(28, 59, 46, .075) calc(2.25rem - 1px) 2.25rem);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+          mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+}
+.hero::after {
+  content: ""; position: absolute; top: 0; bottom: 18%; left: calc(var(--gutter) + 2.5rem); width: 1px; z-index: -1;
+  background: linear-gradient(to bottom, rgba(168, 132, 63, .45), rgba(168, 132, 63, 0));
+}
+/* 섹션 띠: 화면 끝까지 칠하되 가로 스크롤은 만들지 않는다(box-shadow + clip-path) */
+#method, #tools {
+  background: var(--paper-deep);
+  box-shadow: 0 0 0 100vmax var(--paper-deep); clip-path: inset(0 -100vmax);
+  padding-top: 6rem; padding-bottom: 6rem; margin-bottom: 7rem;
+}
+#tools { margin-bottom: 0; }
+/* 띠 위 예시 화면 = 기본 종이색으로 한 톤만 밝게, 머리줄은 초록 */
+#method .screen { background: var(--paper); border-color: #cbc2ae; }
+#method .screen-sum, #method .screen td { border-color: #d3cab7; }
+#method .screen header { background: var(--green); color: rgba(244, 241, 234, .82); border-bottom-color: var(--green); }
+/* 문의 = 초록 */
+#contact {
+  background: var(--green); color: #efe9dc;
+  box-shadow: 0 0 0 100vmax var(--green); clip-path: inset(0 -100vmax);
+  padding-top: 6rem; padding-bottom: 6rem;
+}
+#contact h2 { color: #f4f1ea; }
+#contact .block-lede, #contact .contact dt { color: rgba(244, 241, 234, .68); }
+#contact .contact dd, #contact .contact a { color: #f4f1ea; }
+#contact .kakao, #contact .yt { color: #f4f1ea; border-color: rgba(244, 241, 234, .3); }
+#contact .kakao svg { fill: #fae100; }
+#contact .yt svg { fill: #ff4e45; }
+#contact .kakao:hover, #contact .yt:hover { border-color: var(--brass); }
+.foot { margin-top: 0; }
