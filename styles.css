@@ -125,9 +125,9 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
   padding: .7rem 1.1rem; border: 1px solid var(--line); border-radius: 4px;
   color: var(--ink); font-size: .9375rem; transition: border-color .2s;
 }
-.kakao svg, .yt svg { width: 1.125rem; height: 1.125rem; }
+.kakao svg { width: 1.125rem; height: 1.125rem; }
+.yt svg.yt-icon { height: 22px; width: 31px; flex: none; }
 .kakao svg { fill: #3c1e1e; }
-.yt svg { fill: #c4302b; }
 .kakao:hover, .yt:hover { border-color: var(--brass); }
 
 /* 바닥 */
@@ -193,6 +193,5 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 #contact .contact dd, #contact .contact a { color: #f4f1ea; }
 #contact .kakao, #contact .yt { color: #f4f1ea; border-color: rgba(244, 241, 234, .3); }
 #contact .kakao svg { fill: #fae100; }
-#contact .yt svg { fill: #ff4e45; }
 #contact .kakao:hover, #contact .yt:hover { border-color: var(--brass); }
 .foot { margin-top: 0; }
