@@ -118,10 +118,12 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .contact dt { color: var(--ink-faint); font-size: .875rem; line-height: 1.8; }
 .contact dd { line-height: 1.8; }
 
-.channels { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
+/* 두 버튼 같은 크기(넓은 쪽에 맞춤), 좁은 화면은 세로로 쌓되 폭 동일 */
+.channels { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: .75rem; margin-top: 2rem; }
+@media (max-width: 560px) { .channels { grid-auto-flow: row; } }
 /* 카카오톡·유튜브 버튼 — 같은 모양, 아이콘 색만 각 서비스 색 */
 .kakao, .yt {
-  display: inline-flex; align-items: center; gap: .5rem;
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
   padding: .7rem 1.1rem; border: 1px solid var(--line); border-radius: 4px;
   color: var(--ink); font-size: .9375rem; transition: border-color .2s;
 }
