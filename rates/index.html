@@ -113,7 +113,7 @@
         <thead><tr><th>코드</th><th>업종</th><th class="n">단순경비율</th><th class="n hide-sm">초과율</th><th class="n">기준경비율</th><th class="n">소득률</th></tr></thead>
         <tbody id="rows"><tr><td colspan="6" class="muted">경비율 표를 불러오는 중입니다.</td></tr></tbody>
       </table>
-      <p class="muted" style="margin-top:.5rem">소득률 = 100 − 단순경비율. 업종을 누르면 아래에서 계산합니다. 결과는 50건까지 보입니다.</p>
+      <p class="muted" style="margin-top:.5rem">소득률 = 100 − 단순경비율. 고시에 0.0으로만 적힌 업종(곡물재배·외국인학교)은 사업소득 과세 제외라 "과세제외"로 표시합니다. 업종을 누르면 아래에서 계산합니다. 결과는 50건까지 보입니다.</p>
     </section>
 
     <section class="calc hidden" id="calc">
@@ -185,6 +185,9 @@
     return Math.round(v / 1e4).toLocaleString("ko-KR") + "만원";
   };
   const pct = (v) => (v == null ? "—" : v.toFixed(1) + "%");
+  // 고시가 0.0/0.0으로 찍는 업종 = 사업소득 과세 제외(곡물·식량작물재배는 소득세법 §19①1, 외국인학교 등). 소득률 100%가 아니다.
+  const exempt = (r) => r.b === 0 && r.k === 0;
+  const incomeRate = (r) => exempt(r) ? '<span class="muted">과세제외</span>' : r.b == null ? "—" : (100 - r.b).toFixed(1) + "%";
 
   // 한글 초성·자모 입력 중에도 걸리게: 완성형은 그대로, 검색어가 자모(ㄱ~ㅎ)뿐이면 업종명의 초성과 비교
   const norm = (s) => (s || "").toLowerCase().replace(/[\s·,()\/]/g, "");
@@ -205,7 +208,7 @@
       const tr = document.createElement("tr");
       tr.dataset.code = r.c;
       if (picked && picked.c === r.c) tr.className = "on";
-      const cells = [r.c, `${r.n} <span class="muted">${r.s}</span>`, pct(r.b), r.x == null ? "—" : pct(r.x), pct(r.k), r.b == null ? "—" : (100 - r.b).toFixed(1) + "%"];
+      const cells = [r.c, `${r.n} <span class="muted">${r.s}</span>`, pct(r.b), r.x == null ? "—" : pct(r.x), pct(r.k), incomeRate(r)];
       cells.forEach((c, i) => { const td = document.createElement("td"); if (i >= 2) td.className = "n" + (i === 3 ? " hide-sm" : ""); if (i === 0) td.style.whiteSpace = "nowrap"; td.innerHTML = c; tr.append(td); });
       tr.onclick = () => pick(r);
       tb.append(tr);
@@ -227,6 +230,7 @@
   const calc = () => {
     if (!picked) return;
     const rev = parseFloat(($("rev").value || "").replace(/,/g, "")) * 1e4;
+    if (exempt(picked)) { $("result").classList.add("hidden"); $("r-note").textContent = "이 업종은 고시에 경비율이 0.0으로만 적혀 있는 사업소득 과세 제외 업종입니다(곡물·식량작물재배는 소득세법 제19조 제1항 제1호). 추계 소득금액 계산 대상이 아니므로 소득률 100%로 읽으면 안 됩니다."; return; }
     if (!(rev > 0 && rev < 1e14)) { $("result").classList.add("hidden"); $("r-note").textContent = "수입금액을 만원 단위 숫자로 넣어 주세요."; return; }
     let exp;
     let note = "";
