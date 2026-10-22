@@ -113,7 +113,7 @@
         <thead><tr><th>코드</th><th>업종</th><th class="n">단순경비율</th><th class="n hide-sm">초과율</th><th class="n">기준경비율</th><th class="n">소득률</th></tr></thead>
         <tbody id="rows"><tr><td colspan="6" class="muted">경비율 표를 불러오는 중입니다.</td></tr></tbody>
       </table>
-      <p class="muted" style="margin-top:.5rem">소득률 = 100 − 단순경비율. 고시에 0.0으로만 적힌 업종(곡물재배·외국인학교)은 사업소득 과세 제외라 "과세제외"로 표시합니다. 업종을 누르면 아래에서 계산합니다. 결과는 50건까지 보입니다.</p>
+      <p class="muted" style="margin-top:.5rem">소득률 = 100 − 단순경비율. 고시에 0.0으로만 적힌 업종은 사업소득 과세 제외라 "과세제외"로 표시합니다(곡물·식량작물재배 011000=소득세법 §19①1, 외국인학교 804101=§19①15·시행령 §35). 업종을 누르면 아래에서 계산합니다. 결과는 50건까지 보입니다.</p>
     </section>
 
     <section class="calc hidden" id="calc">
@@ -187,6 +187,11 @@
   const pct = (v) => (v == null ? "—" : v.toFixed(1) + "%");
   // 고시가 0.0/0.0으로 찍는 업종 = 사업소득 과세 제외(곡물·식량작물재배는 소득세법 §19①1, 외국인학교 등). 소득률 100%가 아니다.
   const exempt = (r) => r.b === 0 && r.k === 0;
+  const exemptWhy = (r) => r.c === "011000"
+    ? "곡물·식량작물 재배업은 소득세법 제19조 제1항 제1호에서 사업소득 범위 자체에서 빠집니다."
+    : r.c === "804101"
+    ? "외국인학교(초·중등교육법 제60조의2)는 소득세법 제19조 제1항 제15호·시행령 제35조가 정한 교육기관이라 사업소득에서 제외됩니다."
+    : "소득세법상 사업소득 과세 대상이 아닌 업종입니다.";
   const incomeRate = (r) => exempt(r) ? '<span class="muted">과세제외</span>' : r.b == null ? "—" : (100 - r.b).toFixed(1) + "%";
 
   // 한글 초성·자모 입력 중에도 걸리게: 완성형은 그대로, 검색어가 자모(ㄱ~ㅎ)뿐이면 업종명의 초성과 비교
@@ -230,7 +235,7 @@
   const calc = () => {
     if (!picked) return;
     const rev = parseFloat(($("rev").value || "").replace(/,/g, "")) * 1e4;
-    if (exempt(picked)) { $("result").classList.add("hidden"); $("r-note").textContent = "이 업종은 고시에 경비율이 0.0으로만 적혀 있는 사업소득 과세 제외 업종입니다(곡물·식량작물재배는 소득세법 제19조 제1항 제1호). 추계 소득금액 계산 대상이 아니므로 소득률 100%로 읽으면 안 됩니다."; return; }
+    if (exempt(picked)) { $("result").classList.add("hidden"); $("r-note").textContent = "이 업종은 고시에 경비율이 0.0으로만 적혀 있는 사업소득 과세 제외 업종입니다. " + exemptWhy(picked) + " 추계 소득금액 계산 대상이 아니므로 소득률 100%로 읽으면 안 됩니다."; return; }
     if (!(rev > 0 && rev < 1e14)) { $("result").classList.add("hidden"); $("r-note").textContent = "수입금액을 만원 단위 숫자로 넣어 주세요."; return; }
     let exp;
     let note = "";
