@@ -118,18 +118,19 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .contact dt { color: var(--ink-faint); font-size: .875rem; line-height: 1.8; }
 .contact dd { line-height: 1.8; }
 
-/* 두 버튼 같은 크기(넓은 쪽에 맞춤), 좁은 화면은 세로로 쌓되 폭 동일 */
+/* 버튼 같은 크기(넓은 쪽에 맞춤), 좁은 화면은 세로로 쌓되 폭 동일 */
 .channels { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: .75rem; margin-top: 2rem; }
-@media (max-width: 560px) { .channels { grid-auto-flow: row; } }
-/* 카카오톡·유튜브 버튼 — 같은 모양, 아이콘 색만 각 서비스 색 */
-.kakao, .yt {
+@media (max-width: 739px) { .channels { grid-auto-flow: row; } }
+/* 카카오톡·유튜브·블로그 버튼 — 같은 모양, 아이콘 색만 각 서비스 색 */
+.kakao, .yt, .blog {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
   padding: .7rem 1.1rem; border: 1px solid var(--line); border-radius: 4px;
   color: var(--ink); font-size: .9375rem; transition: border-color .2s;
 }
 .kakao svg.kakao-icon { height: 22px; width: 22px; flex: none; }
 .yt svg.yt-icon { height: 22px; width: 31px; flex: none; }
-.kakao:hover, .yt:hover { border-color: var(--brass); }
+.blog svg.blog-icon { height: 22px; width: 22px; flex: none; }
+.kakao:hover, .yt:hover, .blog:hover { border-color: var(--brass); }
 
 /* 바닥 */
 .foot {
@@ -192,6 +193,6 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 #contact h2 { color: #f4f1ea; }
 #contact .block-lede, #contact .contact dt { color: rgba(244, 241, 234, .68); }
 #contact .contact dd, #contact .contact a { color: #f4f1ea; }
-#contact .kakao, #contact .yt { color: #f4f1ea; border-color: rgba(244, 241, 234, .3); }
-#contact .kakao:hover, #contact .yt:hover { border-color: var(--brass); }
+#contact .kakao, #contact .yt, #contact .blog { color: #f4f1ea; border-color: rgba(244, 241, 234, .3); }
+#contact .kakao:hover, #contact .yt:hover, #contact .blog:hover { border-color: var(--brass); }
 .foot { margin-top: 0; }
