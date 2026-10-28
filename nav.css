@@ -27,7 +27,8 @@
   padding: 1.5rem var(--nav-gutter) 1.75rem;
   background: var(--paper); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
   box-shadow: 0 1rem 2rem rgba(26, 26, 23, .07);
-  max-height: calc(100svh - 8rem); overflow-y: auto; overscroll-behavior: contain;
+  /* 100%는 패널의 기준인 .top 높이: 메뉴가 여러 줄이 되어도 화면 안에 맞춘다. */
+  max-height: calc(100svh - 100% - 1rem); overflow-y: auto; overscroll-behavior: contain;
 }
 .drop-inner { max-width: 64rem; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: .25rem 2rem; }
 @media (max-width: 480px) { .drop-inner { grid-template-columns: 1fr 1fr; gap: .25rem 1.25rem; } }
