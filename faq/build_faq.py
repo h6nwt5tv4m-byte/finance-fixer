@@ -81,6 +81,7 @@ HEAD = """<!DOCTYPE html>
         </div>
       </div>
       <a href="/faq/">세금 FAQ</a>
+      <a href="/#videos">세금 영상</a>
       <a href="/#contact">문의</a>
     </nav>
   </header>
