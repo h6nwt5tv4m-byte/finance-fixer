@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/nav.css" />
-  <link rel="stylesheet" href="styles.css?v=202610262025" />
+  <link rel="stylesheet" href="styles.css?v=202611012300" />
 </head>
 <body id="top">
   <div class="grain" aria-hidden="true"></div>
@@ -260,6 +260,46 @@
       </dl>
     </section>
 
+    <!-- 영상 칸(11-01): 누르기 전엔 사이트 안 썸네일만, 누르면 그 자리에서 유튜브 플레이어. 영상 ID는 href의 /shorts/ID가 기준(아래 스크립트가 여기서 읽음), 썸네일은 /video/ID.jpg -->
+    <section class="block" id="videos">
+      <div class="rule"></div>
+      <h2>영상으로 보는 세금</h2>
+      <p class="block-lede">사업하면서 놓치기 쉬운 세금을 30초 안팎의 쇼츠로 정리했습니다. 근거 조문은 각 영상 설명란에 적었습니다.</p>
+      <span class="vh" id="short-play-label">재생:</span>
+      <ul class="shorts">
+        <li>
+          <a class="short" href="https://www.youtube.com/shorts/ZYntMg6DL8g" target="_blank" rel="noopener" aria-labelledby="short-play-label short-t1">
+            <img src="/video/ZYntMg6DL8g.jpg" width="480" height="854" loading="lazy" decoding="async" alt="" />
+            <span class="short-play" aria-hidden="true"></span>
+          </a>
+          <p class="short-title" id="short-t1">10월 부가세 신고 안 해도, 세무서가 지난번 세금 절반을 고지한다</p>
+          <a class="short-out" href="https://www.youtube.com/shorts/ZYntMg6DL8g" target="_blank" rel="noopener">유튜브에서 보기 →</a>
+        </li>
+        <li>
+          <a class="short" href="https://www.youtube.com/shorts/dHcKolUioYY" target="_blank" rel="noopener" aria-labelledby="short-play-label short-t2">
+            <img src="/video/dHcKolUioYY.jpg" width="480" height="854" loading="lazy" decoding="async" alt="" />
+            <span class="short-play" aria-hidden="true"></span>
+          </a>
+          <p class="short-title" id="short-t2">거래처 접대비 50만원, 대표 개인카드 전표만 있으면 회사 비용 0원</p>
+          <a class="short-out" href="https://www.youtube.com/shorts/dHcKolUioYY" target="_blank" rel="noopener">유튜브에서 보기 →</a>
+        </li>
+        <li>
+          <a class="short" href="https://www.youtube.com/shorts/KSD3IdU6cRk" target="_blank" rel="noopener" aria-labelledby="short-play-label short-t3">
+            <img src="/video/KSD3IdU6cRk.jpg" width="480" height="854" loading="lazy" decoding="async" alt="" />
+            <span class="short-play" aria-hidden="true"></span>
+          </a>
+          <p class="short-title" id="short-t3">대표가 법인카드로 가족 외식 100만원, 세금이 세 번 터진다</p>
+          <a class="short-out" href="https://www.youtube.com/shorts/KSD3IdU6cRk" target="_blank" rel="noopener">유튜브에서 보기 →</a>
+        </li>
+      </ul>
+      <p class="shorts-more">
+        <a class="yt" href="https://www.youtube.com/channel/UCeJEHaCCFxNoNe1nMzr8KAg" target="_blank" rel="noopener">
+          <svg class="yt-icon" viewBox="0 0 28 20" aria-hidden="true"><path fill="#FF0000" d="M27.42 3.12A3.5 3.5 0 0 0 24.95.65C22.77.06 14 .06 14 .06S5.23.06 3.05.65A3.5 3.5 0 0 0 .58 3.12C0 5.31 0 10 0 10s0 4.69.58 6.88a3.5 3.5 0 0 0 2.47 2.47C5.23 19.94 14 19.94 14 19.94s8.77 0 10.95-.59a3.5 3.5 0 0 0 2.47-2.47C28 14.69 28 10 28 10s0-4.69-.58-6.88z"/><path fill="#FFFFFF" d="M11.2 14.28 18.47 10 11.2 5.72z"/></svg>
+          유튜브 채널에서 더 보기
+        </a>
+      </p>
+    </section>
+
     <section class="block" id="contact">
       <div class="rule"></div>
       <h2>문의</h2>
@@ -292,6 +332,41 @@
     <span>기장 · 신고 · 결산 · 감사 · 정산</span>
     <span><a href="https://aptfee.finance-fixer.net/">아파트 감사보수 비교</a> · <a href="https://sangkwon.finance-fixer.net/">서울 상권 조회</a> · <a href="https://jobs.finance-fixer.net/">공공채용·위원모집 모아보기</a> · <a href="https://www.youtube.com/channel/UCeJEHaCCFxNoNe1nMzr8KAg">YouTube 재무해결사 채널</a> · <a href="https://blog.naver.com/financefixer">네이버 블로그</a> · <a href="/privacy/">개인정보처리방침</a> · <a href="/terms/">이용약관</a></span>
   </footer>
+<script>
+/* 영상 칸: 카드를 누르면 그 카드만 유튜브 플레이어로 바꾼다(동시 재생 1개). 새 탭·수정키 클릭은 그대로 링크.
+   플레이어가 떠 있는 동안 종이 질감(.grain) 막을 끈다 — 유튜브 플레이어 위 오버레이 금지. */
+(() => {
+  const list = document.querySelector('.shorts');
+  if (!list) return;
+  let open = null;
+  const close = () => {
+    if (!open) return;
+    open.frame.replaceWith(open.card);
+    document.body.classList.remove('yt-playing');
+    open = null;
+  };
+  list.addEventListener('click', (e) => {
+    const card = e.target.closest('a.short');
+    if (!card || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const m = card.pathname.match(/^\/shorts\/([\w-]{11})$/);
+    if (!m) return;
+    e.preventDefault();
+    close();
+    const title = card.parentElement.querySelector('.short-title');
+    const frame = document.createElement('iframe');
+    frame.className = 'short-frame';
+    frame.src = 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&playsinline=1&rel=0';
+    frame.title = title ? title.textContent.trim() : '유튜브 영상';
+    frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    card.replaceWith(frame);
+    document.body.classList.add('yt-playing');
+    open = { card, frame };
+    frame.focus();
+  });
+})();
+</script>
 <script src="/nav.js"></script>
 </body>
 </html>
