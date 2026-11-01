@@ -50,7 +50,6 @@
         </div>
       </div>
       <a href="/faq/">세금 FAQ</a>
-      <a href="/#videos">세금 영상</a>
       <a href="/#contact">문의</a>
     </nav>
   </header>
@@ -263,7 +262,7 @@
       </dl>
     </section>
 
-    <!-- 영상 칸(11-01): 누르기 전엔 사이트 안 썸네일만, 누르면 그 자리에서 유튜브 플레이어. 영상 ID는 href의 /shorts/ID가 기준(아래 스크립트가 여기서 읽음), 썸네일은 /video/ID.jpg -->
+    <!-- 영상 칸(11-01): 누르기 전엔 사이트 안 썸네일만, 누르면 그 자리에서 유튜브 플레이어. 영상 목록의 정본은 칸 바로 아래 스크립트의 POOL·MONTHS(달마다 3편). 아래 카드 3장은 스크립트가 안 돌 때의 기본값이며 POOL 안 영상이어야 한다. 썸네일=/video/ID.jpg -->
     <section class="block" id="videos">
       <div class="rule"></div>
       <h2>영상으로 보는 세금</h2>
@@ -302,6 +301,109 @@
         </a>
       </p>
     </section>
+    <script>
+/* 영상 칸 — 정본: POOL(내용을 회계사DB로 확인한 영상) · MONTHS(1~12월에 보일 3편, 한국 시간 기준).
+   영상 추가 = 회계사DB로 내용 확인 → POOL에 ID·제목 + MONTHS 배치 + /video/ID.jpg.
+   (11-01: 세금계산서 가산세 2편 2qe6gIj1K28·EZog7yo8bc4는 설명란 '공급대가' 오류로 보류 — 부가세법 §68의2①은 §60①만 치환.) 법령이 바뀌어 틀려진 영상은 POOL·MONTHS·기본 카드에서 모두 뺀다.
+   자료가 하나라도 어긋나면 교체하지 않고 위 기본 카드를 그대로 둔다.
+   카드를 누르면 그 카드만 유튜브 플레이어로 바꾼다(동시 재생 1개). 새 탭·수정키 클릭은 그대로 링크.
+   플레이어가 떠 있는 동안 종이 질감(.grain) 막을 끈다 — 유튜브 플레이어 위 오버레이 금지. */
+(() => {
+  const list = document.querySelector('.shorts');
+  if (!list) return;
+  const POOL = {
+    '-pR6AKS9wPM': '3.3% 떼인 프리랜서, 5월 신고 한 번에 떼인 세금 돌려받았다',
+    '3YyUi2vO9Gw': '종소세 신고 까먹은 A씨, 세금 100만원에 무신고가산세만 20만원',
+    'AdS-yrvWcOo': '간이과세 고집했다가 인테리어 부가세 500만원 못 돌려받은 카페 사장님',
+    '-DXoMY0vJg4': '법인 돈 1억 꺼내 쓰면, 이자 안 줘도 회사가 받은 걸로 치고 세금',
+    'E0QEPGlXJwI': '법인차에 3천만원 써도 운행기록부 없으면 경비는 최대 1,500만원',
+    'NqoaJ2pUTkg': '청년 한 명 뽑으면 1,450만원 공제? 2026년부턴 첫해 700만원',
+    'LlZ4uF2aoLs': '사업용 계좌 신고 안 했다가, 그해 창업감면을 못 받았다',
+    'Jfm7k6148TQ': '식당 매출 7억5천 이상이면 세무사 확인서 붙여 신고해야',
+    'yLVpIRZiSF8': '똑같은 소기업인데 지방 공장은 감면 30%, 쇼핑몰은 10%뿐',
+    '43PV5cTnbq8': '직원 20명 이하면 원천세 1년에 두 번만? 명세서는 매달이다',
+    'ZYntMg6DL8g': '10월 부가세 신고 안 해도, 세무서가 지난번 세금 절반을 고지한다',
+    'dHcKolUioYY': '거래처 접대비 50만원, 대표 개인카드 전표만 있으면 회사 비용 0원',
+    'KSD3IdU6cRk': '대표가 법인카드로 가족 외식 100만원, 세금이 세 번 터진다',
+  };
+  const MONTHS = [
+    ['AdS-yrvWcOo', '43PV5cTnbq8', 'NqoaJ2pUTkg'], // 1월 부가세 확정·원천세 반기·연말정산
+    ['43PV5cTnbq8', 'E0QEPGlXJwI', 'NqoaJ2pUTkg'], // 2월 사업장현황신고
+    ['dHcKolUioYY', 'KSD3IdU6cRk', '-DXoMY0vJg4'], // 3월 법인세
+    ['ZYntMg6DL8g', 'yLVpIRZiSF8', 'E0QEPGlXJwI'], // 4월 부가세 예정
+    ['-pR6AKS9wPM', '3YyUi2vO9Gw', 'LlZ4uF2aoLs'], // 5월 종소세
+    ['Jfm7k6148TQ', 'yLVpIRZiSF8', 'LlZ4uF2aoLs'], // 6월 성실신고
+    ['AdS-yrvWcOo', '43PV5cTnbq8', 'yLVpIRZiSF8'], // 7월 부가세 확정·원천세 반기
+    ['-DXoMY0vJg4', 'dHcKolUioYY', 'KSD3IdU6cRk'], // 8월 법인세 중간예납
+    ['NqoaJ2pUTkg', 'LlZ4uF2aoLs', 'E0QEPGlXJwI'], // 9월
+    ['ZYntMg6DL8g', 'dHcKolUioYY', 'KSD3IdU6cRk'], // 10월 부가세 예정
+    ['E0QEPGlXJwI', '-DXoMY0vJg4', 'NqoaJ2pUTkg'], // 11월 연말 전 점검
+    ['NqoaJ2pUTkg', 'dHcKolUioYY', 'E0QEPGlXJwI'], // 12월 결산
+  ];
+  let open = null;
+  const close = () => {
+    if (!open) return;
+    open.frame.replaceWith(open.card);
+    document.body.classList.remove('yt-playing');
+    open = null;
+  };
+  const has = (id) => Object.prototype.hasOwnProperty.call(POOL, id);
+  const valid = (() => {
+    try {
+      if (MONTHS.length !== 12) return false;
+      for (const id of Object.keys(POOL)) if (!/^[\w-]{11}$/.test(id) || typeof POOL[id] !== 'string' || !POOL[id].trim()) return false;
+      return MONTHS.every((m) => Array.isArray(m) && m.length === 3 && new Set(m).size === 3 && m.every(has));
+    } catch (e) { return false; }
+  })();
+  const kstMonth = () => new Date(Date.now() + 9 * 3600e3).getUTCMonth();
+  let shown = -1;
+  const rotate = () => {
+    if (!valid || kstMonth() === shown) return;
+    try {
+      close();
+      const mon = kstMonth();
+      const items = [...list.children].map((li) => ({
+        card: li.querySelector('a.short'), img: li.querySelector('a.short img'),
+        title: li.querySelector('.short-title'), out: li.querySelector('.short-out'),
+      }));
+      if (items.length !== 3 || items.some((x) => !x.card || !x.img || !x.title || !x.out)) return;
+      MONTHS[mon].forEach((id, i) => {
+        const url = 'https://www.youtube.com/shorts/' + id;
+        items[i].card.href = url;
+        items[i].out.href = url;
+        items[i].img.src = '/video/' + id + '.jpg';
+        items[i].title.textContent = POOL[id];
+      });
+      shown = mon;
+    } catch (e) { /* 실패하면 기본 카드 그대로 */ }
+  };
+  rotate();
+  // 열어 둔 탭이 달을 넘기거나 뒤로가기로 돌아와도 다시 판정
+  addEventListener('pageshow', rotate);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) rotate(); });
+  setInterval(rotate, 3600e3);
+  list.addEventListener('click', (e) => {
+    const card = e.target.closest('a.short');
+    if (!card || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const m = card.pathname.match(/^\/shorts\/([\w-]{11})$/);
+    if (!m) return;
+    e.preventDefault();
+    close();
+    const title = card.parentElement.querySelector('.short-title');
+    const frame = document.createElement('iframe');
+    frame.className = 'short-frame';
+    frame.src = 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&playsinline=1&rel=0';
+    frame.title = title ? title.textContent.trim() : '유튜브 영상';
+    frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    card.replaceWith(frame);
+    document.body.classList.add('yt-playing');
+    open = { card, frame };
+    frame.focus();
+  });
+})();
+    </script>
 
     <section class="block" id="contact">
       <div class="rule"></div>
@@ -335,41 +437,6 @@
     <span>기장 · 신고 · 결산 · 감사 · 정산</span>
     <span><a href="https://aptfee.finance-fixer.net/">아파트 감사보수 비교</a> · <a href="https://sangkwon.finance-fixer.net/">서울 상권 조회</a> · <a href="https://jobs.finance-fixer.net/">공공채용·위원모집 모아보기</a> · <a href="https://www.youtube.com/channel/UCeJEHaCCFxNoNe1nMzr8KAg">YouTube 재무해결사 채널</a> · <a href="https://blog.naver.com/financefixer">네이버 블로그</a> · <a href="/privacy/">개인정보처리방침</a> · <a href="/terms/">이용약관</a></span>
   </footer>
-<script>
-/* 영상 칸: 카드를 누르면 그 카드만 유튜브 플레이어로 바꾼다(동시 재생 1개). 새 탭·수정키 클릭은 그대로 링크.
-   플레이어가 떠 있는 동안 종이 질감(.grain) 막을 끈다 — 유튜브 플레이어 위 오버레이 금지. */
-(() => {
-  const list = document.querySelector('.shorts');
-  if (!list) return;
-  let open = null;
-  const close = () => {
-    if (!open) return;
-    open.frame.replaceWith(open.card);
-    document.body.classList.remove('yt-playing');
-    open = null;
-  };
-  list.addEventListener('click', (e) => {
-    const card = e.target.closest('a.short');
-    if (!card || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    const m = card.pathname.match(/^\/shorts\/([\w-]{11})$/);
-    if (!m) return;
-    e.preventDefault();
-    close();
-    const title = card.parentElement.querySelector('.short-title');
-    const frame = document.createElement('iframe');
-    frame.className = 'short-frame';
-    frame.src = 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&playsinline=1&rel=0';
-    frame.title = title ? title.textContent.trim() : '유튜브 영상';
-    frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-    frame.allowFullscreen = true;
-    frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    card.replaceWith(frame);
-    document.body.classList.add('yt-playing');
-    open = { card, frame };
-    frame.focus();
-  });
-})();
-</script>
 <script src="/nav.js"></script>
 </body>
 </html>
