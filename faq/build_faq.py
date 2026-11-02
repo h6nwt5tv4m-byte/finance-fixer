@@ -159,26 +159,131 @@ def page(item: dict) -> str:
     return "\n".join(body)
 
 
+# 목록 페이지 나누기(11-02): 한 번에 10개, 검색·세목 결과 안에서 1페이지부터. 상태 정본=주소(?s=&q=&p=).
+# JS가 없거나 중간에 실패하면 143개 전부 보인다. 스타일은 목록 페이지에만(상세 페이지 HEAD 공용이라 넣지 않음).
+INDEX_STYLE = """<style>
+  #count { margin-bottom:.5rem; } #count:focus { outline:none; }
+  #empty { padding:1.5rem 0; color:var(--ink-soft); }
+  .pager { display:flex; flex-wrap:wrap; justify-content:center; gap:.25rem; margin-top:1.5rem; }
+  .pager button { min-width:2rem; height:2rem; padding:0 .5rem; font:inherit; font-size:.875rem; line-height:1; color:var(--ink-soft); background:none; border:1px solid var(--line); border-radius:4px; cursor:pointer; }
+  .pager button:hover:not(:disabled) { border-color:var(--brass); }
+  .pager button:focus-visible { outline:2px solid var(--brass); outline-offset:2px; }
+  .pager button[aria-current] { background:var(--green); border-color:var(--green); color:var(--paper); }
+  .pager button:disabled { opacity:.35; cursor:default; }
+  .pager .gap { min-width:1rem; line-height:2rem; text-align:center; color:var(--ink-faint); }
+</style>"""
+
+INDEX_SCRIPT = """<script>
+(() => {
+  const q = document.getElementById('q'), chips = document.getElementById('chips'), list = document.getElementById('list');
+  const count = document.getElementById('count'), empty = document.getElementById('empty'), pager = document.getElementById('pager');
+  if (!q || !chips || !list || !count || !empty || !pager) return;
+  const items = [...list.querySelectorAll('li')], PER = 10;
+  const semoks = new Set([...chips.querySelectorAll('.chip')].map((c) => c.dataset.s));
+  const norm = (t) => (t || '').toLowerCase().replace(/\\s+/g, '');
+  const st = { s: '', k: '', p: 1 };
+  const fromURL = () => {
+    const u = new URLSearchParams(location.search);
+    const s = u.get('s') || '';
+    st.s = semoks.has(s) ? s : '';
+    st.k = (u.get('q') || '').slice(0, 100);
+    const p = Number(u.get('p'));
+    st.p = Number.isInteger(p) && p >= 1 ? p : 1;
+  };
+  const toURL = () => {
+    try {
+      const u = new URLSearchParams();
+      if (st.s) u.set('s', st.s);
+      if (st.k) u.set('q', st.k);
+      if (st.p > 1) u.set('p', String(st.p));
+      const qs = u.toString();
+      history.replaceState(history.state, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    } catch (e) { /* 주소 갱신 실패는 화면에 영향 없음 */ }
+  };
+  const showAll = () => {
+    items.forEach((li) => { li.style.display = ''; });
+    count.textContent = ''; empty.hidden = true; pager.hidden = true; pager.textContent = '';
+  };
+  // 현재 페이지 양옆 번호 개수(sib): 1 … 5 6 7 … 15
+  const pageList = (p, pages, sib) => {
+    const lo = Math.max(2, p - sib), hi = Math.min(pages - 1, p + sib), out = [1];
+    if (lo === 3) out.push(2); else if (lo > 3) out.push('…');
+    for (let i = lo; i <= hi; i++) out.push(i);
+    if (hi === pages - 2) out.push(pages - 1); else if (hi < pages - 2) out.push('…');
+    if (pages > 1) out.push(pages);
+    return out;
+  };
+  const button = (label, page, aria, current, disabled) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label; b.dataset.p = String(page); b.setAttribute('aria-label', aria);
+    if (current) b.setAttribute('aria-current', 'page');
+    if (disabled) b.disabled = true;
+    return b;
+  };
+  const render = (moved) => {
+    try {
+      const k = norm(st.k);
+      const matched = items.filter((li) => (!st.s || li.dataset.s === st.s) && (!k || norm(li.dataset.t).includes(k)));
+      const n = matched.length, pages = Math.max(1, Math.ceil(n / PER));
+      if (st.p > pages) st.p = pages;
+      const from = (st.p - 1) * PER, show = new Set(matched.slice(from, from + PER));
+      items.forEach((li) => { li.style.display = show.has(li) ? '' : 'none'; });
+      count.textContent = n ? n + '건 중 ' + (from + 1) + '–' + Math.min(from + PER, n) : '0건';
+      empty.hidden = n > 0;
+      pager.hidden = pages <= 1;
+      pager.replaceChildren();
+      // 한 줄에 들어갈 때까지 번호를 줄인다(화면 폭·글자 크기 모두 반영). 끝까지 안 되면 ‹ 7 / 15 ›
+      if (pages > 1) for (const sib of [2, 1, 0, -1]) {
+        const frag = document.createDocumentFragment();
+        frag.append(button('‹', st.p - 1, '이전 페이지', false, st.p === 1));
+        if (sib < 0) { const c = document.createElement('span'); c.className = 'gap'; c.textContent = st.p + ' / ' + pages; frag.append(c); }
+        else for (const x of pageList(st.p, pages, sib)) {
+          if (x === '…') { const g = document.createElement('span'); g.className = 'gap'; g.textContent = '…'; g.setAttribute('aria-hidden', 'true'); frag.append(g); }
+          else frag.append(button(String(x), x, x + '페이지', x === st.p, false));
+        }
+        frag.append(button('›', st.p + 1, '다음 페이지', false, st.p === pages));
+        pager.replaceChildren(frag);
+        const k = pager.children;
+        if (k[0].offsetTop === k[k.length - 1].offsetTop) break;
+      }
+      if (q.value !== st.k) q.value = st.k;
+      chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.s === st.s));
+      toURL();
+      if (moved) { q.scrollIntoView({ block: 'start' }); count.focus({ preventScroll: true }); }
+    } catch (e) { showAll(); }
+  };
+  q.addEventListener('input', () => { st.k = q.value.slice(0, 100); st.p = 1; render(false); });
+  chips.addEventListener('click', (e) => { const b = e.target.closest('.chip'); if (!b) return; st.s = b.dataset.s; st.p = 1; render(false); });
+  pager.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled) return; st.p = Number(b.dataset.p); render(true); });
+  let w = innerWidth;
+  addEventListener('resize', () => { if (innerWidth !== w) { w = innerWidth; render(false); } });
+  // 글꼴이 늦게 받아져 글자 폭이 바뀌면 번호 줄을 다시 잰다
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => render(false)).catch(() => {});
+  // 뒤로 가기(bfcache)로 돌아오면 주소 기준으로 다시 그린다
+  addEventListener('pageshow', (e) => { if (e.persisted) { fromURL(); render(false); } });
+  fromURL(); render(false);
+})();
+</script>"""
+
+
 def index(items: list[dict]) -> str:
     semoks = sorted({semok(i) for i in items})
     body = [HEAD.format(title="세금 FAQ", desc="오픈채팅·지식iN·카페에서 실제로 많이 나온 세금 질문에 법령 원문을 찾아 답했습니다. 양도세·취득세·증여상속·임대사업자.", canonical=BASE)]
     body.append("<h1>자주 묻는 세금 질문,<br />조문을 찾아 답했습니다.</h1>")
     body.append(f'<p class="muted" style="margin-top:1rem">부동산 세금 오픈채팅과 네이버 지식iN·카카오 카페에서 실제로 나온 질문 가운데 많이 묻는 것부터. 답은 회계사DB(법령·해석례)를 검색해 쓰고 근거 조문을 붙였습니다. {len(items)}건 · 갱신 {date.today().isoformat()}</p>')
-    body.append('<input class="search" id="q" type="search" placeholder="질문 검색 (예: 일시적 2주택, 상생임대)" aria-label="검색" />')
+    body.append('<input class="search" id="q" type="search" autocomplete="off" placeholder="질문 검색 (예: 일시적 2주택, 상생임대)" aria-label="검색" />')
     body.append('<div class="chips" id="chips"><button class="chip on" data-s="">전체</button>' + "".join(f'<button class="chip" data-s="{esc(s)}">{esc(s)}</button>' for s in semoks) + "</div>")
+    body.append('<p class="muted" id="count" aria-live="polite" tabindex="-1"></p>')
     body.append('<ul class="list" id="list">')
     for i in sorted(items, key=lambda x: (-(x.get("n_asked") or 0), x["id"])):
         body.append(f'<li data-s="{esc(semok(i))}" data-t="{esc((i.get("title") or "") + " " + (i.get("question") or "") + " " + " ".join(i.get("tags") or []))}">'
                     f'<a href="/faq/{slug(i)}.html">{esc(i.get("title"))}</a><div class="muted">{esc(semok(i))} · {esc(i.get("topic") or "")}</div></li>')
     body.append("</ul>")
+    body.append('<p id="empty" hidden>찾는 질문이 없습니다. 다른 말로 검색하거나 세목을 \'전체\'로 바꿔 보세요.</p>')
+    body.append('<nav class="pager" id="pager" aria-label="목록 페이지" hidden></nav>')
+    body.append(INDEX_STYLE)
     body.append(f'<div class="note"><p>{DISCLAIMER}</p></div>')
-    body.append("""<script>
-(() => { const q=document.getElementById('q'), chips=document.getElementById('chips'), items=[...document.querySelectorAll('#list li')]; let s='';
-  const norm=t=>(t||'').toLowerCase().replace(/\\s+/g,'');
-  const apply=()=>{ const k=norm(q.value); items.forEach(li=>{ li.style.display=((!s||li.dataset.s===s)&&(!k||norm(li.dataset.t).includes(k)))?'':'none'; }); };
-  q.addEventListener('input',apply); chips.addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; s=b.dataset.s; chips.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===b)); apply(); });
-})();
-</script>""")
+    body.append(INDEX_SCRIPT)
     body.append(FOOT)
     return "\n".join(body)
 
