@@ -1,4 +1,4 @@
-import {PAGE_SIZE,readState,stateURL,matches,filterInstitutions,pageNumbers,workbookSheets} from './model.mjs';
+import {PAGE_SIZE,readState,stateURL,matches,filterInstitutions,pageNumbers,workbookSheets} from './model.mjs?v=20261108-auto2';
 import {workbookBytes} from './xlsx.mjs';
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -38,7 +38,7 @@ function navigate(next, {replace=false,scroll=false}={}) {
 function renderList() {
   document.title=title;
   const count=filtered.length;
-  $('result-count').textContent=`${count.toLocaleString('ko-KR')}곳 / 전체 766곳 · ${state.year}년 이력`;
+  $('result-count').textContent=`${count.toLocaleString('ko-KR')}곳 / 전체 ${data.institutions.length.toLocaleString('ko-KR')}곳 · ${state.year}년 이력`;
   $('download').disabled=!count;
   const rows=filtered.slice((state.page-1)*PAGE_SIZE,state.page*PAGE_SIZE);
   $('results').innerHTML=count ? `<table class="result-table"><thead><tr><th scope="col">기관</th><th scope="col">${state.year}년 감사인</th><th scope="col">최근 확인 계약 · 금액</th></tr></thead><tbody>${rows.map(o=>{
@@ -55,8 +55,8 @@ function renderList() {
 }
 function facts(rows) {return '<dl class="facts">'+rows.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v === null || v === undefined || v === ''?'미확인':v)}</dd></div>`).join('')+'</dl>';}
 function contractCard(c, label) {
-  return `<article class="contract"><p class="eyebrow">${esc(label)} · ${esc(c.source)}</p><h3>${esc(c.title)}</h3>${c.joint?'<p class="notice">공동계약 전체 금액입니다. 이 기관의 보수로 배분할 수 없습니다.</p>':''}${facts([
-    ['계약상대자',c.party],['대상연도',years(c)],['대상연도 근거',c.yearBasis],['계약체결일',c.signed],
+  return `<article class="contract"><p class="eyebrow">${esc(label)} · ${esc(c.source)}</p><h3>${esc(c.title)}</h3>${c.joint?'<p class="notice">공동계약 전체 금액입니다. 이 기관의 보수로 배분할 수 없습니다.</p>':''}${c.carried?'<p class="notice">'+esc(c.reviewNote)+' · 확인 '+esc(c.checkedAt)+'</p>':''}${facts([
+    ['자료 확인일',c.checkedAt || data.contractAsOf],['계약상대자',c.party],['대상연도',years(c)],['대상연도 근거',c.yearBasis],['계약체결일',c.signed],
     [c.joint?'공동계약 금차액':'금차 계약금액',money(c.installment)],[c.joint?'공동계약 총액':'계약 총액',money(c.total)],
     ['원문 명시 연간액 · 적용범위는 아래 설명',money(c.annual)],['공개 지급액 · 계약금액과 별개',money(c.paid)],['부가세',c.vat],['세무조정',c.tax],
     ['금차 완료일',c.installmentEnd],['전체 계약완료일',c.end]
@@ -68,9 +68,9 @@ function renderDetail() {
   if(!o){document.title='기관을 찾을 수 없습니다 | 재무해결사';$('detail-view').innerHTML=back+'<h1>기관을 찾을 수 없습니다</h1><p>현재 공개자료에 없는 기관 코드입니다. 검색 결과에서 기관을 다시 선택해 주세요.</p>';return;}
   document.title=o.name+' 감사현황 | 재무해결사';
   const current=data.contracts[o.currentContract],latest=data.contracts[o.latestContract];
-  $('detail-view').innerHTML=back+`<div class="detail-heading"><p class="eyebrow">${esc(o.group)} · ${esc(o.type)} · ${esc(o.region || '지역 미수록')}</p><h1>${esc(o.name)}</h1>${o.ministry?'<p>주무부처 '+esc(o.ministry)+'</p>':''}<p class="hint">자료 기준일 ${data.asOf} · 기관코드 ${esc(o.id)}</p><p>${link(o.disclosure,'기관 감사 공시')}</p></div>
-    <section class="section"><h2>5년 감사이력</h2><p class="notice">${o.consecutive?`2025년 기준 ${o.consecutive}개 회계연도 연속 확인 · ${esc(o.consecutiveRange)}`:'2025년 감사인 미확인으로 연속기간을 산정하지 않았습니다.'}</p><ol class="timeline">${o.history.map(h=>`<li><span class="year">${h.year}</span><div><p>${esc(h.auditor || '미확인')}</p><span class="quality">${esc(h.status)}</span></div><div class="sources">${link(h.disclosure,'공시')}${h.sources.filter(s=>s.url!==h.disclosure).map((s,i)=>link(s.url,`보고서${h.sources.length>1?' '+(i+1):''}${s.page?' · PDF '+s.page+'쪽':''}`)).join('')}</div></li>`).join('')}</ol></section>
-    <section class="section"><h2>공개 계약정보</h2><p class="hint">수행완료 이력과 별개입니다. 최근 확인 계약과 2026 대상 계약을 수록하며, 모든 계약의 목록은 아닙니다.</p>${current?contractCard(current,current.id===latest?.id?'2026 대상 계약 · 최근 확인 계약':'2026 대상 계약'):`<p class="notice">2026 회계·사업연도 대상 계약: ${esc(o.currentStatus)}</p>`}${latest && latest.id!==current?.id?contractCard(latest,'최근 확인 계약'):''}${!latest?'<p>최근 확인 계약은 공개자료에서 미확인입니다.</p>':''}</section>`;
+  $('detail-view').innerHTML=back+`<div class="detail-heading"><p class="eyebrow">${esc(o.group)} · ${esc(o.type)} · ${esc(o.region || '지역 미수록')}</p><h1>${esc(o.name)}</h1>${o.ministry?'<p>주무부처 '+esc(o.ministry)+'</p>':''}<p class="hint">공시 점검 ${esc(data.reportAsOf)} · 계약 점검 ${esc(data.contractAsOf)} · 기관코드 ${esc(o.id)}</p><p>${link(o.disclosure,'기관 감사 공시')}</p></div>
+    <section class="section"><h2>5년 감사이력</h2><p class="notice">${o.consecutive?`${data.years[0]}년 기준 ${o.consecutive}개 회계연도 연속 확인 · ${esc(o.consecutiveRange)}`:`${data.years[0]}년 감사인 미확인으로 연속기간을 산정하지 않았습니다.`}</p><ol class="timeline">${o.history.map(h=>`<li><span class="year">${h.year}</span><div><p>${esc(h.auditor || '미확인')}</p><span class="quality">${esc(h.status)}</span><span class="sub">확인 ${esc(h.checkedAt)}${h.carried?' · 이전 자료 유지':''}${h.reviewNote?' · '+esc(h.reviewNote):''}</span></div><div class="sources">${link(h.disclosure,'공시')}${h.sources.filter(s=>s.url!==h.disclosure).map((s,i)=>link(s.url,`보고서${h.sources.length>1?' '+(i+1):''}${s.page?' · PDF '+s.page+'쪽':''}`)).join('')}</div></li>`).join('')}</ol></section>
+    <section class="section"><h2>공개 계약정보</h2><p class="hint">수행완료 이력과 별개입니다. 최근 확인 계약과 ${data.contractYear} 대상 계약을 수록하며, 모든 계약의 목록은 아닙니다.</p>${current?contractCard(current,current.id===latest?.id?`${data.contractYear} 대상 계약 · 최근 확인 계약`:`${data.contractYear} 대상 계약`):`<p class="notice">${data.contractYear} 회계·사업연도 대상 계약: ${esc(o.currentStatus)}</p>`}${latest && latest.id!==current?.id?contractCard(latest,'최근 확인 계약'):''}${!latest?'<p>최근 확인 계약은 공개자료에서 미확인입니다.</p>':''}</section>`;
 }
 function render() {
   state=readState(location.search,data);
@@ -87,7 +87,7 @@ function submit() {
 }
 $('search-form').addEventListener('submit',e=>{e.preventDefault();if(data)submit();});
 for(const key of ['group','type','region','year'])$(key).addEventListener('change',submit);
-$('reset').addEventListener('click',()=>navigate({q:'',group:'',type:'',region:'',year:2025,page:1,id:''}));
+$('reset').addEventListener('click',()=>navigate({q:'',group:'',type:'',region:'',year:data.years[0],page:1,id:''}));
 document.addEventListener('click',e=>{
   const a=e.target.closest('a[data-id],a[data-page],a[data-back]');
   if(!a || e.button!==0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey)return;
@@ -112,10 +112,23 @@ async function load() {
   $('load-error').hidden=true;$('results').setAttribute('aria-busy','true');
   $('result-count').textContent='자료를 불러오고 있습니다.';$('retry').disabled=true;
   try {
-    const response=await fetch('data-20261108.json');if(!response.ok)throw new Error('Data unavailable');
-    const value=await response.json();
-    if(value.schema!==1 || value.asOf!=='2026-11-08' || value.institutions.length!==766 || !value.contracts)throw new Error('Snapshot mismatch');
+    const manifest=await fetch('release.json',{cache:'no-cache'});if(!manifest.ok)throw new Error('Release unavailable');
+    const release=await manifest.json();
+    if(release.schema!==2 || !/^data-\d{8}-[a-f0-9]{16}\.json$/.test(release.dataFile) || !/^public-audit-\d{8}-[a-f0-9]{16}\.xlsx$/.test(release.workbookFile))throw new Error('Invalid release');
+    const response=await fetch(release.dataFile);if(!response.ok)throw new Error('Data unavailable');
+    const bytes=await response.arrayBuffer();
+    const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
+    if(hash!==release.dataSha256)throw new Error('Data integrity mismatch');
+    const value=JSON.parse(new TextDecoder().decode(bytes));
+    if(value.schema!==2 || !Array.isArray(value.years) || value.years.length!==5 || value.contractYear!==value.years[0]+1 || value.institutions.length!==value.stats.entities || !value.contracts)throw new Error('Snapshot mismatch');
     data=value;
+    $('year').innerHTML=data.years.map(y=>`<option value="${y}">${y}년</option>`).join('');
+    $('snapshot-date').textContent=`공시 점검 ${data.reportAsOf} · 계약 점검 ${data.contractAsOf}`;
+    const n=v=>Number(v).toLocaleString('ko-KR');
+    $('snapshot-stats').innerHTML=`<div><dt>수록 기관</dt><dd>${n(data.stats.entities)}<small>곳 · 중앙 ${n(data.stats.central)} / 지방 ${n(data.stats.local)}</small></dd></div><div><dt>${data.years[0]} 감사인 수록</dt><dd>${n(data.stats.entities_with_latest_auditor)}<small>곳 / ${n(data.stats.entities)}곳</small></dd></div><div><dt>최근 계약금액 수록</dt><dd>${n(data.stats.entities_with_contract_amount)}<small>곳 / ${n(data.stats.entities)}곳</small></dd></div>`;
+    $('search-help').textContent=`감사인은 ${data.years[data.years.length-1]}~${data.years[0]} 이력과 수록 계약상대자에서 찾습니다. 선택한 연도는 목록의 감사이력에만 적용됩니다.`;
+    $('download-all').href=release.workbookFile;
+    $('download-date').textContent=`공시 ${data.reportAsOf} · 계약 ${data.contractAsOf} · 기관·5년 이력·계약근거·읽는법`;
     for(const key of ['group','type','region']) {
       const values=[...new Set(data.institutions.map(o=>key==='region'?o.region||'미수록':o[key]))].sort((a,b)=>a.localeCompare(b,'ko'));
       $(key).innerHTML='<option value="">전체</option>'+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
