@@ -52,7 +52,7 @@
     if (mainSite && new URL(a.href, location.href).hostname === host && p !== '/' && path.startsWith(p)) a.classList.add('active');
   });
   // 도구 하위 페이지와 도구 서브도메인(aptfee·gamsain·sangkwon·econ·jobs·jiwon)에서는 '도구'를 표시
-  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit)\//.test(path))) btn.classList.add('active');
+  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|hanja)\//.test(path))) btn.classList.add('active');
   header.classList.add('stuck');
   fit(); if (onHome) spy();
 })();

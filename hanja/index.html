@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>논어 쓰기 | 재무해결사</title>
+  <meta name="description" content="논어 학이편 1장을 한 구절씩. 글자를 누르면 필순이 움직이고, 손가락이나 마우스로 직접 써 보면 틀린 획을 알려 줍니다. 인쇄용 연습장 PDF도 내려받을 수 있습니다." />
+  <meta name="theme-color" content="#1c3b2e" />
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="canonical" href="https://finance-fixer.net/hanja/" />
+  <meta property="og:title" content="논어 쓰기" />
+  <meta property="og:description" content="논어 구절을 필순 보며 따라 쓰기. 틀린 획을 알려 줍니다." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta property="og:url" content="https://finance-fixer.net/hanja/" />
+  <meta property="og:image" content="https://finance-fixer.net/og-image.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f4f1ea; --paper-deep: #ece7dc; --ink: #1a1a17; --ink-soft: #4a4940; --ink-faint: #68645a;
+      --green: #1c3b2e; --brass: #a8843f; --line: #d8d2c4; --warm: #9a3b26;
+      --font-display: "Gowun Batang", "Apple SD Gothic Neo", serif;
+      --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+      --font-hanja: "AppleMyungjo", "Noto Serif CJK KR", "Source Han Serif K", "Batang", "Songti TC", serif;
+      --wide: 48rem; --gutter: clamp(1rem, 5vw, 3rem);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { font-family: var(--font-sans); font-weight: 300; font-size: 1rem; line-height: 1.7; color: var(--ink); background: var(--paper);
+      -webkit-font-smoothing: antialiased; word-break: keep-all; overflow-wrap: anywhere; }
+    a { color: var(--green); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .2s; }
+    a:hover { border-bottom-color: var(--brass); }
+    a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+    .grain { position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: .04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.35; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.375rem; line-height: 1.4; color: var(--green); margin: 3rem 0 1rem; }
+    .lede { margin-top: 1rem; max-width: 36rem; color: var(--ink-soft); }
+    .muted { color: var(--ink-faint); font-size: .875rem; }
+    [lang="zh-Hant"] { font-family: var(--font-hanja); }
+
+    /* 연습 칸 */
+    #pad { margin-top: 2rem; padding: 1.25rem; background: #fbf9f4; border: 1px solid var(--line); border-radius: 6px; scroll-margin-top: 7rem; }
+    .tabs, .chips, .btns { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .tabs button, .btns button { font: inherit; font-size: .9375rem; padding: .45rem .9rem; cursor: pointer; background: transparent; color: var(--ink-soft);
+      border: 1px solid var(--line); border-radius: 4px; }
+    .tabs button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--paper); }
+    .chips { margin-top: .9rem; }
+    .chip { font-family: var(--font-hanja); font-size: 1.5rem; line-height: 1; width: 2.75rem; height: 2.75rem; cursor: pointer;
+      background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; }
+    .chip[aria-pressed="true"] { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); background: #fff; }
+    .stage { display: grid; grid-template-columns: auto 1fr; gap: 1.25rem 1.5rem; margin-top: 1.1rem; align-items: start; }
+    #board { position: relative; background: #fff; border: 1px solid #8f8a7c; line-height: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg stroke='%23cfc8b8' stroke-width='.4' stroke-dasharray='1.5 1.5' vector-effect='non-scaling-stroke'%3E%3Cpath d='M50 0V100M0 50H100'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: 100% 100%; }
+    #board.quiz { touch-action: none; }
+    .cur-ch { font-family: var(--font-hanja); font-size: 2.5rem; line-height: 1.1; }
+    .cur-hun { font-family: var(--font-display); font-size: 1.125rem; color: var(--ink-soft); margin-top: .25rem; }
+    .cur-note { margin-top: .4rem; font-size: .8125rem; color: var(--warm); }
+    .btns { margin-top: 1rem; }
+    .btns button.main { background: var(--green); border-color: var(--green); color: var(--paper); }
+    .btns label { display: inline-flex; align-items: center; gap: .35rem; font-size: .875rem; color: var(--ink-soft); padding: .45rem .2rem; cursor: pointer; }
+    .status { margin-top: .9rem; min-height: 3.2em; font-size: .9375rem; color: var(--green); }
+    .strip { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem; margin-top: 1.1rem; }
+    .strip li { position: relative; width: 2.6rem; height: 2.6rem; background: #fff; border: 1px solid #e3ddcf; }
+    .strip li.now { border-color: var(--warm); box-shadow: 0 0 0 1px var(--warm); }
+    .strip li span { position: absolute; left: 2px; top: 0; font-size: .5625rem; color: var(--ink-faint); line-height: 1.3; }
+    .strip svg { width: 100%; height: 100%; display: block; }
+    .result { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+    .result ol { list-style: none; display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+    .result li { display: grid; justify-items: center; width: 2.75rem; padding: .2rem 0; background: #fff; border: 1px solid var(--line); border-radius: 4px; }
+    .result li span { font-size: 1.4rem; line-height: 1.2; }
+    .result li small { font-size: .6875rem; color: var(--ink-faint); }
+    .result li.miss { border-color: var(--warm); }
+    .result li.miss small { color: var(--warm); }
+    #pad-fail { margin-top: 2rem; padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-soft); }
+
+    /* 본문(정적) */
+    .psg { padding: 1.25rem 0; border-bottom: 1px solid var(--line); }
+    .psg .num { font-size: .8125rem; color: var(--ink-faint); }
+    .psg .text { font-family: var(--font-hanja); font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.5; margin-top: .2rem; }
+    .psg .text button { font: inherit; background: none; border: 0; border-bottom: 1px dotted transparent; color: inherit; cursor: pointer; padding: 0 .02em; }
+    .psg .text button:hover { border-bottom-color: var(--brass); }
+    .psg .text .sp { display: inline-block; width: .6em; }
+    .psg .um { font-family: var(--font-display); font-size: 1.0625rem; margin-top: .3rem; }
+    .psg .ko { color: var(--ink-soft); font-size: .9375rem; }
+    .psg .run { margin-top: .5rem; font: inherit; font-size: .8125rem; color: var(--green); background: none; border: 1px solid var(--line); border-radius: 4px; padding: .3rem .7rem; cursor: pointer; }
+    .gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .4rem 1rem; }
+    .gloss div { display: flex; align-items: baseline; gap: .5rem; padding: .25rem 0; border-bottom: 1px solid #e6e0d3; }
+    .gloss b { font-family: var(--font-hanja); font-weight: 400; font-size: 1.5rem; }
+    .gloss span { font-size: .8125rem; color: var(--ink-soft); }
+    .reading li { margin: .2rem 0 .2rem 1.1rem; color: var(--ink-soft); font-size: .9375rem; }
+    .pdfs { list-style: none; display: grid; gap: .5rem; }
+    .pdfs li { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .55rem 0; border-bottom: 1px solid var(--line); }
+    .pdfs small { color: var(--ink-faint); }
+    .note { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: .875rem; max-width: 40rem; }
+    .note p + p { margin-top: .6rem; }
+    .foot { margin-top: 3rem; padding: 1.5rem 0 3rem; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .8125rem; color: var(--ink-faint); }
+    .foot a { color: inherit; }
+    @media (max-width: 640px) {
+      #pad { padding: 1rem .8rem; }
+      .stage { grid-template-columns: 1fr; justify-items: center; }
+      .stage .info { justify-self: stretch; }
+    }
+  </style>
+  <link rel="stylesheet" href="/nav.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="top">
+    <a href="/" class="mark">재무해결사</a>
+    <nav aria-label="주요 메뉴">
+      <a href="/#services">하는 일</a>
+      <a href="/#method">일하는 방식</a>
+      <a href="/#people">사람</a>
+      <div class="nav-drop">
+        <a href="/#tools" class="drop-btn" aria-haspopup="true" aria-expanded="false" aria-controls="tools-menu">도구</a>
+        <div class="drop" id="tools-menu">
+          <div class="drop-inner">
+            <a href="https://aptfee.finance-fixer.net/"><b>아파트</b><span>감사보수·관리비를 동급 단지와 비교</span></a>
+            <a href="https://gamsain.finance-fixer.net/"><b>감사인</b><span>비상장 외부감사를 누가 몇 곳 맡는지</span></a>
+            <a href="/public-audit/"><b>공공기관 감사</b><span>공공기관·지방공기업의 감사인·계약금액</span></a>
+            <a href="https://sangkwon.finance-fixer.net/"><b>상권</b><span>서울 상권의 매출·점포·임대료</span></a>
+            <a href="https://bench.finance-fixer.net/"><b>업종 비교표</b><span>회사 재무비율을 같은 업종·규모와 비교</span></a>
+            <a href="https://econ.finance-fixer.net/"><b>경제 날씨</b><span>생산·소비·수출·일자리, 지금 경기를 날씨로</span></a>
+            <a href="/oegam/"><b>외감 판정</b><span>올해 외부감사 대상인지 계산</span></a>
+            <a href="/rates/"><b>경비율</b><span>업종별 단순·기준경비율 조회</span></a>
+            <a href="https://jobs.finance-fixer.net/"><b>채용·위원</b><span>공공기관 채용과 위원 공개모집</span></a>
+            <a href="https://jiwon.finance-fixer.net/"><b>지원사업</b><span>정부·지자체 지원사업 공고 모아보기</span></a>
+            <a href="/related-party/"><b>특수관계 검토</b><span>정산에서 특수관계 거래를 보는 방법</span></a>
+            <a href="/#db"><b>회계사DB</b><span>법령·해석 9,800여 건의 근거 DB</span></a>
+            <a href="/hanja/"><b>논어 쓰기</b><span>논어 구절을 필순 보며 따라 쓰기</span></a>
+          </div>
+        </div>
+      </div>
+      <a href="/faq/">세금 FAQ</a>
+      <a href="/#contact">문의</a>
+    </nav>
+  </header>
+  <div class="wrap">
+    <main>
+      <section style="padding: 2.5rem 0 0">
+        <h1>논어, 한 구절씩<br />따라 쓰기.</h1>
+        <p class="lede">학이편 1장부터. 글자를 누르면 필순이 움직이고, 손가락이나 마우스로 직접 써 보면 틀린 획을 알려 줍니다. 쓴 글씨와 결과는 화면에만 있고, 로그인도 기록 저장도 없습니다.</p>
+      </section>
+
+      <div id="pad" hidden aria-label="쓰기 연습">
+        <div class="tabs" role="group" aria-label="구절 고르기"></div>
+        <div class="chips" role="group" aria-label="글자 고르기"></div>
+        <div class="stage">
+          <div id="board" aria-label="쓰기 칸"></div>
+          <div class="info">
+            <p class="cur-ch" lang="zh-Hant"></p>
+            <p class="cur-hun"></p>
+            <p class="cur-note" hidden></p>
+            <div class="btns">
+              <button type="button" id="b-play">필순 보기</button>
+              <button type="button" id="b-quiz" class="main">직접 쓰기</button>
+              <label><input type="checkbox" id="b-outline" checked /> 연한 글자 보이기</label>
+            </div>
+            <div class="btns">
+              <button type="button" id="b-run">구절 이어 쓰기</button>
+              <button type="button" id="b-stop" hidden>그만 쓰기</button>
+            </div>
+            <p class="status" aria-live="polite"></p>
+          </div>
+        </div>
+        <ol class="strip"></ol>
+        <div class="result" hidden aria-live="polite"></div>
+      </div>
+      <p id="pad-fail" hidden>필순 그림을 불러오지 못했습니다. 원문·독음·풀이와 인쇄본은 아래에 그대로 있습니다.</p>
+
+<!-- HANJA:BEGIN (make.py가 만든다 — 손으로 고치지 말 것) -->
+<div id="hanja-src" data-src="hanja-data.json?v=3aab948f31" hidden></div>
+<section aria-label="원문">
+<h2>원문 · 독음 · 풀이</h2>
+<article class="psg" id="p1">
+<p class="num">論語 學而篇 1장 · 1구절</p>
+<p class="text" lang="zh-Hant"><button type="button" data-ch="子">子</button><button type="button" data-ch="曰">曰</button><span class="sp"></span><button type="button" data-ch="學">學</button><button type="button" data-ch="而">而</button><button type="button" data-ch="時">時</button><button type="button" data-ch="習">習</button><button type="button" data-ch="之">之</button><span class="sp"></span><button type="button" data-ch="不">不</button><button type="button" data-ch="亦">亦</button><button type="button" data-ch="說">說</button><button type="button" data-ch="乎">乎</button></p>
+<p class="um">자왈 학이시습지 불역열호</p>
+<p class="ko">공자께서 말씀하셨다. 배우고 때때로 익히면 또한 기쁘지 아니한가</p>
+<button type="button" class="run" data-run="1">이 구절 이어 쓰기</button>
+</article>
+<article class="psg" id="p2">
+<p class="num">論語 學而篇 1장 · 2구절</p>
+<p class="text" lang="zh-Hant"><button type="button" data-ch="有">有</button><button type="button" data-ch="朋">朋</button><button type="button" data-ch="自">自</button><button type="button" data-ch="遠">遠</button><button type="button" data-ch="方">方</button><button type="button" data-ch="來">來</button><span class="sp"></span><button type="button" data-ch="不">不</button><button type="button" data-ch="亦">亦</button><button type="button" data-ch="樂">樂</button><button type="button" data-ch="乎">乎</button></p>
+<p class="um">유붕자원방래 불역락호</p>
+<p class="ko">벗이 먼 곳에서 찾아오면 또한 즐겁지 아니한가</p>
+<button type="button" class="run" data-run="2">이 구절 이어 쓰기</button>
+</article>
+<article class="psg" id="p3">
+<p class="num">論語 學而篇 1장 · 3구절</p>
+<p class="text" lang="zh-Hant"><button type="button" data-ch="人">人</button><button type="button" data-ch="不">不</button><button type="button" data-ch="知">知</button><button type="button" data-ch="而">而</button><button type="button" data-ch="不">不</button><button type="button" data-ch="慍">慍</button><span class="sp"></span><button type="button" data-ch="不">不</button><button type="button" data-ch="亦">亦</button><button type="button" data-ch="君">君</button><button type="button" data-ch="子">子</button><button type="button" data-ch="乎">乎</button></p>
+<p class="um">인부지이불온 불역군자호</p>
+<p class="ko">남이 알아주지 않아도 성내지 않으면 또한 군자답지 아니한가</p>
+<button type="button" class="run" data-run="3">이 구절 이어 쓰기</button>
+</article>
+</section>
+<section aria-label="글자">
+<h2>글자 22자 — 훈음·획수</h2>
+<div class="gloss">
+<div><b lang="zh-Hant">子</b><span>아들 자 · 3획</span></div>
+<div><b lang="zh-Hant">曰</b><span>가로 왈 · 4획</span></div>
+<div><b lang="zh-Hant">學</b><span>배울 학 · 16획</span></div>
+<div><b lang="zh-Hant">而</b><span>말이을 이 · 6획</span></div>
+<div><b lang="zh-Hant">時</b><span>때 시 · 10획</span></div>
+<div><b lang="zh-Hant">習</b><span>익힐 습 · 11획</span></div>
+<div><b lang="zh-Hant">之</b><span>갈 지 · 4획</span></div>
+<div><b lang="zh-Hant">不</b><span>아닐 불 · 4획</span></div>
+<div><b lang="zh-Hant">亦</b><span>또 역 · 6획</span></div>
+<div><b lang="zh-Hant">說</b><span>기쁠 열 · 14획</span></div>
+<div><b lang="zh-Hant">乎</b><span>어조사 호 · 5획</span></div>
+<div><b lang="zh-Hant">有</b><span>있을 유 · 6획</span></div>
+<div><b lang="zh-Hant">朋</b><span>벗 붕 · 8획</span></div>
+<div><b lang="zh-Hant">自</b><span>스스로 자 · 6획</span></div>
+<div><b lang="zh-Hant">遠</b><span>멀 원 · 14획</span></div>
+<div><b lang="zh-Hant">方</b><span>모 방 · 4획</span></div>
+<div><b lang="zh-Hant">來</b><span>올 래 · 8획</span></div>
+<div><b lang="zh-Hant">樂</b><span>즐길 락 · 15획</span></div>
+<div><b lang="zh-Hant">人</b><span>사람 인 · 2획</span></div>
+<div><b lang="zh-Hant">知</b><span>알 지 · 8획</span></div>
+<div><b lang="zh-Hant">慍</b><span>성낼 온 · 13획</span></div>
+<div><b lang="zh-Hant">君</b><span>임금 군 · 7획</span></div>
+</div>
+<h2>읽기 주의</h2>
+<ul class="reading">
+<li>說은 여기서 &#x27;기쁠 열&#x27; — 설이 아니라 열로 읽음</li>
+<li>不 다음에 ㄷ·ㅈ이 오면 &#x27;부&#x27; — 不知=부지 (不亦·不慍은 불)</li>
+<li>樂은 &#x27;즐길 락&#x27; — 不亦樂乎는 [불영나코]로 소리 남</li>
+</ul>
+</section>
+<section aria-label="인쇄본">
+<h2>인쇄본 PDF</h2>
+<p class="muted">A4 한 장씩. 연습장=새 글자 칸 + 지금까지 구절 전체 쓰기, 필순=새 글자만 한 획씩.</p>
+<ul class="pdfs">
+<li><a href="pdf/p1-practice.pdf" download>1구절 연습장</a><small lang="zh-Hant">子曰 學而時習之 不亦說乎</small></li>
+<li><a href="pdf/p1-strokes.pdf" download>1구절 필순</a><small lang="zh-Hant">子曰 學而時習之 不亦說乎</small></li>
+<li><a href="pdf/p2-practice.pdf" download>2구절 연습장</a><small lang="zh-Hant">有朋自遠方來 不亦樂乎</small></li>
+<li><a href="pdf/p2-strokes.pdf" download>2구절 필순</a><small lang="zh-Hant">有朋自遠方來 不亦樂乎</small></li>
+<li><a href="pdf/p3-practice.pdf" download>3구절 연습장</a><small lang="zh-Hant">人不知而不慍 不亦君子乎</small></li>
+<li><a href="pdf/p3-strokes.pdf" download>3구절 필순</a><small lang="zh-Hant">人不知而不慍 不亦君子乎</small></li>
+<li><a href="pdf/ch-1-3-summary.pdf" download>1장 정리본</a><small lang="zh-Hant">論語 學而篇 第1章</small></li>
+</ul>
+</section>
+<!-- HANJA:END -->
+
+      <section class="note">
+        <p>필순 그림은 Make Me a Hanzi 획 데이터(<a href="vendor/ARPHICPL.txt">Arphic Public License</a>, hanzi-writer-data 2.0.1)를 그대로 쓰되, 한국 필순이 다르다고 확인한 글자(有: 삐침 먼저)만 순서를 바꿨습니다. 데이터는 중국식 필순 기준이라 그 밖의 글자도 한국 교본과 다를 수 있습니다.</p>
+        <p>획수는 한국 자전 기준입니다. 그림의 획 수와 다른 글자는 글자 옆에 이유를 적었습니다. 쓰기 판정은 <a href="vendor/HANZI-WRITER-LICENSE.txt">Hanzi Writer</a>(MIT)가 획의 순서·방향·위치를 비교합니다.</p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>© 2026 재무해결사</span>
+      <span>원문: 論語 學而篇</span>
+      <span><a href="https://finance-fixer.net/">finance-fixer.net</a></span>
+    </footer>
+  </div>
+
+<script src="/nav.js"></script>
+<script src="vendor/hanzi-writer-3.7.3.min.js"></script>
+<script src="hanja.js?v=202611101245"></script>
+</body>
+</html>
