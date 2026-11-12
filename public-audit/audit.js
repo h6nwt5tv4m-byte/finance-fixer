@@ -26,9 +26,16 @@ function fee(c) {
 function syncForm() {
   for(const key of ['q','group','type','region','year'])$(key).value=state[key];
 }
+// 유입 꼬리표(utm_*)는 주소를 고쳐 쓸 때도 남긴다 — 방문 통계가 읽는다. 화면 상태(readState)는 utm을 보지 않는다.
+function keepUtm(url) {
+  const utm=new URLSearchParams();
+  new URLSearchParams(location.search).forEach((v,k)=>{ if(k.startsWith('utm_'))utm.append(k,v); });
+  const tail=utm.toString();
+  return tail ? url+(url.includes('?')?'&':'?')+tail : url;
+}
 function navigate(next, {replace=false,scroll=false}={}) {
   state={...state,...next};
-  history[replace?'replaceState':'pushState'](null,'',stateURL(state));
+  history[replace?'replaceState':'pushState'](null,'',keepUtm(stateURL(state)));
   render();
   if(scroll) {
     const target=state.id ? $('detail-view').querySelector('h1') : $('result-count');
@@ -76,7 +83,7 @@ function render() {
   state=readState(location.search,data);
   filtered=filterInstitutions(data,state);
   state.page=Math.min(state.page,Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)));
-  if(location.pathname+location.search!==stateURL(state))history.replaceState(null,'',stateURL(state));
+  if(location.pathname+location.search!==keepUtm(stateURL(state)))history.replaceState(null,'',keepUtm(stateURL(state)));
   syncForm();
   $('list-view').hidden=!!state.id;$('detail-view').hidden=!state.id;
   if(state.id)renderDetail();else renderList();

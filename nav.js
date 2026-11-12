@@ -1,3 +1,10 @@
+// 방문 통계: 메뉴 코드와 따로 돈다(둘 중 하나가 실패해도 다른 쪽은 영향 없음). 내용은 /ga.js 한 곳.
+try {
+  const g = document.createElement('script');
+  g.async = true;
+  g.src = 'https://finance-fixer.net/ga.js';
+  document.head.appendChild(g);
+} catch (e) { /* 통계 실패는 메뉴에 영향 없음 */ }
 (() => {
   // 도구 메뉴: '도구'를 누르면 홈의 도구 섹션으로 이동하고, 마우스를 올리면 목록 패널이 열린다.
   // 키보드로 '도구'에 들어오면 패널을 열어 Tab으로 항목을 고를 수 있게 한다.

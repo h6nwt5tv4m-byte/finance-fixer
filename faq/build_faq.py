@@ -198,6 +198,8 @@ INDEX_SCRIPT = """<script>
   const toURL = () => {
     try {
       const u = new URLSearchParams();
+      // 유입 꼬리표(utm_*)는 주소에 그대로 둔다 — 방문 통계가 읽는다
+      new URLSearchParams(location.search).forEach((v, k) => { if (k.startsWith('utm_')) u.append(k, v); });
       if (st.s) u.set('s', st.s);
       if (st.k) u.set('q', st.k);
       if (st.p > 1) u.set('p', String(st.p));
