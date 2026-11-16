@@ -9,6 +9,16 @@ try {
   // 도구 메뉴: '도구'를 누르면 홈의 도구 섹션으로 이동하고, 마우스를 올리면 목록 패널이 열린다.
   // 키보드로 '도구'에 들어오면 패널을 열어 Tab으로 항목을 고를 수 있게 한다.
   const wrap = document.querySelector('.nav-drop');
+  // 예전 정적 메뉴도 새 설명 페이지로 연결한다. 상대주소는 현재 호스트를 유지한다.
+  // JS가 꺼져 있거나 옛 파일이 캐시에 남아도 /#db의 소개 링크로 들어갈 수 있다.
+  try {
+    wrap.querySelectorAll('a[href="/#db"], a[href="https://finance-fixer.net/#db"]').forEach((a) => {
+      const old = a.getAttribute('href');
+      a.setAttribute('href', old === '/#db' ? '/db/' : 'https://finance-fixer.net/db/');
+      const detail = a.querySelector('span');
+      if (detail) detail.textContent = '상담·검토에 쓰는 근거 자료와 활용 방식';
+    });
+  } catch (e) { /* 소개 링크 변환 실패는 기존 메뉴 동작에 영향 없음 */ }
   const btn = wrap.querySelector('.drop-btn');
   const set = (open) => { wrap.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); };
   let t;
@@ -59,7 +69,7 @@ try {
     if (mainSite && new URL(a.href, location.href).hostname === host && p !== '/' && path.startsWith(p)) a.classList.add('active');
   });
   // 도구 하위 페이지와 도구 서브도메인(aptfee·gamsain·sangkwon·econ·jobs·jiwon)에서는 '도구'를 표시
-  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|hanja)\//.test(path))) btn.classList.add('active');
+  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|hanja|db)\//.test(path))) btn.classList.add('active');
   header.classList.add('stuck');
   fit(); if (onHome) spy();
 })();
