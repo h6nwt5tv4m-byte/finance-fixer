@@ -1,0 +1,24 @@
+.search-box { margin-top: 3rem; padding: clamp(1.2rem, 4vw, 2rem); border: 1px solid var(--line); background: #ebe7dc; }
+.search-box h2 { margin-bottom: .75rem; }
+.search-box h2::before { display: none; }
+.search-intro { font-size: .9375rem; margin-bottom: 1.25rem; }
+.search-form label { display: block; font-size: .875rem; margin-bottom: .5rem; }
+.search-row { display: flex; gap: .5rem; }
+.search-row input { min-width: 0; flex: 1; width: 100%; border: 1px solid #9f9b8c; border-radius: 0; padding: .8rem; background: var(--paper); color: var(--ink); font: inherit; font-size: 1rem; }
+.search-row button { border: 1px solid var(--green); background: var(--green); color: #fff; padding: .75rem 1.2rem; font: inherit; font-weight: 500; cursor: pointer; }
+.search-box button:focus-visible, .search-box input:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.search-box button:disabled { opacity: .55; cursor: wait; }
+.search-examples { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+.search-examples button { border: 1px solid var(--line); background: var(--paper); color: var(--green); padding: .4rem .65rem; font: inherit; font-size: .8125rem; text-align: left; cursor: pointer; }
+.search-guidance { font-size: .8125rem; color: var(--ink-faint); }
+.search-guidance a { text-decoration: underline; text-underline-offset: 3px; }
+#search-status { margin-top: 1.2rem; font-size: .9375rem; }
+#search-status:empty { margin: 0; }
+.search-result { padding: 1.5rem 0; border-bottom: 1px solid var(--line); }
+.search-result h3 { margin: .3rem 0 .8rem; }
+.result-meta { font-size: .8125rem; color: var(--ink-faint); }
+.result-excerpt { white-space: pre-wrap; font-size: .9375rem; line-height: 1.8; word-break: break-word; }
+.result-source { display: flex; flex-wrap: wrap; gap: .5rem 1rem; justify-content: space-between; margin-top: 1rem; font-size: .8125rem; }
+.result-source a { text-decoration: underline; text-underline-offset: 3px; }
+.search-followup { margin-top: 1.2rem; font-size: .9375rem; }
+@media (max-width: 380px) { .search-row { flex-direction: column; } .search-row button { width: 100%; } }
