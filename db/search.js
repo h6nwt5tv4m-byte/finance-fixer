@@ -38,7 +38,14 @@
       const card = node('article', 'search-result');
       card.append(node('p', 'result-meta', [row.category, row.date].filter(Boolean).join(' · ')));
       card.append(node('h3', '', row.title));
-      card.append(node('p', 'result-excerpt', row.excerpt + (row.truncated ? '…' : '')));
+      const preview = row.excerpt.length > 350 ? row.excerpt.slice(0, 350) + '…' : row.excerpt + (row.truncated ? '…' : '');
+      card.append(node('p', 'result-excerpt', preview));
+      if (row.excerpt.length > 350) {
+        const details = node('details', 'result-more');
+        details.append(node('summary', '', '검색 문단 더 보기'));
+        details.append(node('p', 'result-excerpt', row.excerpt + (row.truncated ? '…' : '')));
+        card.append(details);
+      }
       const footer = node('div', 'result-source');
       footer.append(node('span', '', row.source));
       const url = sourceUrl(row.url);

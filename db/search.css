@@ -18,6 +18,10 @@
 .search-result h3 { margin: .3rem 0 .8rem; }
 .result-meta { font-size: .8125rem; color: var(--ink-faint); }
 .result-excerpt { white-space: pre-wrap; font-size: .9375rem; line-height: 1.8; word-break: break-word; }
+.result-more { margin-top: .6rem; }
+.result-more summary { color: var(--green); font-size: .8125rem; cursor: pointer; }
+.result-more summary:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.result-more[open] summary { margin-bottom: .6rem; }
 .result-source { display: flex; flex-wrap: wrap; gap: .5rem 1rem; justify-content: space-between; margin-top: 1rem; font-size: .8125rem; }
 .result-source a { text-decoration: underline; text-underline-offset: 3px; }
 .search-followup { margin-top: 1.2rem; font-size: .9375rem; }
