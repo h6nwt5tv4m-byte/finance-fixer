@@ -123,18 +123,20 @@ a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-b
 .contact dd { line-height: 1.8; }
 
 /* 버튼 같은 크기(넓은 쪽에 맞춤), 좁은 화면은 세로로 쌓되 폭 동일 */
-.channels { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: .75rem; margin-top: 2rem; }
-@media (max-width: 739px) { .channels { grid-auto-flow: row; } }
-/* 카카오톡·유튜브·블로그 버튼 — 같은 모양, 아이콘 색만 각 서비스 색 */
-.kakao, .yt, .blog {
+/* 11-20 링크드인 추가로 4개 — 문의 칸이 좁아 한 줄이면 글자가 깨지므로 2×2, 좁은 화면은 1열 */
+.channels { display: inline-grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; margin-top: 2rem; }
+@media (max-width: 739px) { .channels { grid-template-columns: 1fr; } }
+/* 카카오톡·유튜브·블로그·링크드인 버튼 — 같은 모양, 아이콘 색만 각 서비스 색 */
+.kakao, .yt, .blog, .li {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
   padding: .7rem 1.1rem; border: 1px solid var(--line); border-radius: 4px;
-  color: var(--ink); font-size: .9375rem; transition: border-color .2s;
+  color: var(--ink); font-size: .9375rem; transition: border-color .2s; white-space: nowrap;
 }
 .kakao svg.kakao-icon { height: 22px; width: 22px; flex: none; }
 .yt svg.yt-icon { height: 22px; width: 31px; flex: none; }
 .blog svg.blog-icon { height: 22px; width: 22px; flex: none; }
-.kakao:hover, .yt:hover, .blog:hover { border-color: var(--brass); }
+.li svg.li-icon { height: 22px; width: 22px; flex: none; }
+.kakao:hover, .yt:hover, .blog:hover, .li:hover { border-color: var(--brass); }
 
 /* 영상(11-01) — 쇼츠 카드. 유튜브 최소 플레이어 폭 200px 때문에 카드 폭 220px 고정,
    다 안 들어가는 폭에서는 칸 안에서만 옆으로 넘긴다(페이지 가로 넘침 없음). */
@@ -222,6 +224,6 @@ body.yt-playing .grain { display: none; }
 #contact h2 { color: #f4f1ea; }
 #contact .block-lede, #contact .contact dt { color: rgba(244, 241, 234, .68); }
 #contact .contact dd, #contact .contact a { color: #f4f1ea; }
-#contact .kakao, #contact .yt, #contact .blog { color: #f4f1ea; border-color: rgba(244, 241, 234, .3); }
-#contact .kakao:hover, #contact .yt:hover, #contact .blog:hover { border-color: var(--brass); }
+#contact .kakao, #contact .yt, #contact .blog, #contact .li { color: #f4f1ea; border-color: rgba(244, 241, 234, .3); }
+#contact .kakao:hover, #contact .yt:hover, #contact .blog:hover, #contact .li:hover { border-color: var(--brass); }
 .foot { margin-top: 0; }
