@@ -1,0 +1,65 @@
+/* Homepage / Analects palette and typography. Layout remains page-specific. */
+:root {
+  --paper: #f4f1ea;
+  --ink: #1a1a17;
+  --ink-soft: #4a4940;
+  --ink-faint: #68645a;
+  --green: #1c3b2e;
+  --brass: #a8843f;
+  --line: #d8d2c4;
+  --paper-deep: #ebe5d8;
+  --font-display: "Gowun Batang", "Apple SD Gothic Neo", serif;
+  --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --measure: 34rem;
+  --gutter: clamp(1.5rem, 6vw, 4rem);
+}
+:root {
+  --soft: var(--ink-soft);
+  --muted: var(--ink-soft);
+  --gold: #866724;
+  --panel: var(--paper);
+  --card: var(--paper);
+}
+/* Fallback for disabled scripts and initial fragment navigation. nav.js measures
+   the actual header and replaces this with its height plus 16px. */
+html { scroll-padding-top: 10rem; }
+body {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+a { color: var(--green); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .2s; }
+a:hover { color: var(--green); border-bottom-color: var(--brass); }
+a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.skip { z-index: 40; }
+main { max-width: 1160px; padding: 30px 24px 50px; }
+.bible-tabs { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-bottom: 1rem; font-size: .875rem; }
+.bible-tabs a[aria-current="page"] { border-bottom-color: var(--brass); }
+.hero { padding: 1.5rem 0 2rem; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(30px,6vw,44px); line-height: 1.35; letter-spacing: normal; color: var(--ink); }
+h2,h3 { font-family: var(--font-display); font-weight: 400; }
+h2 { color: var(--green); }
+.korean-verse { font-family: var(--font-display); font-weight: 400; }
+.eyebrow { color: var(--ink-soft); font-weight: 400; }
+.toolbar,.speech-settings,.preview,details { background: var(--paper-deep); }
+.language-panel,.words article,.english-panel { background: var(--paper); }
+main button,main select,.button { border-color: var(--line); }
+main button:not(.primary):hover:not(:disabled),.button:not(.primary):hover { background: var(--paper-deep); }
+/* Preserve the official NIV renderer's original type and note styling. */
+#niv-content { font-weight: 400; word-break: normal; }
+#niv-content .yv-vlbl { color: #8a6b35; }
+.grain {
+  position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: .04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media(max-width:480px) {
+  html { scroll-padding-top: 16rem; }
+  main { padding: 24px 16px 40px; }
+}
+@media print { .top,.grain,.bible-tabs { display:none; } }

@@ -1,9 +1,11 @@
 // 방문 통계: 메뉴 코드와 따로 돈다(둘 중 하나가 실패해도 다른 쪽은 영향 없음). 내용은 /ga.js 한 곳.
 try {
-  const g = document.createElement('script');
-  g.async = true;
-  g.src = 'https://finance-fixer.net/ga.js';
-  document.head.appendChild(g);
+  if (document.documentElement.dataset.analytics !== 'off') {
+    const g = document.createElement('script');
+    g.async = true;
+    g.src = 'https://finance-fixer.net/ga.js';
+    document.head.appendChild(g);
+  }
 } catch (e) { /* 통계 실패는 메뉴에 영향 없음 */ }
 (() => {
   // 도구 메뉴: '도구'를 누르면 홈의 도구 섹션으로 이동하고, 마우스를 올리면 목록 패널이 열린다.
@@ -83,5 +85,6 @@ try {
   // 도구 하위 페이지와 도구 서브도메인(aptfee·gamsain·sangkwon·econ·jobs·jiwon)에서는 '도구'를 표시
   if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|hanja|db|bible)\//.test(path))) btn.classList.add('active');
   header.classList.add('stuck');
+  if ('ResizeObserver' in window) new ResizeObserver(fit).observe(header);
   fit(); if (onHome) spy();
 })();
