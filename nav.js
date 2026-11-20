@@ -9,6 +9,18 @@ try {
   // 도구 메뉴: '도구'를 누르면 홈의 도구 섹션으로 이동하고, 마우스를 올리면 목록 패널이 열린다.
   // 키보드로 '도구'에 들어오면 패널을 열어 Tab으로 항목을 고를 수 있게 한다.
   const wrap = document.querySelector('.nav-drop');
+  // 공통 메뉴를 쓰는 기존 페이지·서브도메인에도 학습 공간을 연결한다.
+  // 자바스크립트가 꺼진 경우 '도구'가 가리키는 홈 목록에서 진입할 수 있다.
+  const panel = wrap && wrap.querySelector('.drop');
+  if (panel && !panel.querySelector('a[href="/bible/"], a[href="https://finance-fixer.net/bible/"]')) {
+    const link = document.createElement('a');
+    link.href = 'https://finance-fixer.net/bible/';
+    const label = document.createElement('b'); label.textContent = '성경으로 영어 공부';
+    const detail = document.createElement('span'); detail.textContent = 'NIV와 개역한글을 함께 읽고 배우기';
+    link.append(label, detail);
+    const hanja = panel.querySelector('a[href="/hanja/"], a[href="https://finance-fixer.net/hanja/"]');
+    if (hanja) hanja.after(link); else panel.append(link);
+  }
   // 예전 정적 메뉴도 새 설명 페이지로 연결한다. 상대주소는 현재 호스트를 유지한다.
   // JS가 꺼져 있거나 옛 파일이 캐시에 남아도 /#db의 소개 링크로 들어갈 수 있다.
   try {
@@ -69,7 +81,7 @@ try {
     if (mainSite && new URL(a.href, location.href).hostname === host && p !== '/' && path.startsWith(p)) a.classList.add('active');
   });
   // 도구 하위 페이지와 도구 서브도메인(aptfee·gamsain·sangkwon·econ·jobs·jiwon)에서는 '도구'를 표시
-  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|hanja|db)\//.test(path))) btn.classList.add('active');
+  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|hanja|db|bible)\//.test(path))) btn.classList.add('active');
   header.classList.add('stuck');
   fit(); if (onHome) spy();
 })();

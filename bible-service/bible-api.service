@@ -1,0 +1,25 @@
+[Unit]
+Description=Read-only Bible chapter gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=copay
+WorkingDirectory=/home/copay/scripts/bible-reader
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=YVP_KEY_FILE=/home/copay/.config/finance-fixer/youversion-app-key
+Environment=NIV_ENABLED=1
+ExecStart=/usr/bin/python3 /home/copay/scripts/bible-reader/bible-service/server.py --port 8760
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=256M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
