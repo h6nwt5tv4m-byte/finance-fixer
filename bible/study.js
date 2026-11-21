@@ -44,7 +44,17 @@
   sayButtons.forEach((button) => { button.hidden = false; button.disabled = true; });
   function initSpeech() {
     const synth = window.speechSynthesis;
-    if (!synth || typeof window.SpeechSynthesisUtterance !== 'function') throw new Error('unsupported');
+    const recordings = new Map([
+      ["messenger", {file: "messenger", starts: [0.0]}],
+      ["The messenger arrived before lunch.", {file: "messenger-line", starts: [0.0, 0.14, 0.48, 0.96, 1.28]}],
+      ["prepare", {file: "prepare", starts: [0.0]}],
+      ["We prepare for the trip together.", {file: "prepare-line", starts: [0.0, 0.2, 0.44, 0.72, 0.86, 1.08]}],
+      ["wilderness", {file: "wilderness", starts: [0.0]}],
+      ["They explored the wilderness on foot.", {file: "wilderness-line", starts: [0.0, 0.24, 0.6, 0.8, 1.22, 1.58]}],
+      ["confess", {file: "confess", starts: [0.0]}],
+      ["I must confess that I forgot your name.", {file: "confess-line", starts: [0.0, 0.22, 0.38, 0.74, 0.96, 1.06, 1.26, 1.5]}],
+    ]);
+    const recordedVoice = 'chatterbox';
     // Only our original vocabulary examples are eligible; never the Bible text.
     const cues = new Map();
     const prepared = new Map();
@@ -95,6 +105,8 @@
     let startTimer;
     let endTimer;
     let activeUtterance;
+    let activeAudio;
+    let frame;
     const busy = () => state === 'playing' || state === 'waiting';
     function setState(next, message) {
       state = next;
@@ -107,61 +119,114 @@
       clearTimeout(startTimer);
       clearTimeout(endTimer);
       repeatTimer = undefined;
+      cancelAnimationFrame(frame);
+      if (activeAudio) {
+        const audio = activeAudio;
+        activeAudio = null;
+        audio.onplaying = audio.onended = audio.onerror = audio.onpause = null;
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      }
+      const wasSpeaking = Boolean(activeUtterance);
       activeUtterance = null;
       clearCue();
-      try { synth.cancel(); } catch (_) { /* 음성 오류가 본문·복습에 영향을 주지 않도록 한다. */ }
+      try { if (wasSpeaking) synth.cancel(); } catch (_) { /* 음성 오류가 본문·복습에 영향을 주지 않도록 한다. */ }
       if (message) setState(next, message);
     }
-    function unavailable(message) {
-      stop();
+    function refreshVoices() {
+      const select = $('voice');
+      const previous = select.value || recordedVoice;
       voices = [];
-      $('voice').replaceChildren(new Option('영어 음성 사용 불가', ''));
-      sayButtons.forEach((b) => { b.disabled = true; });
-      setState('unavailable', message);
-    }
-    function refreshVoices(settled = false) {
-      const previous = voices[Number($('voice').value)]?.voiceURI;
-      let available;
-      try { available = synth.getVoices().filter((v) => /^en(?:[-_]|$)/i.test(v.lang)); }
-      catch (_) { unavailable('영어 음성 목록을 불러오지 못했습니다. 음성 다시 찾기를 눌러 주세요.'); return; }
-      if (!available.length) {
-        if (busy()) stop();
-        voices = [];
-        $('voice').replaceChildren(new Option(settled ? '영어 음성 없음' : '음성 불러오는 중', ''));
-        sayButtons.forEach((b) => { b.disabled = true; });
-        setState(settled ? 'unavailable' : 'loading', settled ? '이 브라우저에서 영어 음성을 찾지 못했습니다. 음성 다시 찾기를 누르거나 다른 브라우저를 사용해 주세요. Bible Gateway의 NIV 듣기 링크도 이용할 수 있습니다.' : '영어 음성을 불러오고 있습니다.');
-        return;
+      if (typeof window.SpeechSynthesisUtterance === 'function') {
+        try { voices = (synth?.getVoices() || []).filter(v => /^en(?:[-_]|$)/i.test(v.lang)); }
+        catch (_) { /* The lesson recordings also work without system voices. */ }
       }
-      clearTimeout(voiceTimer);
-      voices = available;
-      $('voice').replaceChildren();
-      voices.forEach((v, i) => $('voice').add(new Option(`${v.name} · ${v.lang}`, String(i))));
-      const previousIndex = voices.findIndex((v) => v.voiceURI === previous);
-      const defaultIndex = voices.findIndex((v) => v.default);
-      $('voice').value = String(previousIndex >= 0 ? previousIndex : defaultIndex >= 0 ? defaultIndex : 0);
-      sayButtons.forEach((b) => { b.disabled = false; });
-      if (state === 'loading' || state === 'unavailable') setState('idle', '단어나 예문의 듣기 버튼을 눌러 보세요.');
+      select.replaceChildren(new Option('Chatterbox · 영어 낭독', recordedVoice));
+      voices.forEach(v => select.add(new Option(`${v.name} · ${v.lang}`, v.voiceURI)));
+      select.value = voices.some(v => v.voiceURI === previous) ? previous : recordedVoice;
+      if (busy() && select.value !== previous) stop('선택한 기기 음성이 바뀌어 재생을 멈췄습니다.');
+      sayButtons.forEach(b => { b.disabled = false; });
+      if (state === 'loading') setState('idle', '단어나 예문의 듣기 버튼을 눌러 보세요.');
     }
     function findVoices() {
-      stop();
+      stop('단어나 예문의 듣기 버튼을 눌러 보세요.');
       clearTimeout(voiceTimer);
-      setState('loading', '영어 음성을 불러오고 있습니다.');
       refreshVoices();
-      if (state === 'loading') voiceTimer = setTimeout(() => refreshVoices(true), 2500);
+      if (!voices.length && synth) voiceTimer = setTimeout(refreshVoices, 2500);
     }
     function speak(button) {
       stop();
       const text = button.dataset.say;
       const cue = cues.get(button);
-      const voice = voices[Number($('voice').value)];
-      if (!voice) { unavailable('선택할 수 있는 영어 음성이 없습니다. 음성 다시 찾기를 눌러 주세요.'); return; }
+      const recorded = $('voice').value === recordedVoice;
+      const clip = recordings.get(text);
+      const voice = voices.find(v => v.voiceURI === $('voice').value);
+      if ((recorded && !clip) || (!recorded && !voice)) {
+        stop('선택한 음성을 준비하지 못했습니다. 다른 영어 음성을 골라 주세요.', 'error');
+        return;
+      }
+      const audio = recorded ? new Audio(`./audio/lesson-1/${clip.file}.m4a?v=20261121`) : null;
+      activeAudio = audio;
       const token = session;
       const count = Number($('repeat').value);
       const rate = Number($('rate').value);
       const gap = Math.max(2500, Math.min(10000, text.split(/\s+/).length * 500 / rate));
+      function finished(n) {
+        clearTimeout(startTimer);
+        clearTimeout(endTimer);
+        cancelAnimationFrame(frame);
+        clearCue();
+        if (n < count) {
+          showCue(cue, 'speech-practice');
+          setState('waiting', '소리 내어 따라 말해 보세요. 잠시 뒤 한 번 더 읽습니다.');
+          repeatTimer = setTimeout(() => play(n + 1), gap);
+        } else {
+          stop('듣기를 마쳤습니다. 이번에는 혼자 읽어 보세요.');
+        }
+      }
+      function playRecording(n) {
+        const current = () => token === session && activeAudio === audio;
+        let index = -1;
+        function paint() {
+          if (!current()) return;
+          const time = audio.currentTime;
+          const next = clip.starts.findIndex((start, i) => start <= time && time < (clip.starts[i + 1] ?? Infinity));
+          if (index !== next) {
+            index = next;
+            cue?.words.forEach(({span}, i) => span.classList.toggle('speech-current-word', i === index));
+          }
+          frame = requestAnimationFrame(paint);
+        }
+        function failed() {
+          if (current()) stop('음원을 재생하지 못했습니다. 다시 듣거나 기기 음성을 선택해 주세요.', 'error');
+        }
+        audio.onplaying = () => {
+          if (!current()) return;
+          clearTimeout(startTimer);
+          clearTimeout(endTimer);
+          endTimer = setTimeout(failed, 30000);
+          showCue(cue, 'speech-reading');
+          index = -1;
+          setState('playing', `${n}/${count}회 재생 중`);
+          cancelAnimationFrame(frame);
+          paint();
+        };
+        audio.onended = () => { if (current()) finished(n); };
+        audio.onpause = () => {
+          if (current() && audio.paused && !audio.ended) stop('읽기가 일시 중단되었습니다. 듣기 버튼을 누르면 다시 시작합니다.');
+        };
+        audio.onerror = failed;
+        audio.playbackRate = rate;
+        if (n > 1) audio.currentTime = 0;
+        setState('playing', `${n}/${count}회 듣기 준비 중`);
+        startTimer = setTimeout(failed, 10000);
+        try { audio.play().catch(failed); } catch (_) { failed(); }
+      }
       function play(n) {
         if (token !== session) return;
         repeatTimer = undefined;
+        if (audio) { playRecording(n); return; }
         const utterance = new SpeechSynthesisUtterance(text);
         activeUtterance = utterance;
         const current = () => token === session && activeUtterance === utterance;
@@ -192,15 +257,8 @@
         };
         utterance.onend = () => {
           if (!current()) return;
-          clearTimeout(startTimer);
-          clearTimeout(endTimer);
           activeUtterance = null;
-          clearCue();
-          if (n < count) {
-            showCue(cue, 'speech-practice');
-            setState('waiting', '소리 내어 따라 말해 보세요. 잠시 뒤 한 번 더 읽습니다.');
-            repeatTimer = setTimeout(() => play(n + 1), gap);
-          } else { setState('idle', '듣기를 마쳤습니다. 이번에는 혼자 읽어 보세요.'); }
+          finished(n);
         };
         utterance.onerror = (event) => {
           if (!current()) return;
@@ -223,8 +281,8 @@
     ['voice', 'rate', 'repeat'].forEach((id) => $(id).addEventListener('change', () => {
       if (busy()) stop('설정을 바꿨습니다. 듣기 버튼을 눌러 다시 시작해 주세요.');
     }));
-    if (typeof synth.addEventListener === 'function') synth.addEventListener('voiceschanged', () => refreshVoices(true));
-    else synth.onvoiceschanged = () => refreshVoices(true);
+    if (typeof synth?.addEventListener === 'function') synth.addEventListener('voiceschanged', () => refreshVoices(true));
+    else if (synth) synth.onvoiceschanged = () => refreshVoices(true);
     findVoices();
     document.addEventListener('visibilitychange', () => { if (document.hidden && busy()) stop('화면을 떠나 읽기를 멈췄습니다.'); });
     window.addEventListener('pagehide', () => {

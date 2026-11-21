@@ -53,7 +53,7 @@ function remember(book, chapter) {
   try { localStorage.setItem(locationKey, JSON.stringify({book:book.id,chapter})); } catch {}
 }
 function links(book, chapter) {
-  $('audio-link').href = `https://www.biblegateway.com/passage/?search=${encodeURIComponent(`${book.english} ${chapter}`)}&version=NIV`;
+  $('audio-link').href = `https://www.biblegateway.com/audio/mclean/niv/${encodeURIComponent(book.osis)}.${chapter}`;
   $('krv-original').href = `https://www.bskorea.or.kr/bible/korbibReadpage.php?version=HAN&book=${book.bsk}&chap=${chapter}&sec=0`;
   $('context-link').href = book.id === 'MRK' ? 'https://bibleproject.com/guides/book-of-mark/' : 'https://bibleproject.com/explore/book-overviews/';
   $('context-link').textContent = book.id === 'MRK' ? 'BibleProject 마가복음 개요 · 영어 ↗' : 'BibleProject 성경 개요 ↗';
@@ -197,8 +197,9 @@ function jumpVerse({scroll=true}={}) {
 }
 async function start() {
   try {
-    books=await getJSON('./books.json');
-    if(!Array.isArray(books)||books.length!==66||new Set(books.map(b=>b.id)).size!==66)throw new Error('books');
+    books=await getJSON('./books.json?v=20261121-audio');
+    if(!Array.isArray(books)||books.length!==66||new Set(books.map(b=>b.id)).size!==66
+      ||books.some(b=>typeof b.osis!=='string'||!/^([1-3])?[A-Za-z]+$/.test(b.osis)))throw new Error('books');
     for(const [value,label]of[['old','구약'],['new','신약']]){
       const group=document.createElement('optgroup');group.label=label;
       for(const book of books.filter(b=>b.testament===value))group.append(option(book.id,book.name));
