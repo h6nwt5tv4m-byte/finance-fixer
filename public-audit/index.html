@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/nav.css">
-  <link rel="stylesheet" href="audit.css?v=20261108">
+  <link rel="stylesheet" href="audit.css?v=20261121-share">
 </head>
 <body>
 <a class="skip" href="#main">본문으로 이동</a>
@@ -54,16 +54,35 @@
 <main id="main">
   <div id="list-view">
     <section class="intro" aria-labelledby="title">
+      <div class="intro-copy">
       <p class="eyebrow" id="snapshot-date">공개자료로 보는 감사시장</p>
       <h1 id="title">공공기관·지방공기업 <br>감사현황</h1>
       <p class="lede">누가 감사했는지, 얼마나 오래 맡았는지. <br>5년 이력과 공개 계약금액을 원문으로 확인합니다.</p>
       <dl class="stats" id="snapshot-stats"></dl>
+      </div>
+      <section id="market" class="market" aria-labelledby="market-title" hidden>
+        <header class="market-head"><h2 id="market-title">감사인별 점유율</h2>
+          <div class="metric" role="group" aria-label="점유율 기준"><button type="button" data-metric="count" aria-pressed="true">감사 기관 수</button><button type="button" data-metric="amount" aria-pressed="false">단년도 계약금액</button></div>
+        </header>
+        <p class="market-basis" id="market-basis"></p>
+        <div class="market-plot" id="market-plot">
+          <div class="donut" id="market-donut" aria-hidden="true"><div><small id="donut-label"></small><b id="donut-value"></b><span id="donut-name"></span></div></div>
+          <ul class="market-legend" id="market-legend" aria-label="상위 감사인과 기타 비중"></ul>
+        </div>
+        <p class="market-summary" id="market-summary" role="status"></p>
+        <p class="market-note" id="market-note"></p>
+        <a href="#search-form" class="scope-link">연도·기관 범위 바꾸기 ↓</a>
+        <details id="market-details"><summary>전체 순위와 근거 기관</summary>
+          <label for="market-firm">감사인 선택</label><select id="market-firm"></select>
+          <ul id="market-evidence"></ul>
+        </details>
+      </section>
     </section>
     <section aria-label="기관 검색">
       <form id="search-form" role="search">
         <fieldset id="controls" disabled>
           <div class="search-line"><div class="search-field"><label for="q">기관명 또는 감사인</label><input type="search" id="q" name="q" maxlength="100" placeholder="예: 포천, 상수도, 삼일회계법인" autocomplete="off" aria-describedby="search-help"></div><button class="primary" type="submit">검색</button></div>
-          <p class="hint" id="search-help">감사인은 최근 5년 이력과 수록 계약상대자에서 찾습니다. 선택한 연도는 목록의 감사이력에만 적용됩니다.</p>
+          <p class="hint" id="search-help">감사인은 최근 5년 이력과 수록 계약상대자에서 찾습니다. 선택한 연도는 목록의 감사이력과 점유율에 적용됩니다.</p>
           <div class="filters">
             <label>기관 구분<select name="group" id="group"><option value="">전체</option></select></label>
             <label>기관 유형<select name="type" id="type"><option value="">전체</option></select></label>
@@ -85,6 +104,8 @@
   <section class="methods" aria-labelledby="method-title">
     <h2 id="method-title">자료를 읽는 기준</h2>
     <p>ALIO·클린아이·나라장터와 기관 공개자료를 모았습니다. <strong>미확인은 미수임·무보수·0원이 아닙니다.</strong> PDF·OCR 기계추출은 원문을 함께 확인해 주세요. 각 이력에 확인일과 확인 방법을 표시합니다.</p>
+    <p>감사 기관 수는 선택한 회계연도에 감사인이 확인된 기관당 한 곳을 셉니다. 같은 법인명에 대표자·담당자·지점이 붙은 확인된 표기는 묶습니다. 새 표기나 소속이 모호한 표기는 공시 명의대로 남깁니다. 개인명만으로 소속을 추정하지 않으며, 개인·기타 명의도 분모에 포함합니다. 공동명의는 공시된 한 묶음으로 셉니다. 상위 5개 명의를 표시하고, 같은 값은 공동 순위로 표시합니다. 다섯 번째 자리의 동점은 이름순으로 표시합니다.</p>
+    <p>계약금액은 선택한 회계연도 하나가 명시된 단일기관 계약의 총액만 근거번호별로 한 번 더합니다. 수록된 최근·현행 계약 중 금액과 상대자를 확인한 표본이며 부가세·세무조정 포함 조건은 계약마다 다릅니다. 근거 기관을 누르면 원문과 계약 조건을 확인할 수 있습니다.</p>
     <details><summary>수록 범위와 금액·기간의 해석</summary><dl id="method-notes">
       <div><dt>이력</dt><dd>최근 5개 완료 회계연도의 감사인을 수록합니다. 현행 기관 명단 기준이며 지방출자·출연기관은 제외합니다.</dd></div>
       <div><dt>계약</dt><dd>기관 자체 게시판의 전수 조사 결과는 아닙니다. 계약상 선임은 감사 수행완료 이력과 구분합니다.</dd></div>
@@ -96,6 +117,6 @@
   <footer><a href="/#tools">재무해결사 · 도구</a><span>출처가 있는 숫자, 확인할 수 있는 기록.</span></footer>
 </main>
 <script src="/nav.js"></script>
-<script type="module" src="audit.js?v=20261112-utm"></script>
+<script type="module" src="audit.js?v=20261121-share"></script>
 </body>
 </html>

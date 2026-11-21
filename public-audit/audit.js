@@ -1,4 +1,5 @@
-import {PAGE_SIZE,readState,stateURL,matches,filterInstitutions,pageNumbers,workbookSheets} from './model.mjs?v=20261108-auto2';
+import {PAGE_SIZE,readState,stateURL,matches,filterInstitutions,pageNumbers,workbookSheets} from './model.mjs?v=20261121-share';
+import {auditMarket} from './market.mjs?v=20261121-share';
 import {workbookBytes} from './xlsx.mjs';
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -42,6 +43,102 @@ function navigate(next, {replace=false,scroll=false}={}) {
     target.tabIndex=-1;target.focus({preventScroll:true});target.scrollIntoView({block:'start'});
   }
 }
+const colors = ['#205342','#b88434','#4a7990','#986864','#708449','#bbc2b5'];
+const sharePercent = (value,total) => {
+  const pct = 100 * value / total;
+  return pct > 0 && pct < .05 ? '<0.1%' : pct.toFixed(1)+'%';
+};
+let marketChoices = [];
+
+function renderEvidence() {
+  const firm = marketChoices[$('market-firm').selectedIndex];
+  $('market-evidence').innerHTML = (firm?.records || []).map(({org, original, contract}) => {
+    const url = keepUtm(stateURL({...state,id:org.id}));
+    const info = contract ? original+' · '+money(contract.total)+' · '+contract.title : original;
+    return `<li><a data-id="${esc(org.id)}" href="${esc(url)}">${esc(org.name)} →</a><small>${esc(info)}</small></li>`;
+  }).join('');
+}
+
+function renderMarket() {
+  const amount = state.metric === 'amount';
+  const valueLabel = value => amount ? money(value) : value.toLocaleString('ko-KR')+'곳';
+  const result = auditMarket(filtered,data.contracts,state.year,state.metric);
+  const {ranked,other,total,units,covered,scope} = result;
+  const top = ranked.slice(0,5);
+  const rest = total-top.reduce((sum,firm)=>sum+firm.value,0);
+  const slices = top.map((firm,index)=>({name:firm.name,value:firm.value,color:colors[index]}));
+  if (rest) slices.push({name:'기타',value:rest,color:colors[5]});
+  $('market').hidden = false;
+  for (const button of document.querySelectorAll('[data-metric]')) {
+    button.setAttribute('aria-pressed',String(button.dataset.metric === (amount?'amount':'count')));
+  }
+  const filters = [state.group || '중앙·지방 전체',state.type,state.region,state.q && '‘'+state.q+'’ 검색 결과 내 비중'].filter(Boolean);
+  const scopeText = [state.year+' 회계연도',...filters].join(' · ');
+  $('market-basis').textContent = scopeText+' · '+(amount
+    ? `단년도 계약 ${units}건 · ${scope}곳 중 ${covered}곳 · 표본 총액 ${money(total)}`
+    : `감사인 확인 ${covered}곳 / ${scope}곳 · 미확인 ${scope-covered}곳`);
+  $('market-note').textContent = amount
+    ? '수록된 단년도 계약의 계약상대자와 총액을 기준으로 합니다. 부가세·세무조정 포함 조건은 계약마다 다릅니다.'
+    : '감사인이 확인된 기관 수를 기준으로 계산합니다.';
+  if (amount && units>0 && units<5) $('market-note').textContent += ' 확인된 계약이 5건 미만인 소표본입니다.';
+  if (other.value) $('market-note').textContent += ' 개인·기타 명의 '+valueLabel(other.value)+'도 분모에 포함합니다.';
+  $('market-plot').hidden = !total;
+  $('market-details').hidden = !total;
+  const leader = top[0];
+  const leaders = leader ? ranked.filter(f=>f.value===leader.value) : [];
+  if (leader) {
+    const pct = sharePercent(leader.value,total);
+    const who = leaders.length === 1 ? leader.name : leaders.length+'개 명의';
+    const place = leaders.length === 1 ? '1위' : '공동 1위';
+    $('donut-label').textContent = place;
+    $('donut-value').textContent = pct;
+    $('donut-name').textContent = who;
+    $('market-summary').textContent = place+' '+who+' · '+(leaders.length>1?'각 ':'')+valueLabel(leader.value)+' ('+pct+')';
+  } else {
+    $('donut-label').textContent = '';
+    $('donut-value').textContent = '';
+    $('donut-name').textContent = '기타 명의';
+    $('market-summary').textContent = total ? '이 범위에는 개인·기타 명의만 있습니다.'
+      : '선택한 조건에서 '+(amount?'금액을 비교할 단년도 계약':'감사인이 확인된 기관')+'이 없습니다.';
+  }
+  let running = 0;
+  const stops = slices.map((s,index) => {
+    const start = running/total*100;
+    running += s.value;
+    return s.color+' '+start+'% '+(index===slices.length-1?100:running/total*100)+'%';
+  });
+  $('market-donut').style.background = slices.length>1 ? 'conic-gradient('+stops.join(',')+')' : (slices[0]?.color || '');
+  $('market-legend').innerHTML = slices.map((s,i) => {
+    const label = i<top.length ? `<button type="button" data-firm-index="${i}">${esc(s.name)}</button>` : '<span>기타</span>';
+    return `<li><i aria-hidden="true" style="background:${s.color}"></i>${label}<b>${esc(sharePercent(s.value,total))}</b><span class="measure-value">${esc(valueLabel(s.value))}</span></li>`;
+  }).join('');
+  const picker=$('market-firm');
+  const last=picker.value;
+  marketChoices = other.value ? [...ranked,other] : ranked;
+  let rank=0;
+  picker.replaceChildren(...marketChoices.map((firm,i)=>{
+    if (!i || firm.value!==marketChoices[i-1].value) rank=i+1;
+    const tie=(i>0 && ranked[i-1]?.value===firm.value) || ranked[i+1]?.value===firm.value;
+    const prefix=firm===other?'':(tie?'공동 ':'')+rank+'위 · ';
+    return new Option(prefix+firm.name+' · '+valueLabel(firm.value)+' ('+sharePercent(firm.value,total)+')',firm.name);
+  }));
+  if (marketChoices.some(f=>f.name===last)) picker.value=last;
+  renderEvidence();
+}
+
+$('market-firm').addEventListener('change',renderEvidence);
+$('market-legend').addEventListener('click',event=>{
+  const button=event.target.closest('[data-firm-index]');
+  if (!button) return;
+  $('market-details').open=true;
+  $('market-firm').selectedIndex=Number(button.dataset.firmIndex);
+  renderEvidence();
+  $('market-firm').focus();
+});
+for (const button of document.querySelectorAll('[data-metric]')) {
+  button.addEventListener('click',()=>navigate({metric:button.dataset.metric}));
+}
+
 function renderList() {
   document.title=title;
   const count=filtered.length;
@@ -86,7 +183,17 @@ function render() {
   if(location.pathname+location.search!==keepUtm(stateURL(state)))history.replaceState(null,'',keepUtm(stateURL(state)));
   syncForm();
   $('list-view').hidden=!!state.id;$('detail-view').hidden=!state.id;
-  if(state.id)renderDetail();else renderList();
+  if (state.id) {
+    renderDetail();
+  } else {
+    renderList();
+    try {
+      renderMarket();
+    } catch (error) {
+      $('market').hidden = true;
+      console.error('점유율을 표시할 수 없습니다.',error);
+    }
+  }
 }
 function submit() {
   const next={id:'',page:1};for(const key of ['q','group','type','region','year'])next[key]=$(key).value;
@@ -94,7 +201,7 @@ function submit() {
 }
 $('search-form').addEventListener('submit',e=>{e.preventDefault();if(data)submit();});
 for(const key of ['group','type','region','year'])$(key).addEventListener('change',submit);
-$('reset').addEventListener('click',()=>navigate({q:'',group:'',type:'',region:'',year:data.years[0],page:1,id:''}));
+$('reset').addEventListener('click',()=>navigate({q:'',group:'',type:'',region:'',year:data.years[0],metric:'count',page:1,id:''}));
 document.addEventListener('click',e=>{
   const a=e.target.closest('a[data-id],a[data-page],a[data-back]');
   if(!a || e.button!==0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey)return;
@@ -133,7 +240,7 @@ async function load() {
     $('snapshot-date').textContent=`공시 점검 ${data.reportAsOf} · 계약 점검 ${data.contractAsOf}`;
     const n=v=>Number(v).toLocaleString('ko-KR');
     $('snapshot-stats').innerHTML=`<div><dt>수록 기관</dt><dd>${n(data.stats.entities)}<small>곳 · 중앙 ${n(data.stats.central)} / 지방 ${n(data.stats.local)}</small></dd></div><div><dt>${data.years[0]} 감사인 수록</dt><dd>${n(data.stats.entities_with_latest_auditor)}<small>곳 / ${n(data.stats.entities)}곳</small></dd></div><div><dt>최근 계약금액 수록</dt><dd>${n(data.stats.entities_with_contract_amount)}<small>곳 / ${n(data.stats.entities)}곳</small></dd></div>`;
-    $('search-help').textContent=`감사인은 ${data.years[data.years.length-1]}~${data.years[0]} 이력과 수록 계약상대자에서 찾습니다. 선택한 연도는 목록의 감사이력에만 적용됩니다.`;
+    $('search-help').textContent=`감사인은 ${data.years[data.years.length-1]}~${data.years[0]} 이력과 수록 계약상대자에서 찾습니다. 선택한 연도는 목록의 감사이력과 점유율에 적용됩니다.`;
     $('download-all').href=release.workbookFile;
     $('download-date').textContent=`공시 ${data.reportAsOf} · 계약 ${data.contractAsOf} · 기관·5년 이력·계약근거·읽는법`;
     for(const key of ['group','type','region']) {

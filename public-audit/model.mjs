@@ -8,6 +8,7 @@ export function readState(search, data) {
     const v = p.get(key) || '';
     if (data.institutions.some(o => (key === 'region' ? o.region || '미수록' : o[key]) === v)) state[key] = v;
   }
+  if (p.get('metric') === 'amount') state.metric = 'amount';
   if (data.years.includes(Number(p.get('year')))) state.year = Number(p.get('year'));
   if (/^[1-9]\d{0,5}$/.test(p.get('page') || '')) state.page = Number(p.get('page'));
   return state;
@@ -16,6 +17,7 @@ export function stateURL(state) {
   const p = new URLSearchParams();
   for (const key of ['q','group','type','region']) if (state[key]) p.set(key,state[key]);
   if (state.year) p.set('year',state.year);
+  if (state.metric === 'amount') p.set('metric','amount');
   if (state.page > 1) p.set('page',state.page);
   if (state.id) p.set('id',state.id);
   const query = p.toString();
