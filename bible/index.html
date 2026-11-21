@@ -5,8 +5,8 @@
 <meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://cdn.youversion.com https://bible-api.finance-fixer.net https://fonts.googleapis.com; font-src https://cdn.youversion.com https://fonts.gstatic.com; connect-src 'self' https://bible-api.finance-fixer.net; img-src 'self' data:; base-uri 'none'; form-action 'none'">
 <title>성경으로 영어 공부 · NIV와 개역한글 | 재무해결사</title>
-<link rel="stylesheet" href="./reader.css?v=20261121-read-aloud"><link rel="stylesheet" href="https://cdn.youversion.com/platform/1/bible.css">
-<script type="module" src="./reader.js?v=20261121-human-audio"></script>
+<link rel="stylesheet" href="./reader.css?v=20261121-recordings"><link rel="stylesheet" href="https://cdn.youversion.com/platform/1/bible.css">
+<script type="module" src="./reader.js?v=20261121-recordings"></script>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&amp;family=IBM+Plex+Sans+KR:wght@300;400;500&amp;display=swap" rel="stylesheet">
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="./theme.css?v=20261121">
@@ -57,20 +57,6 @@
 <noscript><p class="notice">책과 장을 선택하려면 자바스크립트를 켜 주세요. <a href="./lesson.html">첫 학습 단원</a>의 본문과 설명은 그대로 읽을 수 있습니다.</p></noscript>
 <div class="reading-tools" hidden><label>절 찾아가기<select id="verse" aria-label="절 찾아가기"><option value="">절 선택</option></select></label><a id="audio-link" class="button" target="_blank" rel="noopener noreferrer">이 장 성우 낭독 · Max McLean ↗</a><button id="retry" type="button" hidden>본문 다시 불러오기</button></div>
 <p class="small" id="verse-status" role="status" aria-live="polite"></p>
-<section id="read-aloud" class="read-aloud" aria-label="영어 본문 낭독" hidden>
-<div class="narration-heading"><strong>듣고 따라 읽기</strong><span class="small">기기 영어 음성</span></div>
-<div class="narration-options">
-<label>영어 음성<select id="narration-voice"><option value="">음성 확인 중</option></select></label>
-<label>속도<select id="narration-rate"><option value="0.8">천천히 · 0.8</option><option value="1" selected>보통 · 1.0</option><option value="1.2">빠르게 · 1.2</option></select></label>
-<label>범위<select id="narration-mode"><option value="chapter">이어 읽기</option><option value="verse">한 절만</option></select></label>
-<label>절마다 반복<select id="narration-repeat"><option value="1">1회</option><option value="2">2회</option><option value="3">3회</option></select></label>
-</div>
-<div class="narration-actions"><button id="narration-play" type="button" disabled>▶ 영어 낭독</button><button id="narration-stop" type="button" disabled>멈춤</button><button id="narration-preview" type="button" disabled>음성 미리듣기</button><button id="narration-refresh" type="button">음성 다시 찾기</button><label><input id="narration-follow" type="checkbox" checked> 읽는 위치 따라가기</label></div>
-<p id="narration-status" role="status" aria-live="polite">기기의 영어 음성을 확인하고 있습니다.</p>
-<p class="small">위에서 절을 선택하면 그곳부터 읽습니다. 반복을 고르면 따라 읽을 시간을 드립니다. 단어 위치를 지원하지 않는 음성에서는 읽는 절을 표시합니다. 한글은 같은 절 번호를 기준으로 표시하며 번역본에 따라 구분이 다를 수 있습니다.</p>
-<details class="voice-help"><summary>더 자연스러운 음성으로 듣기</summary><p class="small">음성 미리듣기로 목소리를 비교해 보세요. 기기에 고음질 영어 음성이 있으면 먼저 추천합니다. Mac은 시스템 설정의 손쉬운 사용에서 ‘읽기 및 말하기’ 또는 ‘콘텐츠 말하기’를 열어 영어 음성을 추가한 뒤 음성 다시 찾기를 누르세요. 음질은 기기에 설치된 음성에 따라 달라집니다.</p></details>
-</section>
-<div id="narration-floating" class="narration-floating" hidden><div class="narration-floating-actions"><span id="narration-current" aria-hidden="true"></span><button id="narration-stop-floating" type="button">낭독 멈춤</button></div><p id="narration-korean" lang="ko"></p></div>
 <div class="columns">
 <article aria-labelledby="english-title" class="language-panel english"><div class="language-heading"><h3 id="english-title">English</h3><span>NIV 2011</span></div><p id="niv-status" role="status" aria-live="polite">영어 본문을 준비하고 있습니다.</p><div id="niv-content" lang="en" data-yv-sdk data-slot="yv-bible-renderer"></div><p id="niv-copyright" class="copyright" lang="en"></p><p class="source"><a href="https://www.biblica.com/" target="_blank" rel="noopener noreferrer">Biblica</a> · <a href="https://www.youversion.com/" target="_blank" rel="noopener noreferrer">YouVersion</a></p></article>
 <article aria-labelledby="korean-title" class="language-panel korean"><div class="language-heading"><h3 id="korean-title">한글</h3><span>개역한글</span></div><p id="krv-status" role="status" aria-live="polite">한글 본문을 준비하고 있습니다.</p><div id="krv-content"></div><p class="copyright">성경전서 개역한글판 · 대한성서공회.</p><p class="source"><a id="krv-original" href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=HAN" target="_blank" rel="noopener noreferrer">대한성서공회 원문·각주 ↗</a></p></article>
@@ -78,7 +64,7 @@
 </section>
 <section class="study" aria-labelledby="study-title"><p class="eyebrow">READ · UNDERSTAND · SPEAK</p><h2 id="study-title">읽은 말씀을 조금 더 가까이</h2><div class="study-grid">
 <article><span class="step">01</span><h3>배경부터 살펴보기</h3><p>책 전체의 흐름을 먼저 살피고, 오늘 읽은 장의 인물·장소·사건을 찾아보세요.</p><a id="context-link" href="https://bibleproject.com/explore/book-overviews/" target="_blank" rel="noopener noreferrer">BibleProject 성경 개요 ↗</a><a href="https://bibleproject.com/ko/" target="_blank" rel="noopener noreferrer">한국어 영상·자료 ↗</a></article>
-<article><span class="step">02</span><h3>한 구절씩 소리 내어</h3><p>영어 낭독을 누르고 강조되는 단어를 따라 읽어 보세요. 한글로 뜻을 확인하고 영어 문장을 다시 읽습니다.</p><p class="small">절마다 2회 또는 3회를 선택하면 따라 말할 시간을 두고 반복합니다. 기기 음성을 쓸 수 없으면 Bible Gateway의 정식 낭독도 이용할 수 있습니다.</p></article>
+<article><span class="step">02</span><h3>한 구절씩 소리 내어</h3><p>‘이 장 성우 낭독’을 누르면 Bible Gateway에서 선택한 장을 들을 수 있습니다. 한 절을 듣고 잠시 멈춘 뒤 소리 내어 따라 읽어 보세요.</p></article>
 <article><span class="step">03</span><h3>단어와 문맥 함께 익히기</h3><p>마가복음 첫 단원에는 배경 설명, 단어·일상 영어 예문 듣기, 짧은 복습 문제가 준비되어 있습니다.</p><a href="./lesson.html">마가복음 첫 단원 · 영어 예문 듣기 →</a></article>
 </div></section>
 <footer><strong>재무해결사 · 성경으로 영어 공부</strong><p>무료로 읽고 배우는 공간입니다. 최근 읽은 위치를 이 브라우저에 기억합니다. <a href="/privacy/#bible">이용 정보 안내</a></p><p>한글 전산 자료: <a href="https://github.com/bluesaurel/Korean-Bible-1961-KRV" target="_blank" rel="noopener noreferrer">개역한글 전사 자료</a> · <a href="./krv-source.json">자료 출처·확인 범위</a> · <a href="https://www.bskorea.or.kr/bbs/board.php?bo_table=copyright_faq&amp;wr_id=5" target="_blank" rel="noopener noreferrer">대한성서공회 이용 안내 ↗</a></p></footer>

@@ -43,7 +43,6 @@ h3 { font-size:1.1rem; font-weight:600; }
 ol { padding-left:1.2rem; }
 .speech-settings { display:flex; flex-wrap:wrap; align-items:end; gap:.8rem; padding:1.2rem; border:1px solid var(--line); margin-bottom:1.5rem; background:#ece8dd; }
 .speech-settings label { display:flex; flex-direction:column; gap:.3rem; font-size:.8rem; }
-.speech-settings label:first-child { flex:1 1 220px; min-width:0; }
 select { min-width:0; max-width:100%; padding:.6rem; min-height:44px; border:1px solid #bab5a9; border-radius:4px; color:var(--ink); background:var(--card); }
 .speech-settings p { flex-basis:100%; margin:0; }
 #speech-status { font-size:.85rem; color:var(--green); }
