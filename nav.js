@@ -23,6 +23,18 @@ try {
     const hanja = panel.querySelector('a[href="/hanja/"], a[href="https://finance-fixer.net/hanja/"]');
     if (hanja) hanja.after(link); else panel.append(link);
   }
+  if (panel && !panel.querySelector('a[href="/g2b/"], a[href="https://finance-fixer.net/g2b/"]')) {
+    const link = document.createElement('a');
+    link.href = 'https://finance-fixer.net/g2b/';
+    const name = document.createElement('b');
+    name.textContent = '나라장터 소기업 수주분석';
+    const detail = document.createElement('span');
+    detail.textContent = '회계용역의 업체별 낙찰 비중과 사업 이력';
+    link.append(name, detail);
+    const audit = panel.querySelector('a[href="/public-audit/"], a[href="https://finance-fixer.net/public-audit/"]');
+    if (audit) audit.after(link);
+    else (panel.querySelector('.drop-inner') || panel).append(link);
+  }
   // 예전 정적 메뉴도 새 설명 페이지로 연결한다. 상대주소는 현재 호스트를 유지한다.
   // JS가 꺼져 있거나 옛 파일이 캐시에 남아도 /#db의 소개 링크로 들어갈 수 있다.
   try {
@@ -83,7 +95,7 @@ try {
     if (mainSite && new URL(a.href, location.href).hostname === host && p !== '/' && path.startsWith(p)) a.classList.add('active');
   });
   // 도구 하위 페이지와 도구 서브도메인(aptfee·gamsain·sangkwon·econ·jobs·jiwon)에서는 '도구'를 표시
-  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|hanja|db|bible)\//.test(path))) btn.classList.add('active');
+  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|g2b|hanja|db|bible)\//.test(path))) btn.classList.add('active');
   header.classList.add('stuck');
   if ('ResizeObserver' in window) new ResizeObserver(fit).observe(header);
   fit(); if (onHome) spy();

@@ -1,0 +1,78 @@
+.market { max-width: 76rem; margin: 0 auto; padding: 0 clamp(1.25rem, 5vw, 4.5rem); font-weight: 400; }
+.market [hidden] { display: none !important; }
+.market button, .market select, .market input { font: inherit; color: var(--ink); }
+.market button, .market select { cursor: pointer; }
+.market :is(button, input, select, summary):focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.market :is(input, select) { width: 100%; min-width: 0; border: 1px solid #aaa696; border-radius: .25rem; background: #fcfaf5; height: 2.75rem; padding: 0 .65rem; }
+.market button { border: 1px solid #aaa696; background: transparent; padding: .38rem .85rem; border-radius: .25rem; }
+.market button:hover:enabled { border-color: var(--green); color: var(--green); background-color: #eae8de; }
+.market button:disabled { opacity: .5; cursor: default; }
+.market h1, .market h2, .snapshot strong { font-family: var(--font-display); font-weight: 700; }
+.market h2 { font-size: clamp(1.45rem, 3.3vw, 2.05rem); line-height: 1.35; }
+.market label { font-size: .87rem; color: var(--ink-soft); }
+.skip { position: absolute; left: -100vw; }
+.skip:focus { left: 1rem; top: 1rem; z-index: 100; padding: .5rem; background: white; }
+.intro { padding: clamp(2.3rem, 6vw, 5.2rem) 0 2.5rem; display: grid; grid-template-columns: 1.25fr 1fr; gap: clamp(1.4rem, 5vw, 4.5rem); align-items: end; }
+.period { color: var(--green); font-weight: 500; font-size: .84rem; }
+.period span { margin-left: .75rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.intro h1 { font-size: clamp(2.5rem, 5.6vw, 4.75rem); letter-spacing: -.055em; line-height: 1.15; margin: .9rem 0 1.2rem; }
+.intro-text { color: var(--ink-soft); font-size: 1rem; }
+.scope-note { margin-top: .65rem; max-width: 34rem; color: var(--ink-soft); font-size: .91rem; }
+.snapshot { background: #1c3b2e; color: #fffaf1; padding: clamp(1.3rem, 3vw, 2.2rem); border-radius: .35rem; }
+.snapshot strong { display: block; font-size: clamp(2.9rem, 6vw, 4.85rem); line-height: 1.2; margin: .45rem 0 .65rem; font-variant-numeric: tabular-nums; }
+.meter { height: .48rem; background: #476454; border-radius: 2px; overflow: hidden; margin-bottom: .75rem; }
+.meter i { display: block; height: 100%; background: #d6bb7b; }
+#concentration-amount { font-size: .84rem; color: #d8e1d7; }
+.market fieldset { min-width: 0; border: none; border-top: 1px solid var(--line); margin-top: .5rem; }
+.market legend { padding-right: .8rem; color: var(--green); font-weight: 500; }
+.filter-grid { display: grid; grid-template-columns: .8fr 1.35fr 1.3fr auto; gap: .8rem; align-items: end; margin: .85rem 0 .6rem; }
+.filter-grid label, .history label { display: grid; gap: .22rem; }
+.filter-grid button { height: 2.75rem; }
+.status, .hint, .history-meta { color: var(--ink-soft); font-size: .87rem; }
+.section-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .6rem 1rem; margin-bottom: .5rem; }
+.section-head .inline-label { display: flex; align-items: center; gap: .5rem; white-space: nowrap; max-width: 100%; }
+.inline-label select { width: auto; max-width: min(58vw, 19rem); }
+#analysis > section { margin-top: 2.5rem; }
+.ranks { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.ranks th, .ranks td { border-bottom: 1px solid var(--line); padding: .65rem .12rem; text-align: right; }
+.ranks thead th { font-size: .8rem; font-weight: 500; color: var(--ink-soft); border-bottom-color: #9a9989; }
+.ranks th:first-child { text-align: left; }
+.ranks small { display: block; color: var(--ink-faint); font-weight: 400; font-size: .78rem; }
+.ranks tbody th { font-weight: 500; }
+.pos { display: inline-block; min-width: 1.85rem; font-size: .8rem; color: var(--ink-faint); }
+.market button.link { padding: .2rem 0; color: var(--green); border: none; border-radius: 0; text-decoration: underline; text-decoration-color: #a4ae9e; text-underline-offset: .22em; text-align: left; }
+.market .more { margin-top: .7rem; }
+.history { border-block: 1px solid var(--line); padding: 1.5rem clamp(.8rem, 2.6vw, 2rem); background: #ece9df; }
+.history label { max-width: 42rem; margin: .8rem 0; }
+#timeline, #records { list-style: none; }
+#timeline { margin-top: 1rem; border-left: 2px solid #b9aa87; padding-left: 1rem; }
+#timeline li { position: relative; display: flex; flex-wrap: wrap; gap: .15rem .9rem; align-items: baseline; padding: .45rem 0; }
+#timeline li::before { content: ''; position: absolute; width: .56rem; height: .56rem; border-radius: 50%; top: 1.1rem; left: -1.34rem; background: var(--green); }
+#timeline time, .record-meta, #timeline span { color: var(--ink-soft); font-size: .86rem; }
+.record-title { font-weight: 500; font-size: 1.04rem; }
+#records li { display: grid; grid-template-columns: 1.65fr 1fr; column-gap: 1.2rem; padding: 1.05rem 0; border-bottom: 1px solid var(--line); }
+.record-result { align-self: center; text-align: right; }
+.record-result b { display: block; }
+.market a.source { font-size: .81rem; border-bottom-color: #a4ae9e; }
+.pages { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1rem 0; font-size: .87rem; }
+.methods { margin: 2.6rem 0 1.5rem; border-top: 1px solid var(--line); padding-top: 1rem; font-size: .9rem; }
+.methods summary { cursor: pointer; font-weight: 500; }
+.methods p { margin: .85rem 0; max-width: 54rem; }
+.methods a, .market footer a { border-bottom-color: #a4ae9e; }
+.market footer { padding: 1rem 0 2.5rem; font-size: .9rem; }
+@media (max-width: 740px) {
+  .intro { grid-template-columns: 1fr; align-items: start; gap: 1.4rem; }
+  .filter-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .ranks { font-size: .93rem; }
+}
+@media (max-width: 480px) {
+  .intro { padding-bottom: 1.5rem; }
+  .intro-text br { display: none; }
+  .ranks th:first-child { width: 43%; }
+  .pos { min-width: 1.3rem; }
+  #records li { grid-template-columns: 1fr; gap: .4rem; }
+  .record-result { text-align: left; }
+  .record-result b { display: inline; margin-right: .6rem; }
+  .period span { display: block; margin: 0; }
+  .history label { display: block; }
+}
