@@ -1,4 +1,7 @@
+import {createReadAloud} from './read-aloud.js?v=20261121';
 const $ = id => document.getElementById(id);
+let narration = {setChapter(){},reset(){},refreshKorean(){}};
+try { narration=createReadAloud(); } catch { const status=$('narration-status');if(status)status.textContent='기기 음성 낭독을 준비하지 못했습니다. 정식 낭독 링크를 이용해 주세요.'; }
 const local = ['127.0.0.1', 'localhost'].includes(location.hostname);
 const api = local ? '/bible/api' : 'https://bible-api.finance-fixer.net';
 const locationKey = 'finance-fixer:bible:reader:location';
@@ -92,6 +95,7 @@ async function loadKorean(book,chapter,seq,signal){
     koreanCache.delete(book.id);koreanCache.set(book.id,data);
     if(koreanCache.size>3)koreanCache.delete(koreanCache.keys().next().value);
     $('krv-content').replaceChildren(fragment);$('krv-status').textContent='';koreanState='ready';
+    narration.refreshKorean();
     if($('verse').value)jumpVerse({scroll:false});
   }catch(error){
     if(seq!==generation||error.name==='AbortError')return;
@@ -109,6 +113,7 @@ async function loadEnglish(book, chapter, seq, signal) {
     $('niv-copyright').textContent = data.copyright;
     $('niv-status').textContent = '';
     englishState='ready';
+    narration.setChapter();
     const selected=$('verse').value;
     const numbers=new Set(Array.from({length:book.verses[chapter-1]},(_,i)=>i+1));
     for(const marker of $('niv-content').querySelectorAll('.yv-v[v]')){
@@ -127,6 +132,7 @@ async function loadEnglish(book, chapter, seq, signal) {
   }
 }
 function load(book, chapter, {historyMode='push',debounce=true}={}) {
+  narration.reset();
   controller?.abort(); clearTimeout(timer);
   controller = new AbortController(); const signal = controller.signal; const seq = ++generation;
   current = {book,chapter}; koreanState='loading';englishState='loading';
