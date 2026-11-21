@@ -55,6 +55,9 @@ select { min-width:0; max-width:100%; padding:.6rem; min-height:44px; border:1px
 .words button { font-size:.8rem; }
 .words .meaning { color:var(--soft); margin:0 0 1.25rem; }
 .words .example { font-family:Georgia,serif; font-size:1.2rem; line-height:1.6; }
+.words .speech-reading { background:#e2e8df; box-shadow:0 0 0 3px #e2e8df; outline:1px solid var(--green); outline-offset:3px; border-radius:2px; }
+.words .speech-current-word { background:var(--green); color:#fff; text-decoration:underline; text-underline-offset:3px; border-radius:2px; }
+.words .speech-practice { outline:2px dashed var(--gold); outline-offset:3px; border-radius:2px; }
 .words .grammar { font-size:.8rem; color:var(--soft); border-top:1px solid var(--line); padding-top:.8rem; margin-top:1rem; }
 .notes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1.4rem; margin:1.75rem 0; }
 .notes p { font-size:.9rem; color:#464c42; }
@@ -79,3 +82,4 @@ footer { font-size:.8rem; padding:2.5rem 0; color:var(--soft); }
 footer strong { color:var(--green); font-weight:500; }
 @media(max-width:700px) { main{padding:0 1.25rem;} .hero{padding-top:2.5rem;} .reading-grid{grid-template-columns:1fr;gap:1rem;} .words,.notes{grid-template-columns:1fr;} .section-head{align-items:start;} h2{font-size:1.6rem;} .tag{font-size:.7rem;} .steps{gap:.6rem 1rem;} .glossary div{grid-template-columns:1fr;gap:0;} }
 @media(prefers-reduced-motion:reduce) { html{scroll-behavior:auto;} }
+@media(forced-colors:active) { .words .speech-reading { outline:2px solid CanvasText; outline-offset:3px; } }
