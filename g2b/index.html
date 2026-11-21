@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>나라장터 소기업 수주분석 | 재무해결사</title>
-  <meta name="description" content="소기업·소상공인 제한 회계용역 315건의 낙찰업체, 금액, 참가업체 수와 수요기관·공고명별 낙찰 이력을 확인하세요.">
+  <meta name="description" content="소기업·소상공인 제한 회계용역의 낙찰업체, 금액, 참가업체 수와 수요기관·공고명별 낙찰 이력을 확인하세요.">
   <link rel="canonical" href="https://finance-fixer.net/g2b/">
   <meta property="og:title" content="나라장터 소기업 수주분석 | 재무해결사">
   <meta property="og:description" content="소기업에 열린 회계용역, 누가 얼마나 낙찰받았을까?">
@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css?v=20261120-linkedin">
   <link rel="stylesheet" href="/nav.css">
-  <link rel="stylesheet" href="market.css?v=1">
+  <link rel="stylesheet" href="market.css?v=20261121-share">
 </head>
 <body>
 <a class="skip" href="#main">본문으로 이동</a>
@@ -57,17 +57,21 @@
 <main id="main" class="market">
   <div class="intro">
     <div>
-      <p class="period">회계·세무 용역 표본 <span>2023.01 — 2026.09 개찰분</span></p>
+      <p class="period">회계·세무 용역 표본 <span id="coverage"></span></p>
       <h1>나라장터<br>소기업 수주분석</h1>
       <p class="intro-text">소기업에 열린 회계용역, 누가 얼마나 낙찰받았을까요?</p>
-      <p class="scope-note">낙찰 상호에 ‘회계’ 또는 ‘세무’가 있고 소기업·소상공인 참가 제한으로 분류된 315건을 모았습니다. 비중은 이 표본 안의 낙찰 실적을 뜻합니다.</p>
+      <p class="scope-note">낙찰 상호에 ‘회계’ 또는 ‘세무’가 있고 소기업·소상공인 참가 제한을 확인한 공고를 모았습니다. 순위와 비중은 확인된 공고 기준이며, 확인 대기인 공고가 추가되면 달라질 수 있습니다.</p>
+      <p class="refresh-note" id="refresh-note">매일 오전 7시 15분(KST)에 전날 등록분까지 확인합니다.</p>
     </div>
-    <section class="snapshot" aria-label="선택 범위의 낙찰 집중도">
-      <p id="concentration-label">건수 상위 5개 상호의 낙찰 비중</p>
-      <strong id="concentration">59.4%</strong>
-      <div class="meter" aria-hidden="true"><i id="concentration-bar" style="width:59.4%"></i></div>
-      <p id="concentration-count">315건 중 187건</p>
-      <p id="concentration-amount">낙찰금액의 62.8% · 147.83억 원 중 92.83억 원</p>
+    <section class="shares" aria-labelledby="share-title" id="shares" hidden>
+      <header class="share-head"><h2 id="share-title">업체별 낙찰 비중</h2>
+        <div class="measure" role="group" aria-label="점유율 기준"><button type="button" data-metric="amount" aria-pressed="true">금액</button><button type="button" data-metric="count" aria-pressed="false">건수</button></div>
+      </header>
+      <div class="share-layout">
+        <div id="donut" class="donut" aria-hidden="true"><div class="hole"><small id="leader-label"></small><b id="leader-share"></b><span id="leader-name"></span></div></div>
+        <ol id="share-legend" class="share-legend" aria-label="업체별 비중"></ol>
+      </div>
+      <p id="share-summary" class="share-summary" role="status"></p>
     </section>
   </div>
 
@@ -82,13 +86,14 @@
   </fieldset>
   <p class="status" id="status" role="status">자료를 불러오는 중입니다.</p>
   <button id="retry" hidden>자료 다시 불러오기</button>
-  <noscript><p>검색과 정렬에는 자바스크립트가 필요합니다. <a href="awards.json">전체 315건 자료 열기</a></p></noscript>
+  <noscript><p>검색과 정렬에는 자바스크립트가 필요합니다. <a href="awards.json">전체 수록 자료 열기</a></p></noscript>
 
   <div id="analysis" hidden>
     <section class="rank-section" aria-labelledby="ranking-title">
       <div class="section-head"><h2 id="ranking-title">업체별 낙찰 순위</h2>
-        <label class="inline-label">정렬 <select id="sort"><option value="count">건수 많은 순</option><option value="amount">금액 큰 순</option></select></label>
+        <label class="inline-label">정렬 <select id="sort"><option value="amount">금액 큰 순</option><option value="count">건수 많은 순</option></select></label>
       </div>
+      <p class="top-five"><span id="concentration-label"></span> <b id="concentration"></b> · <span id="concentration-count"></span><br><span id="concentration-amount"></span></p>
       <p class="hint">상호를 누르면 해당 업체가 낙찰받은 공고를 볼 수 있습니다.</p>
       <table class="ranks">
         <thead><tr><th scope="col">순번 · 낙찰 상호</th><th scope="col">낙찰 건수 <small>선택 범위 비중</small></th><th scope="col">낙찰금액 <small>선택 범위 비중</small></th></tr></thead>
@@ -114,17 +119,17 @@
 
   <details class="methods">
     <summary>자료 출처와 집계 기준</summary>
-    <p>2023년 1월~2026년 9월 나라장터 용역 중 공고명에 회계·세무·결산·감사·재무·원가계산·정산 관련 표현이 있고 낙찰 상호에 ‘회계’ 또는 ‘세무’가 들어간 수집 표본 1,425건을 조사했습니다. 공고문을 확보한 1,297건의 참가자격 문구를 자동 판독해 소기업·소상공인 제한으로 분류한 315건을 수록했습니다. 공고문을 확보하지 못한 128건은 비교에서도 제외했습니다. 제출서류나 우대조건에만 등장한 문구는 참가 제한으로 세지 않았습니다.</p>
-    <p>전체 조사기간을 비교하면 소기업·소상공인 제한 315건 중 건수 상위 5개 상호가 187건(59.4%)을 낙찰받았습니다. 나머지 판독 공고 982건에서는 해당 집단의 상위 5개 상호가 237건(24.1%)을 받았습니다. 비교 집단에는 중기업 포함 제한, 제한 예외, 제한 미기재 공고가 포함됩니다.</p>
-    <p>공고번호별로 수록된 낙찰 결과 한 건을 셉니다. 금액은 나라장터 낙찰금액을 그대로 더하며, 다년 용역도 연 단위로 나누지 않습니다. 공동수급 구성원에게 지분을 배분하지 않고 기록된 낙찰 상호에 표시합니다.</p>
-    <p>순위는 공고 당시의 상호 표기 기준입니다. 같은 상호로 등록된 본점·지점 등은 한 줄에, 상호 표기가 다른 기록은 각각 표시합니다. 수요기관도 공고 당시 이름을 사용합니다. 점유율의 분모는 선택한 범위의 낙찰 건수 또는 금액입니다. 상단의 두 비율은 건수 상위 최대 5개 상호를 기준으로 하며, 동수이면 낙찰금액, 이후 상호 순으로 정합니다.</p>
-    <p>사업 이력은 수록된 공고 중 수요기관과 공고명이 같은 건을 연결합니다. 공고명 앞의 단일 연도와 띄어쓰기는 맞춰 비교합니다. 아트코리아랩 회계정산 모니터링은 2024~2026년 공고 세 건을 대조했습니다. 이 사업은 개찰연도마다 같은 상호가 낙찰받은 기간도 표시합니다. 나머지 묶음은 공고명 기준으로 연결한 기록입니다. 2026년은 9월까지 수록했습니다.</p>
+    <p>초기 조사에서는 2023년 1월~2026년 9월에 개찰한 회계·세무 관련 용역 1,425건을 살펴봤습니다. 당시 소기업 제한으로 분류한 <a href="https://raw.githubusercontent.com/h6nwt5tv4m-byte/finance-fixer/5c7b30a1fcd0d2863cfe6f35fa6aa84f30aa514e/g2b/awards.json">초기 표본 315건</a>의 참가자격을 다시 확인하고, 이후 나라장터에 등록된 낙찰을 더해 현재 순위를 집계합니다.</p>
+    <p>매일 전날까지 등록된 용역 낙찰 중 공고명에 회계·세무·결산·감사·재무·원가계산·정산이 있고 낙찰 상호에 ‘회계’ 또는 ‘세무’가 있는 건을 조회합니다. 해당 차수의 공고문에서 소기업·소상공인 경쟁이나 참가자격 요건을 확인한 건을 포함합니다. 공고별로 법정 참가 예외가 있을 수 있습니다. 우대 점수나 실적 기준 완화만 언급한 공고는 집계에서 제외합니다.</p>
+    <p>공고문을 판독하기 어렵거나 여러 낙찰 결과가 충돌하면 확인 대기로 표시합니다. 기존에 확인한 공고는 일시적인 조회 누락을 대비해 첫 재확인 동안 직전 결과를 유지합니다. 공고번호별로 한 건을 세며, 다년 용역의 낙찰금액도 원자료대로 합산합니다. 공동수급은 기록된 낙찰 상호에 표시합니다.</p>
+    <p>순위는 공고 당시의 상호 표기 기준입니다. 같은 상호로 등록된 본점·지점 등은 한 줄에, 상호 표기가 다른 기록은 각각 표시합니다. 수요기관도 공고 당시 이름을 사용합니다. 점유율의 분모는 선택한 범위의 낙찰 건수 또는 금액입니다. 도넛은 선택한 기준의 상위 5개 상호와 나머지 상호 합계를 표시합니다. 동점 1위는 공동 1위로 표시합니다. 순위표 위의 요약은 항상 건수 상위 최대 5개 상호를 기준으로 하며, 동수이면 낙찰금액, 이후 상호 순으로 정합니다.</p>
+    <p>사업 이력은 수록된 공고 중 수요기관과 공고명이 같은 건을 연결합니다. 공고명 앞의 단일 연도와 띄어쓰기는 맞춰 비교합니다. 아트코리아랩 회계정산 모니터링은 2024~2026년 공고 세 건을 대조했습니다. 이 사업은 개찰연도마다 같은 상호가 낙찰받은 기간도 표시합니다. 나머지 묶음은 공고명 기준으로 연결한 기록입니다.</p>
     <p>공고번호 링크로 나라장터 원문을 열 수 있습니다. 직접 접속이 어려운 환경에서는 나라장터 입찰공고 목록에 표시된 공고번호를 입력하세요.</p>
     <p><a href="https://www.data.go.kr/data/15129397/openapi.do">조달청 낙찰정보</a> · <a href="https://www.data.go.kr/data/15129394/openapi.do">조달청 입찰공고정보</a> · <a href="awards.json">수록 자료 전체</a> · <a href="/#contact">자료 정정 문의</a></p>
   </details>
   <footer><a href="/#tools">← 재무해결사 도구</a></footer>
 </main>
 <script src="/nav.js"></script>
-<script src="market.js?v=1" defer></script>
+<script src="market.js?v=20261121-share" defer></script>
 </body>
 </html>

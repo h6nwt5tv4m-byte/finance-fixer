@@ -7,22 +7,44 @@
 .market button { border: 1px solid #aaa696; background: transparent; padding: .38rem .85rem; border-radius: .25rem; }
 .market button:hover:enabled { border-color: var(--green); color: var(--green); background-color: #eae8de; }
 .market button:disabled { opacity: .5; cursor: default; }
-.market h1, .market h2, .snapshot strong { font-family: var(--font-display); font-weight: 700; }
+.market h1, .market h2 { font-family: var(--font-display); font-weight: 700; }
 .market h2 { font-size: clamp(1.45rem, 3.3vw, 2.05rem); line-height: 1.35; }
 .market label { font-size: .87rem; color: var(--ink-soft); }
 .skip { position: absolute; left: -100vw; }
 .skip:focus { left: 1rem; top: 1rem; z-index: 100; padding: .5rem; background: white; }
-.intro { padding: clamp(2.3rem, 6vw, 5.2rem) 0 2.5rem; display: grid; grid-template-columns: 1.25fr 1fr; gap: clamp(1.4rem, 5vw, 4.5rem); align-items: end; }
+.intro { padding: clamp(2.3rem, 6vw, 5.2rem) 0 2.5rem; display: grid; grid-template-columns: .95fr 1.15fr; gap: clamp(1.4rem, 5vw, 4.5rem); align-items: center; }
 .period { color: var(--green); font-weight: 500; font-size: .84rem; }
 .period span { margin-left: .75rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .intro h1 { font-size: clamp(2.5rem, 5.6vw, 4.75rem); letter-spacing: -.055em; line-height: 1.15; margin: .9rem 0 1.2rem; }
 .intro-text { color: var(--ink-soft); font-size: 1rem; }
 .scope-note { margin-top: .65rem; max-width: 34rem; color: var(--ink-soft); font-size: .91rem; }
-.snapshot { background: #1c3b2e; color: #fffaf1; padding: clamp(1.3rem, 3vw, 2.2rem); border-radius: .35rem; }
-.snapshot strong { display: block; font-size: clamp(2.9rem, 6vw, 4.85rem); line-height: 1.2; margin: .45rem 0 .65rem; font-variant-numeric: tabular-nums; }
-.meter { height: .48rem; background: #476454; border-radius: 2px; overflow: hidden; margin-bottom: .75rem; }
-.meter i { display: block; height: 100%; background: #d6bb7b; }
-#concentration-amount { font-size: .84rem; color: #d8e1d7; }
+.refresh-note { margin-top: .95rem; color: var(--ink-soft); font-size: .82rem; }
+.shares { background: #e9ebe1; border: 1px solid #c5cabb; border-radius: .55rem; padding: clamp(1rem, 2.5vw, 2rem); }
+.share-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem; }
+.share-head h2 { font-size: clamp(1.25rem, 2vw, 1.65rem); }
+.measure { display: inline-flex; padding: .12rem; border: 1px solid #9aab98; border-radius: 1.5rem; }
+.market .measure button { border: none; border-radius: 1.5rem; padding: .2rem .8rem; font-size: .85rem; }
+.market .measure button[aria-pressed="true"] { background: var(--green); color: white; }
+.share-layout { display: grid; grid-template-columns: minmax(0,.95fr) minmax(0,1.05fr); gap: 1rem; align-items: center; margin: 1.3rem 0; }
+.donut { aspect-ratio: 1; width: 100%; max-width: 14.5rem; margin: auto; border-radius: 50%; display: grid; place-items: center; }
+.hole { background: #e9ebe1; border-radius: 50%; width: 65%; height: 65%; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: var(--green); }
+.hole b { font: 700 clamp(1.1rem,2.4vw,2rem)/1.25 var(--font-display); }
+.hole small,.hole span { font-size: .75rem; line-height: 1.4; }
+.hole span { max-width: 84%; overflow-wrap: anywhere; }
+.share-legend { list-style: none; }
+.share-legend li { display: grid; grid-template-columns: .62rem minmax(0,1fr) auto; align-items: center; gap: .5rem; padding: .28rem 0; border-bottom: 1px solid #cbd0c4; font-size: .85rem; }
+.share-legend li:first-child { font-weight: 700; }
+.share-legend i { width: .62rem; height: .62rem; border-radius: 50%; }
+.share-legend .link { font-size: inherit; line-height: 1.4; }
+.share-details { grid-column: 2 / -1; font-size: .72rem; color: var(--ink-soft); font-weight: 400; font-variant-numeric: tabular-nums; }
+.share-legend b { font-variant-numeric: tabular-nums; }
+.share-summary,.top-five { font-size: .85rem; color: var(--ink-soft); }
+.top-five { margin: .6rem 0; }
+@media (min-width:741px) and (max-width:950px), (max-width:455px) {
+  .share-layout { grid-template-columns: 1fr; gap: .8rem; }
+  .donut { max-width: 11.5rem; }
+  .hole b { font-size: 1.7rem; }
+}
 .market fieldset { min-width: 0; border: none; border-top: 1px solid var(--line); margin-top: .5rem; }
 .market legend { padding-right: .8rem; color: var(--green); font-weight: 500; }
 .filter-grid { display: grid; grid-template-columns: .8fr 1.35fr 1.3fr auto; gap: .8rem; align-items: end; margin: .85rem 0 .6rem; }

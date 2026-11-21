@@ -81,9 +81,62 @@ function showFirm(name) {
   get('records-title').focus();
 }
 
+const shareColors = ['#164c3b', '#c28638', '#477c96', '#9a6665', '#77844c', '#bdc1b6'];
+
+function renderShares(ordered, totalAmount) {
+  const metric = get('sort').value;
+  const isMoney = metric === 'amount';
+  const total = isMoney ? totalAmount : scoped.length;
+  const unit = isMoney ? won : value => number.format(value) + '건';
+  document.querySelectorAll('[data-metric]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.metric === metric));
+  });
+  get('share-legend').replaceChildren();
+  get('donut').hidden = !total;
+  if (!total) {
+    get('share-summary').textContent = '선택한 조건에서 비중을 계산할 낙찰 자료가 없습니다.';
+    return;
+  }
+  const leaders = ordered.filter(firm => firm[metric] === ordered[0][metric]);
+  const top = ordered.slice(0, 5);
+  const topSum = top.reduce((sum, firm) => sum + firm[metric], 0);
+  const slices = top.map(firm => ({name: firm.name, value: firm[metric], firm: true}));
+  if (ordered.length > top.length) {
+    slices.push({name: '기타 ' + (ordered.length - top.length) + '개 상호', value: total - topSum, firm: false});
+  }
+  const stops = [];
+  let sum = 0;
+  for (const [index, slice] of slices.entries()) {
+    const color = shareColors[slice.firm ? index : 5];
+    const start = sum / total * 100;
+    sum += slice.value;
+    const end = index === slices.length - 1 ? 100 : sum / total * 100;
+    stops.push(color + ' ' + start + '% ' + end + '%');
+    const item = element('li');
+    const swatch = element('i');
+    swatch.style.backgroundColor = color;
+    const label = slice.firm ? action(slice.name, () => showFirm(slice.name)) : element('span', slice.name);
+    const share = slice.value > 0 && slice.value / total < .0005 ? '<0.1%' : percent(slice.value, total);
+    item.append(swatch, label, element('b', share));
+    item.title = slice.name + ' · ' + unit(slice.value) + ' / ' + unit(total);
+    item.append(element('span', unit(slice.value) + ' / ' + unit(total), 'share-details'));
+    get('share-legend').append(item);
+  }
+  // 한 조각에는 그라디언트 대신 같은 색을 사용한다.
+  get('donut').style.background = slices.length === 1 ? shareColors[0] : 'conic-gradient(' + stops.join(',') + ')';
+  const tied = leaders.length > 1;
+  const highest = percent(ordered[0][metric], total);
+  get('leader-label').textContent = tied ? '공동 1위' : '1위';
+  get('leader-share').textContent = highest;
+  get('leader-name').textContent = tied ? leaders.length + '개 상호' : ordered[0].name;
+  const who = tied ? '공동 1위 ' + leaders.length + '개 상호' : '1위 ' + ordered[0].name;
+  get('share-summary').textContent = who + (tied ? ' · 각 ' : ' · ') + highest + ' (' + unit(ordered[0][metric]) + ' / ' + unit(total) + ')';
+}
+
 function renderRanks(total) {
   const ordered = [...ranking];
   if (get('sort').value === 'amount') ordered.sort((a, b) => b.amount - a.amount || b.count - a.count || byName(a.name, b.name));
+  renderShares(ordered, total);
   const displayed = expanded ? ordered : ordered.slice(0, 5);
   const nodes = displayed.map((firm, index) => {
     const row = element('tr');
@@ -217,7 +270,6 @@ function updateScope() {
   const total = ranking.reduce((sum, firm) => sum + firm.amount, 0);
   get('concentration-label').textContent = top.length ? '건수 상위 ' + top.length + '개 상호의 낙찰 비중' : '선택 범위의 낙찰 비중';
   get('concentration').textContent = percent(count, scoped.length);
-  get('concentration-bar').style.width = (scoped.length ? count / scoped.length * 100 : 0) + '%';
   get('concentration-count').textContent = scoped.length + '건 중 ' + count + '건';
   get('concentration-amount').textContent = total ? '낙찰금액의 ' + percent(amount, total) + ' · ' + eok(total) + ' 중 ' + eok(amount) : '해당 공고 없음';
   get('status').textContent = scoped.length
@@ -240,9 +292,11 @@ async function load() {
   get('retry').hidden = true;
   get('status').textContent = '자료를 불러오는 중입니다.';
   try {
-    const res = await fetch('awards.json?v=202609');
+    const res = await fetch('current.json', {cache: 'no-cache'});
     if (!res.ok) throw new Error(String(res.status));
-    awards = await res.json();
+    const snapshot = await res.json();
+    if (snapshot.schema !== 1 || !Array.isArray(snapshot.awards) || !snapshot.awards.length) throw new Error('자료 형식 오류');
+    awards = snapshot.awards;
     projects.clear();
     for (const row of awards) {
       const key = projectKey(row);
@@ -251,13 +305,19 @@ async function load() {
     }
     for (const rows of projects.values()) rows.sort((a, b) => a.date.localeCompare(b.date) || a.no.localeCompare(b.no));
     awards.sort((a, b) => b.date.localeCompare(a.date) || b.no.localeCompare(a.no));
+    const firstDate = awards[awards.length - 1].date;
+    get('coverage').textContent = firstDate + ' — ' + awards[0].date + ' 개찰분';
+    const checked = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(snapshot.checkedAt));
+    const stale = Date.now() - Date.parse(snapshot.checkedAt) > 48 * 60 * 60 * 1000;
+    get('refresh-note').textContent = '매일 오전 7시 15분(KST) 갱신 · 마지막 확인 ' + checked + ' (KST) · ' + snapshot.registeredThrough + ' 등록분까지 · 확인 대기 ' + snapshot.pending + '건' + (snapshot.pending ? ' · 잠정 순위' : '') + (stale ? ' · 최근 갱신 지연' : '');
     const agencies = [...new Set(awards.map(row => row.agency))].sort(byName);
     const years = [...new Set(awards.map(row => row.date.slice(0, 4)))].sort().reverse();
     fillSelect(get('agency'), agencies.map(v => [v, v]), '전체 기관');
-    fillSelect(get('year'), years.map(v => [v, v === '2026' ? '2026년 (1~9월)' : v + '년']), '전체 기간');
+    fillSelect(get('year'), years.map(v => [v, v + '년']), '전체 기간');
     updateScope();
     get('filters').disabled = false;
     get('analysis').hidden = false;
+    get('shares').hidden = false;
   } catch (error) {
     get('status').textContent = '공고 자료를 불러오지 못했습니다.';
     get('retry').hidden = false;
@@ -275,6 +335,12 @@ get('query').addEventListener('compositionend', () => {
   clearTimeout(searchTimer);
   updateScope();
 });
+document.querySelectorAll('[data-metric]').forEach(button => {
+  button.addEventListener('click', () => {
+    get('sort').value = button.dataset.metric;
+    get('sort').dispatchEvent(new Event('change'));
+  });
+});
 get('sort').addEventListener('change', () => renderRanks(scoped.reduce((sum, row) => sum + row.amount, 0)));
 get('all-ranks').addEventListener('click', () => {
   expanded = !expanded;
@@ -290,7 +356,7 @@ get('reset').addEventListener('click', () => {
   clearTimeout(searchTimer);
   preferredProjectKey = null;
   get('project').selectedIndex = -1;
-  get('sort').value = 'count';
+  get('sort').value = 'amount';
   updateScope();
 });
 for (const [id, delta] of [['prev', -1], ['next', 1]]) {
