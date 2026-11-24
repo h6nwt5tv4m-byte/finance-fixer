@@ -78,6 +78,9 @@ class BoardTest(unittest.TestCase):
             self.assertIn("no-store",res.headers["Cache-Control"])
             self.assertIsNone(res.json["bookmark"])
         t = state(a).json["csrf"]
+        rejected = put(b, t)
+        self.assertEqual(rejected.status_code, 403)
+        self.assertEqual(rejected.json, {"scope": state(b).json["scope"]})
         self.assertEqual(put(a, t).json["bookmark"]["ms"], 3456)
         self.assertEqual(put(a, t).json["bookmark"]["revision"], 1)
         self.assertIsNone(state(b).json["bookmark"])

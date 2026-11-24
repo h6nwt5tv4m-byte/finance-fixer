@@ -89,7 +89,9 @@ def install(app, db, viewer, label, digest, token):
                 return jsonify(guest=True), 401
             csrf = request.headers.get("X-Bookworm-CSRF", "")
             if not csrf.isascii() or not hmac.compare_digest(csrf, token()):
-                abort(403)
+                # Let the trusted reader distinguish a new login from a different member
+                # even if a follow-up request loses its connection.
+                return jsonify(scope=digest("book-cache", uid)[:24]), 403
             data = request.get_json(silent=True)
             if not isinstance(data, dict) or not all(type(data.get(k)) is int for k in ("chapter", "scene", "ms", "revision")):
                 abort(400)

@@ -3,11 +3,11 @@
   let pageScope;
   let invalidated = false;
   const discardOnSwitch = new Set();
-  function invalidate(nextScope) {
+  function invalidate(nextScope, switched = true) {
     if (invalidated) return;
     invalidated = true;
     if (nextScope) for (const discard of discardOnSwitch) discard();
-    if (document.documentElement.dataset.chapter && typeof history !== 'undefined') {
+    if (switched && document.documentElement.dataset.chapter && typeof history !== 'undefined') {
       const url = new URL(location.href);
       url.hash = '';
       url.searchParams.delete('read');
@@ -19,6 +19,7 @@
   function openBook(book) {
     const url = 'https://board.finance-fixer.net/site/bookworm/' + book;
     const memory = new Map();
+    const changedTimes = new Map();
     let session = null;
     let pending = null;
     let writing = false;
@@ -41,6 +42,12 @@
     let verifyingReturn = false;
     let offlineWrite = false;
     let checkingConnection = false;
+    let returnCheck;
+    let deferredChoice;
+    function checkReturn() {
+      if (!returnCheck) returnCheck = recheck().finally(() => { returnCheck = null; });
+      return returnCheck;
+    }
     function acknowledged(bookmark) {
       return attempts.some(attempt => samePosition(bookmark, attempt) && bookmark.revision === attempt.revision + 1);
     }
@@ -86,6 +93,7 @@
         try { localStorage.setItem(id, value); memory.delete(id); return; } catch {}
       }
       memory.set(id, String(value));
+      if (session?.scope && key.endsWith(':time')) changedTimes.set(id, String(value));
     }
     function get(key) {
       if (invalidated || verifyingReturn || !key.startsWith(prefix)) return null;
@@ -93,18 +101,18 @@
       if (memory.has(id)) return memory.get(id);
       try {
         const value = session && localStorage.getItem(id);
-        if (session?.scope) memory.set(id, value);
         return value;
       } catch { return null; }
     }
-    function storePending(value, claim = false) {
+    function storePending(value, claim = false, newValue = false) {
       try {
         const disk = stored();
         if (disk && disk.id !== storedId && !claim) return false;
         if (value) {
-          storedId = writer + ':' + (++serial);
-          localStorage.setItem(outboxKey(), JSON.stringify({value, id: storedId, revision: revision(),
+          const nextId = newValue || !storedId ? writer + ':' + (++serial) : storedId;
+          localStorage.setItem(outboxKey(), JSON.stringify({value, id: nextId, revision: revision(),
             lastSent, attempts, intentional: generation > confirmedAction && generation !== retriedAction}));
+          storedId = nextId;
         } else if (disk && disk.id === storedId) { localStorage.removeItem(outboxKey()); }
       } catch { /* The in-memory queue still retries during this visit. */ }
       return true;
@@ -128,6 +136,7 @@
       writing = true;
       const value = pending;
       const observed = generation;
+      const timesAtSend = new Map(changedTimes);
       let retryLater = false;
       const base = revision();
       const token = session.csrf;
@@ -136,7 +145,7 @@
       attempts = attempts.filter(attempt => attempt.revision >= base);
       // Keep the previous attempt until the server acknowledges it. Its response may be lost.
       if (!lastSent || !samePosition(lastSent, value) || lastSent.revision !== base) {
-        lastSent = {...value, revision: base};
+        lastSent = {...value, revision: base, generation: observed};
         if (!attempts.some(attempt => samePosition(attempt, lastSent))) attempts.push(lastSent);
         storePending(pending);
       }
@@ -151,6 +160,17 @@
           if (!acceptScope(next)) return;
           advance(next.bookmark);
           if (r.ok) {
+            // A successful response authorizes device hints captured before that request.
+            // A newer remote selection has priority over hints from an older response.
+            if (writable && next.bookmark?.revision === revision()) {
+              for (const [id, time] of timesAtSend) {
+                try { localStorage.setItem(id, time); } catch {}
+                if (changedTimes.get(id) === time) {
+                  changedTimes.delete(id);
+                  if (memory.get(id) === time) memory.delete(id);
+                }
+              }
+            }
             confirmedAction = Math.max(confirmedAction, observed);
             if (pending === value) pending = null;
             try {
@@ -176,7 +196,16 @@
             if (session.csrf === token) await recheck();
             if (!invalidated && session.csrf !== token) retryLater = false;
           } else {
-            await recheck();
+            let rejectedScope;
+            try { rejectedScope = (await r.json())?.scope; } catch {}
+            if (rejectedScope && rejectedScope !== session.scope) {
+              invalidate(rejectedScope);
+              return;
+            }
+            const verified = await recheck();
+            // Older servers omitted the current scope. An unverified rejection cannot
+            // safely be replayed under the previous member when the account comes back.
+            if (!verified && !rejectedScope && !invalidated && session.csrf === token) storePending(null);
             retryLater = invalidated || !session.csrf || session.csrf === token;
           }
         } else { retryLater = true; }
@@ -188,11 +217,21 @@
     }
 
     function save(chapter, scene, seconds, action, immediate) {
-      if (invalidated || verifyingReturn || !session?.csrf || !Number.isFinite(seconds)) return;
+      if (invalidated || !session?.csrf || !Number.isFinite(seconds)) return;
+      if (verifyingReturn) {
+        deferredChoice = [chapter, scene, seconds, action || !!deferredChoice?.[3], immediate];
+        void checkReturn();
+        return;
+      }
       if (action) { generation++; writable = true; }
       if (!writable) return;
+      // Another tab can already be delivering the shared outbox entry we are replacing.
+      if (pending && samePosition(stored()?.value, pending) &&
+          !attempts.some(attempt => attempt.revision === revision() && samePosition(attempt, pending))) {
+        attempts.push({...pending, revision: revision(), generation: confirmedAction});
+      }
       pending = {chapter: Number(chapter), scene: Number(scene), ms: Math.round(seconds * 1000)};
-      if (!storePending(pending, action)) {
+      if (!storePending(pending, action, true)) {
         writable = false;
         pending = null;
         return;
@@ -228,18 +267,28 @@
       const ticket = ++lastCheck;
       const fresh = await fetchState();
       if (ticket !== lastCheck || !acceptScope(fresh)) return;
-      if (fresh.scope !== session?.scope) { invalidate(fresh.scope); return; }
+      if (fresh.scope !== session?.scope) { invalidate(fresh.scope, !!session); return; }
       verifyingReturn = false;
       offlineWrite = false;
-      if (!fresh.scope) { signal(); return; }
+      if (!fresh.scope) { signal(); return true; }
       session.csrf = fresh.csrf;
       if ((fresh.bookmark?.revision || 0) > revision()) {
+        const ours = acknowledged(fresh.bookmark);
         advance(fresh.bookmark);
+        if (!ours && !samePosition(pending, fresh.bookmark)) {
+          const remoteTime = scopeKey() + prefix + 'ch' + fresh.bookmark.chapter + ':audio-v1:scene-' + fresh.bookmark.scene + ':time';
+          memory.delete(remoteTime);
+          changedTimes.delete(remoteTime);
+        }
         if (samePosition(pending, fresh.bookmark)) {
+          confirmedAction = Math.max(confirmedAction, generation);
+          pending = null;
+          storePending(null);
+        } else if (writing && !ours) {
+          writable = false;
           pending = null;
           storePending(null);
         } else if (!writing) {
-          const ours = acknowledged(fresh.bookmark);
           if (pending && (ours || (generation > confirmedAction && retriedAction !== generation))) {
             if (!ours) retriedAction = generation;
             void flush();
@@ -250,7 +299,11 @@
           }
         }
       } else if (pending && !writing) { void flush(); }
+      const choice = deferredChoice;
+      deferredChoice = null;
+      if (choice) save(...choice);
       signal();
+      return true;
     }
     window.addEventListener('storage', event => {
       if (!event.key?.endsWith(':' + book + ':server-revision')) return;
@@ -263,7 +316,7 @@
       if (e.persisted) {
         verifyingReturn = true;
         signal();
-        void recheck();
+        void checkReturn();
       }
     });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) recheck(); });

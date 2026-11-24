@@ -5,11 +5,31 @@
   const visit = new Map();
   let earlyPlayer;
   let earlySeek;
-  const captureSeek = e => { if (e.target.matches?.('.scene audio')) earlySeek = e.target; };
-  const capturePlay = e => { if (e.target.matches?.('.scene audio')) earlyPlayer = e.target; };
+  let earlySelection;
+  const captureSeek = e => {
+    if (e.target.matches?.('.scene audio')) { earlySeek = e.target; earlySelection = null; }
+  };
+  const capturePlay = e => {
+    if (e.target.matches?.('.scene audio')) { earlyPlayer = e.target; earlySelection = null; }
+  };
+  function selectEarly(hash) {
+    if (!/^#scene-\d+$/.test(hash)) return;
+    earlySelection = hash;
+    earlyPlayer = null;
+    earlySeek = null;
+  }
+  const captureLink = e => {
+    if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey)
+      selectEarly(e.target.closest?.('a[href^="#scene-"]')?.hash);
+  };
+  const captureHash = () => selectEarly(location.hash);
+  window.addEventListener('hashchange', captureHash);
+  document.addEventListener('click', captureLink, true);
   document.addEventListener('play', capturePlay, true);
   document.addEventListener('seeking', captureSeek, true);
   await progress?.ready;
+  window.removeEventListener('hashchange', captureHash);
+  document.removeEventListener('click', captureLink, true);
   document.removeEventListener('play', capturePlay, true);
   document.removeEventListener('seeking', captureSeek, true);
   const initialBookmark = progress?.remote();
@@ -211,10 +231,10 @@
     expectedTime = get(scene.id + ':time');
     const audio = scene.querySelector('audio');
     rememberScene(scene, true, restored ? audio.currentTime : readingTime(scene));
-    if (restored && initialBookmark?.chapter === Number(chapter) && initialBookmark.scene === Number(scene.id.slice(6))) {
+    if (restored) {
       set(scene.id + ':time', String(audio.currentTime));
       expectedTime = get(scene.id + ':time');
-      remoteTimeAvailable = false;
+      if (initialBookmark?.chapter === Number(chapter) && initialBookmark.scene === Number(scene.id.slice(6))) remoteTimeAvailable = false;
     }
   }
   function saveTime(immediate = false) {
@@ -319,7 +339,7 @@
   if (earlyAudio) claimPosition(initialScene);
   // Chapter-choice links signal intent even when opened in a new tab.
   const entry = new URL(location.href);
-  const chosen = entry.searchParams.get('read') === '1';
+  const chosen = entry.searchParams.get('read') === '1' || earlySelection === '#' + initialScene.id;
   if (chosen) entry.searchParams.delete('read');
   if (book === 'oz' && !get('last-chapter', bookPrefix) && get('last-scene', preferencePrefix)) {
     set('last-chapter', '1', bookPrefix);
