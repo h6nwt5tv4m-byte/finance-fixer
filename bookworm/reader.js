@@ -15,6 +15,133 @@
   function set(key, value) {
     try { localStorage.setItem(prefix + key, value); } catch { /* Reading works without storage. */ }
   }
+  function installNarration() {
+    const template = document.querySelector('#narration-options');
+    if (!template) return () => {};
+    const options = template.content.firstElementChild.cloneNode(true);
+    const speed = options.querySelector('select');
+    const follow = options.querySelector('input');
+    const header = document.querySelector('.top');
+    const savedFollow = get('follow');
+    follow.checked = savedFollow === null ? !matchMedia('(prefers-reduced-motion: reduce)').matches : savedFollow === 'on';
+    let player;
+    let toolbar;
+    let words = [];
+    let highlighted;
+    let frame = 0;
+
+    function reflectRate(rate) {
+      // Native audio controls may offer rates outside the presets.
+      if (!Array.from(speed.options).some(option => Number(option.value) === rate)) {
+        speed.add(new Option(rate + '배', String(rate)));
+      }
+      speed.value = String(rate);
+    }
+    const storedRate = Number(get('rate'));
+    reflectRate(storedRate >= .25 && storedRate <= 4 ? storedRate : 1);
+
+    function setHeaderHeight() {
+      document.documentElement.style.setProperty('--bookworm-header-height', header.offsetHeight + 'px');
+    }
+    setHeaderHeight();
+    if ('ResizeObserver' in window) new ResizeObserver(setHeaderHeight).observe(header);
+    else window.addEventListener('resize', setHeaderHeight);
+
+    function bringIntoView(word) {
+      const viewportBottom = document.documentElement.clientHeight;
+      const sticky = getComputedStyle(toolbar).position === 'sticky';
+      const top = Math.max(0, header.getBoundingClientRect().bottom) + (sticky ? toolbar.offsetHeight : 0) + 8;
+      const room = viewportBottom - top;
+      if (room < 40) return;
+      const box = word.getBoundingClientRect();
+      if (box.top < top || box.bottom > viewportBottom - 12) {
+        window.scrollBy(0, box.top - top - room * .25);
+      }
+    }
+    function mark(word) {
+      if (word === highlighted) return;
+      if (highlighted) highlighted.classList.remove('spoken-word');
+      highlighted = word;
+      if (!word) return;
+      word.classList.add('spoken-word');
+      if (follow.checked && !player.paused && !document.hidden) bringIntoView(word);
+    }
+    function paint() {
+      if (!player || player.ended || player.error || player.seeking || !player.readyState) {
+        mark(null);
+        return;
+      }
+      const time = player.currentTime * 1000;
+      let lo = 0;
+      let hi = words.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (words[mid].start <= time) lo = mid + 1;
+        else hi = mid;
+      }
+      const cue = words[lo - 1];
+      mark(cue && time < cue.end ? cue.element : null);
+    }
+    function stopFrame() {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    }
+    function tick() {
+      frame = 0;
+      paint();
+      if (!document.hidden && !player.paused && !player.ended && !player.error && !player.seeking) {
+        frame = requestAnimationFrame(tick);
+      }
+    }
+    function refresh() {
+      stopFrame();
+      if (player) tick();
+    }
+    speed.addEventListener('change', () => {
+      const rate = Number(speed.value);
+      player.defaultPlaybackRate = rate;
+      player.playbackRate = rate;
+      set('rate', speed.value);
+    });
+    follow.addEventListener('change', () => {
+      set('follow', follow.checked ? 'on' : 'off');
+      if (follow.checked && highlighted && !player.paused) bringIntoView(highlighted);
+    });
+    for (const scene of scenes) {
+      const audio = scene.querySelector('audio');
+      audio.addEventListener('ratechange', () => {
+        if (audio !== player || Number(speed.value) === audio.playbackRate) return;
+        reflectRate(audio.playbackRate);
+        audio.defaultPlaybackRate = audio.playbackRate;
+        set('rate', speed.value);
+      });
+      for (const event of ['playing', 'pause', 'seeking', 'seeked', 'ended', 'emptied', 'error']) {
+        audio.addEventListener(event, () => { if (audio === player) refresh(); });
+      }
+      audio.addEventListener('timeupdate', () => { if (audio === player && !frame) paint(); });
+    }
+    window.addEventListener('pagehide', stopFrame);
+    window.addEventListener('pageshow', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return scene => {
+      stopFrame();
+      mark(null);
+      if (toolbar) toolbar.classList.remove('with-options');
+      toolbar = scene.querySelector('.listen');
+      toolbar.append(options);
+      toolbar.classList.add('with-options');
+      player = toolbar.querySelector('audio');
+      player.defaultPlaybackRate = Number(speed.value);
+      player.playbackRate = Number(speed.value);
+      words = Array.from(scene.querySelectorAll('.passage [data-ms]'), element => {
+        const [start, end] = element.dataset.ms.split(' ').map(Number);
+        return {start, end, element};
+      });
+    };
+  }
+
+  const activateNarration = installNarration();
+
   function sceneById(id) {
     return scenes.find(scene => scene.id === id);
   }
@@ -45,6 +172,7 @@
         active.querySelector('audio').pause();
       }
       active = scene;
+      activateNarration(scene);
       restored = false;
       interacted = false;
       lastWrite = 0;
