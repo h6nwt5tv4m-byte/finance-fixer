@@ -348,6 +348,19 @@ class BoardTest(unittest.TestCase):
                      data={"email":"other@example.test","csrf":token})
         self.assertEqual(reply.status_code,303)
 
+    def test_only_served_fonts_can_be_reused_by_the_browser(self):
+        uri = "/static/fonts/gowun-batang-korean-400-normal.woff2"
+        with self.get(self.guest, uri) as font:
+            self.assertEqual(font.status_code, 200)
+            self.assertEqual(font.mimetype, "font/woff2")
+            self.assertTrue(font.cache_control.private)
+            self.assertGreater(font.cache_control.max_age, 0)
+            self.assertEqual(font.headers["CDN-Cache-Control"], "no-store")
+        for path in ("/login", "/static/fonts/missing.woff2", "/p/missing.woff2"):
+            with self.get(self.guest, path) as page:
+                self.assertTrue(page.cache_control.no_store)
+                self.assertIn("script-src 'none'", page.headers["Content-Security-Policy"])
+
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
         second=self.get(self.guest,"/?page=2")
