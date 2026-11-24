@@ -3,19 +3,19 @@
   const library = window.BookwormProgress;
   const progress = library?.forBook?.(book) || (book === 'oz' ? library : null);
   const visit = new Map();
-  let earlyPlayer;
+  let earlyAudio;
   let earlySeek;
   let earlySelection;
   const captureSeek = e => {
-    if (e.target.matches?.('.scene audio')) { earlySeek = e.target; earlySelection = null; }
+    if (e.target.matches?.('.scene audio')) { earlyAudio = earlySeek = e.target; earlySelection = null; }
   };
   const capturePlay = e => {
-    if (e.target.matches?.('.scene audio')) { earlyPlayer = e.target; earlySelection = null; }
+    if (e.target.matches?.('.scene audio')) { earlyAudio = e.target; earlySelection = null; }
   };
   function selectEarly(hash) {
     if (!/^#scene-\d+$/.test(hash)) return;
     earlySelection = hash;
-    earlyPlayer = null;
+    earlyAudio = null;
     earlySeek = null;
   }
   const captureLink = e => {
@@ -63,15 +63,23 @@
   const bookPrefix = `bookworm:${book}:`;
   const resume = document.querySelector('.resume-chapter');
 
+  function storedTime(value) {
+    return value == null ? null : String(Math.round(Number(value) * 1000) / 1000);
+  }
   function readingTime(scene) {
-    if (remoteTimeAvailable && initialBookmark?.chapter === Number(chapter) && initialBookmark.scene === Number(scene.id.slice(6))) return initialBookmark.ms / 1000;
+    const bookmark = progress?.remote();
+    if ((remoteTimeAvailable || bookmark?.revision !== initialBookmark?.revision) &&
+        bookmark?.chapter === Number(chapter) && bookmark.scene === Number(scene.id.slice(6))) return bookmark.ms / 1000;
     return Number(get(scene.id + ':time')) || 0;
   }
-  function rememberScene(scene, publish = true, seconds = readingTime(scene)) {
+  function rememberScene(scene, publish = true, seconds) {
     set('last-scene', scene.id);
     set('last-chapter', chapter, bookPrefix);
     if (resume) resume.hidden = true;
-    if (publish) progress?.save(chapter, scene.id.slice(6), seconds, true, true);
+    if (publish) {
+      const time = seconds ?? (progress?.verifying?.() ? () => readingTime(scene) : readingTime(scene));
+      progress?.save(chapter, scene.id.slice(6), time, true, true);
+    }
   }
   function installNarration() {
     const template = document.querySelector('#narration-options');
@@ -228,12 +236,12 @@
   function claimPosition(scene) {
     interacted = true;
     lastSavedTime = null;
-    expectedTime = get(scene.id + ':time');
+    expectedTime = storedTime(get(scene.id + ':time'));
     const audio = scene.querySelector('audio');
     rememberScene(scene, true, restored ? audio.currentTime : readingTime(scene));
     if (restored) {
-      set(scene.id + ':time', String(audio.currentTime));
-      expectedTime = get(scene.id + ':time');
+      set(scene.id + ':time', storedTime(audio.currentTime));
+      expectedTime = storedTime(get(scene.id + ':time'));
       if (initialBookmark?.chapter === Number(chapter) && initialBookmark.scene === Number(scene.id.slice(6))) remoteTimeAvailable = false;
     }
   }
@@ -244,15 +252,15 @@
     const time = audio.ended || audio.duration - audio.currentTime < 2 ? 0 : audio.currentTime;
     const key = active.id + ':time';
     // A late pause or pagehide must not replace a newer seek in another tab.
-    if (lastSavedTime === time || get(key) !== expectedTime) return;
-    expectedTime = String(time);
+    if (lastSavedTime === time || storedTime(get(key)) !== expectedTime) return;
+    expectedTime = storedTime(time);
     set(key, expectedTime);
     lastSavedTime = time;
     lastWrite = Date.now();
     progress?.save(chapter, active.id.slice(6), time, false, immediate === true);
   }
   function restoreTime() {
-    if (restored) return;
+    if (restored || progress?.verifying?.()) return;
     const audio = active.querySelector('audio');
     if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
     const time = readingTime(active);
@@ -305,7 +313,9 @@
       const target = restoreTargets.get(audio);
       restoreTargets.delete(audio);
       if (target !== undefined && Math.abs(audio.currentTime - target) < .012) return;
-      if (scene !== active || !restored) return;
+      if (scene !== active) return;
+      if (!restored && progress?.verifying?.()) restored = true;
+      if (!restored) return;
       // A seek made by the reader can take ownership of a previously paused position.
       if (interacted || Math.abs(audio.currentTime - readingTime(scene)) >= .0005) {
         claimPosition(scene);
@@ -326,14 +336,13 @@
   const fromHash = () => sceneById(location.hash.slice(1));
   const saved = initialBookmark;
   const bookmarkScene = saved?.chapter === Number(chapter) && sceneById('scene-' + saved.scene);
-  const earlyAudio = earlyPlayer || earlySeek;
   const initialScene = earlyAudio?.closest('.scene') || fromHash() || bookmarkScene || sceneById(get('last-scene')) || scenes[0];
   for (const scene of scenes) {
     if (scene !== initialScene) scene.querySelector('audio').pause();
   }
   if (earlyAudio && (bookmarkScene !== initialScene || earlySeek === earlyAudio)) {
     remoteTimeAvailable = false;
-    set(initialScene.id + ':time', String(earlyAudio.currentTime));
+    set(initialScene.id + ':time', storedTime(earlyAudio.currentTime));
   }
   show(initialScene, false);
   if (earlyAudio) claimPosition(initialScene);
@@ -372,6 +381,9 @@
     if (!scene) return;
     show(scene, true);
     if (history.state?.bookwormScene === scene.id) rememberScene(scene);
+  });
+  window.addEventListener('bookworm-bookmark', () => {
+    if (active && !restored) restoreTime();
   });
   function finishVisit() { saveTime(true); progress?.flush(); }
   window.addEventListener('pagehide', finishVisit);
