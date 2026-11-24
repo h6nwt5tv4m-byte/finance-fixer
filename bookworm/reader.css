@@ -49,7 +49,7 @@ h2 { font-size: clamp(1.55rem, 3.4vw, 2.2rem); }
 .expression h3 { font-size: .78rem; color: var(--ink-soft); }
 .expression strong { display: block; font: 600 1.19rem/1.55 var(--font-display); }
 .expression p { margin-top: .2rem; font-size: .94rem; }
-.steps { margin: 0; display: flex; gap: 1rem; justify-content: space-between; margin-top: 1.3rem; border-top: 1px solid var(--line); padding-top: .8rem; }
+.steps { margin: 0; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; margin-top: 1.3rem; border-top: 1px solid var(--line); padding-top: .8rem; }
 .steps a { padding: .4rem 0;  font-size: .91rem; }
 .steps [rel=next] { margin-left: auto; }
 footer { margin-top: 1.5rem; padding: 1.5rem 0; border-top: 1px solid var(--line); color: var(--ink-faint); font-size: .86rem; }
@@ -87,4 +87,14 @@ footer p { margin-top: .4rem; }
 }
 @media (forced-colors: active) {
   .pair .spoken-word { forced-color-adjust: none; color: HighlightText; background: Highlight; }
+}
+
+.chapters { display: flex; flex-wrap: wrap; gap: .25rem 1rem; border-bottom: 1px solid var(--line); padding: .65rem 0; }
+.chapters a { color: var(--ink-soft); padding: .45rem .1rem; font-size: .91rem; text-decoration: none; }
+.chapters a[aria-current="page"] { color: var(--green); font-weight: 600; text-decoration: underline; text-underline-offset: .32em; }
+.chapters .resume-chapter { color: var(--green); margin-left: auto; }
+.chapters a:hover { text-decoration: underline; }
+@media (max-width: 540px) {
+  .chapters { gap: 1.1rem; }
+  .chapters span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 }

@@ -3,17 +3,45 @@
   const toc = document.querySelector('.contents details');
   const sceneLinks = Array.from(toc.querySelectorAll('a'));
   const narrow = matchMedia('(max-width: 760px)');
-  const prefix = 'bookworm:oz:ch1:audio-v1:';
+  const chapter = document.documentElement.dataset.chapter || '1';
+  const progressPrefix = `bookworm:oz:ch${chapter}:audio-v1:`;
+  // Retain chapter one's existing speed and follow preferences across the book.
+  const preferencePrefix = 'bookworm:oz:ch1:audio-v1:';
   let active;
   let restored = false;
   let interacted = false;
   let lastWrite = 0;
 
-  function get(key) {
+  function get(key, prefix = progressPrefix) {
     try { return localStorage.getItem(prefix + key); } catch { return null; }
   }
-  function set(key, value) {
+  function set(key, value, prefix = progressPrefix) {
     try { localStorage.setItem(prefix + key, value); } catch { /* Reading works without storage. */ }
+  }
+  const bookPrefix = 'bookworm:oz:';
+  const resume = document.querySelector('.resume-chapter');
+
+  function updateResumeLink() {
+    if (!resume) return;
+    const last = get('last-chapter', bookPrefix);
+    const destination = Array.from(document.querySelectorAll('.chapters a[data-chapter]'))
+      .find(link => link.dataset.chapter === last);
+    resume.hidden = !destination || last === chapter;
+    if (resume.hidden) return;
+    const scene = get('last-scene', `bookworm:oz:ch${last}:audio-v1:`);
+    const number = /^scene-([1-6])$/.exec(scene)?.[1] || '1';
+    resume.href = destination.href + '#scene-' + number;
+    resume.textContent = `${last}장 · 장면 ${number} 이어 읽기 →`;
+  }
+  function rememberScene(scene) {
+    set('last-scene', scene.id);
+    set('last-chapter', chapter, bookPrefix);
+    updateResumeLink();
+  }
+  updateResumeLink();
+  if (resume) {
+    window.addEventListener('pageshow', updateResumeLink);
+    window.addEventListener('storage', updateResumeLink);
   }
   function installNarration() {
     const template = document.querySelector('#narration-options');
@@ -22,7 +50,7 @@
     const speed = options.querySelector('select');
     const follow = options.querySelector('input');
     const header = document.querySelector('.top');
-    const savedFollow = get('follow');
+    const savedFollow = get('follow', preferencePrefix);
     follow.checked = savedFollow === null ? !matchMedia('(prefers-reduced-motion: reduce)').matches : savedFollow === 'on';
     let player;
     let toolbar;
@@ -37,7 +65,7 @@
       }
       speed.value = String(rate);
     }
-    const storedRate = Number(get('rate'));
+    const storedRate = Number(get('rate', preferencePrefix));
     reflectRate(storedRate >= .25 && storedRate <= 4 ? storedRate : 1);
 
     function setHeaderHeight() {
@@ -101,10 +129,10 @@
       const rate = Number(speed.value);
       player.defaultPlaybackRate = rate;
       player.playbackRate = rate;
-      set('rate', speed.value);
+      set('rate', speed.value, preferencePrefix);
     });
     follow.addEventListener('change', () => {
-      set('follow', follow.checked ? 'on' : 'off');
+      set('follow', follow.checked ? 'on' : 'off', preferencePrefix);
       if (follow.checked && highlighted && !player.paused) bringIntoView(highlighted);
     });
     for (const scene of scenes) {
@@ -113,7 +141,7 @@
         if (audio !== player || Number(speed.value) === audio.playbackRate) return;
         reflectRate(audio.playbackRate);
         audio.defaultPlaybackRate = audio.playbackRate;
-        set('rate', speed.value);
+        set('rate', speed.value, preferencePrefix);
       });
       for (const event of ['playing', 'pause', 'seeking', 'seeked', 'ended', 'emptied', 'error']) {
         audio.addEventListener(event, () => { if (audio === player) refresh(); });
@@ -186,7 +214,7 @@
       restoreTime();
     }
     if (selected) {
-      set('last-scene', scene.id);
+      rememberScene(scene);
       if (narrow.matches) toc.open = false;
       const title = scene.querySelector('h2');
       title.focus({preventScroll: true});
@@ -201,14 +229,14 @@
       if (scene !== active) { audio.pause(); return; }
       restoreTime();
       interacted = true;
-      set('last-scene', scene.id);
+      rememberScene(scene);
     });
     audio.addEventListener('seeked', () => {
       if (scene !== active || !restored) return;
       // A metadata-only resume can seek before the user starts the player.
       if (interacted || Math.abs(audio.currentTime - Number(get(scene.id + ':time'))) > .3) {
         interacted = true;
-        set('last-scene', scene.id);
+        rememberScene(scene);
         saveTime();
       }
     });
@@ -223,6 +251,7 @@
   const fromHash = () => sceneById(location.hash.slice(1));
   const initialScene = fromHash() || sceneById(get('last-scene')) || scenes[0];
   show(initialScene, false);
+  if (chapter !== '1') rememberScene(initialScene);
   if (!location.hash) history.replaceState(null, '', '#' + initialScene.id);
   document.querySelector('.reading').addEventListener('click', event => {
     const link = event.target.closest('a[href^="#scene-"]');

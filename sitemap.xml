@@ -34,4 +34,6 @@
   <url><loc>https://finance-fixer.net/hanja/19/</loc><lastmod>2026-11-20</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://finance-fixer.net/hanja/20/</loc><lastmod>2026-11-20</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://finance-fixer.net/bookworm/</loc><lastmod>2026-11-24</lastmod><priority>0.5</priority></url>
+  <url><loc>https://finance-fixer.net/bookworm/2/</loc><lastmod>2026-11-24</lastmod><priority>0.5</priority></url>
+  <url><loc>https://finance-fixer.net/bookworm/3/</loc><lastmod>2026-11-24</lastmod><priority>0.5</priority></url>
 </urlset>
