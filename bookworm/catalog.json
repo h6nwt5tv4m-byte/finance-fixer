@@ -128,5 +128,76 @@
         "scenes": 1
       }
     ]
+  },
+  {
+    "slug": "holmes",
+    "title": "셜록 홈스의 모험",
+    "original": "The Adventures of Sherlock Holmes",
+    "author": "아서 코넌 도일",
+    "year": 1892,
+    "cover": "cover.jpg",
+    "unit": "편",
+    "chapters": [
+      {
+        "path": "/bookworm/holmes/1/",
+        "title": "보헤미아 왕국의 스캔들",
+        "scenes": 25
+      },
+      {
+        "path": "/bookworm/holmes/2/",
+        "title": "빨간 머리 연맹",
+        "scenes": 26
+      },
+      {
+        "path": "/bookworm/holmes/3/",
+        "title": "신랑의 정체",
+        "scenes": 20
+      },
+      {
+        "path": "/bookworm/holmes/4/",
+        "title": "보스콤 계곡의 수수께끼",
+        "scenes": 28
+      },
+      {
+        "path": "/bookworm/holmes/5/",
+        "title": "다섯 개의 오렌지 씨앗",
+        "scenes": 21
+      },
+      {
+        "path": "/bookworm/holmes/6/",
+        "title": "입술이 뒤틀린 사나이",
+        "scenes": 27
+      },
+      {
+        "path": "/bookworm/holmes/7/",
+        "title": "푸른 석류석",
+        "scenes": 23
+      },
+      {
+        "path": "/bookworm/holmes/8/",
+        "title": "얼룩 끈",
+        "scenes": 28
+      },
+      {
+        "path": "/bookworm/holmes/9/",
+        "title": "어느 기술자의 엄지손가락",
+        "scenes": 24
+      },
+      {
+        "path": "/bookworm/holmes/10/",
+        "title": "귀족 독신남",
+        "scenes": 23
+      },
+      {
+        "path": "/bookworm/holmes/11/",
+        "title": "녹주석 보관",
+        "scenes": 28
+      },
+      {
+        "path": "/bookworm/holmes/12/",
+        "title": "너도밤나무 저택",
+        "scenes": 29
+      }
+    ]
   }
 ]

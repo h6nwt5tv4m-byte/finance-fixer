@@ -38,3 +38,5 @@
 .legacy-scenes .scene:target { display: block; padding-top: 2rem; }
 .library:has(.legacy-scenes .scene:target) > .shelf,
 .library:has(.legacy-scenes .scene:target) > .library-intro { display: none; }
+
+.book-resumes { display: grid; gap: .35rem; }
