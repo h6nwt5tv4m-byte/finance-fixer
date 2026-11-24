@@ -49,6 +49,37 @@ function fromURL() {
 function remember(book, chapter) {
   try { localStorage.setItem(locationKey, JSON.stringify({book:book.id,chapter})); } catch {}
 }
+const audioPanel = $('chapter-audio');
+const playerHost = $('audio-player');
+let audioTimer;
+
+function clearAudio() {
+  clearTimeout(audioTimer);
+  playerHost?.replaceChildren();
+}
+
+function updateAudio() {
+  if (!audioPanel || !playerHost || !current) return;
+  if (!audioPanel.open) {
+    clearAudio();
+    return;
+  }
+  const {book, chapter} = current;
+  const url = `https://www.bible.com/audio-bible/111/${encodeURIComponent(book.id)}.${chapter}.NIV`;
+  if (playerHost.firstElementChild?.getAttribute('src') === url) return;
+  clearAudio();
+  // Detach the old player now and load only the last chapter chosen in a quick series.
+  audioTimer = setTimeout(() => {
+    if (!audioPanel.open) return;
+    const frame = document.createElement('iframe');
+    frame.title = `YouVersion NIV 낭독 · ${book.name} ${chapter}장에서 시작`;
+    frame.loading = 'lazy';
+    frame.referrerPolicy = 'no-referrer';
+    frame.src = url;
+    playerHost.replaceChildren(frame);
+  }, 200);
+}
+
 function links(book, chapter) {
   $('audio-link').href = `https://www.biblegateway.com/audio/mclean/niv/${encodeURIComponent(book.osis)}.${chapter}`;
   $('krv-original').href = `https://www.bskorea.or.kr/bible/korbibReadpage.php?version=HAN&book=${book.bsk}&chap=${chapter}&sec=0`;
@@ -143,8 +174,10 @@ function load(book, chapter, {historyMode='push',debounce=true}={}) {
   $('previous').disabled = book.id === books[0].id && chapter === 1;
   $('next').disabled = book.id === books.at(-1).id && chapter === book.chapters;
   links(book,chapter); remember(book,chapter);
+  updateAudio();
   if (historyMode !== 'none') {
-    const url = new URL(location.href); url.searchParams.set('book',book.id); url.searchParams.set('chapter',chapter); url.hash='';
+    const url = new URL(location.href); url.searchParams.set('book',book.id); url.searchParams.set('chapter',chapter);
+    if (historyMode === 'push') url.hash='';
     try{history[historyMode === 'replace' ? 'replaceState' : 'pushState'](null,'',url);}catch{}
   }
   loadKorean(book,chapter,seq,signal);
@@ -205,12 +238,19 @@ async function start() {
     $('previous').addEventListener('click',()=>move(-1));$('next').addEventListener('click',()=>move(1));
     $('verse').addEventListener('change',jumpVerse);
     $('retry').addEventListener('click',retryCurrent);
+    if (audioPanel) {
+      audioPanel.hidden = false;
+      audioPanel.addEventListener('toggle', updateAudio);
+      window.addEventListener('pagehide', clearAudio);
+      window.addEventListener('pageshow', event => { if (event.persisted) updateAudio(); });
+    }
     window.addEventListener('popstate',()=>{const chosen=fromURL()||{book:books.find(b=>b.id==='MRK'),chapter:1};load(chosen.book,chosen.chapter,{historyMode:'none'});});
     let chosen=fromURL();
     if(!chosen&&!new URLSearchParams(location.search).has('book'))try{const saved=JSON.parse(localStorage.getItem(locationKey));chosen=validSelection(saved?.book,saved?.chapter);}catch{}
     chosen ||= {book:books.find(b=>b.id==='MRK'),chapter:1};
     const font=document.createElement('link');font.rel='stylesheet';font.crossOrigin='anonymous';font.href=`${api}/fonts.css`;document.head.append(font);
     load(chosen.book,chosen.chapter,{historyMode:'replace',debounce:false});
+    if (location.hash === '#chapter-audio') audioPanel?.scrollIntoView({block:'start',behavior:'instant'});
   } catch {
     $('reader-status').textContent='책 목록을 불러오지 못했습니다. 새로고침하거나 첫 학습 단원을 이용해 주세요.';
     $('niv-status').textContent='';$('krv-status').textContent='';

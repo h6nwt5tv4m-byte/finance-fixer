@@ -4,3 +4,9 @@
 select{height:max(2.75em,44px)}
 @media(max-width:760px){.toolbar>label:first-child,.toolbar>label:nth-child(2),.toolbar>button{flex:1 1 calc(50% - .25rem);min-width:min(7.5rem,100%)}.toolbar button{white-space:nowrap}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+#chapter-audio { margin: 0 0 1.25rem; border: 1px solid var(--line); border-radius: 8px; }
+#chapter-audio summary { min-height: 44px; padding: .65rem 1rem; color: var(--ink); font-weight: 500; cursor: pointer; }
+#chapter-audio summary:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+#audio-player iframe { display: block; width: 100%; height: clamp(380px, 65vh, 580px); border: 0; border-radius: 0 0 8px 8px; }
+@media print { #chapter-audio { display: none; } }
