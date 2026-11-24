@@ -306,16 +306,17 @@
   const fromHash = () => sceneById(location.hash.slice(1));
   const saved = initialBookmark;
   const bookmarkScene = saved?.chapter === Number(chapter) && sceneById('scene-' + saved.scene);
-  const initialScene = earlyPlayer?.closest('.scene') || fromHash() || bookmarkScene || sceneById(get('last-scene')) || scenes[0];
+  const earlyAudio = earlyPlayer || earlySeek;
+  const initialScene = earlyAudio?.closest('.scene') || fromHash() || bookmarkScene || sceneById(get('last-scene')) || scenes[0];
   for (const scene of scenes) {
     if (scene !== initialScene) scene.querySelector('audio').pause();
   }
-  if (earlyPlayer && (bookmarkScene !== initialScene || earlySeek === earlyPlayer)) {
+  if (earlyAudio && (bookmarkScene !== initialScene || earlySeek === earlyAudio)) {
     remoteTimeAvailable = false;
-    set(initialScene.id + ':time', String(earlyPlayer.currentTime));
+    set(initialScene.id + ':time', String(earlyAudio.currentTime));
   }
   show(initialScene, false);
-  if (earlyPlayer) claimPosition(initialScene);
+  if (earlyAudio) claimPosition(initialScene);
   // Chapter-choice links signal intent even when opened in a new tab.
   const entry = new URL(location.href);
   const chosen = entry.searchParams.get('read') === '1';
@@ -323,9 +324,10 @@
   if (book === 'oz' && !get('last-chapter', bookPrefix) && get('last-scene', preferencePrefix)) {
     set('last-chapter', '1', bookPrefix);
   }
-  const explicit = !!earlyPlayer || chosen || history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix);
+  const explicit = !!earlyAudio || chosen || (!history.state?.bookwormAccountReset &&
+    (history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix)));
   if (explicit && (chosen || !saved || bookmarkScene?.id === initialScene.id)) rememberScene(initialScene, chosen && (!saved || bookmarkScene?.id !== initialScene.id));
-  if (!entry.hash || earlyPlayer) entry.hash = initialScene.id;
+  if (!entry.hash || earlyAudio) entry.hash = initialScene.id;
   if (chosen || !location.hash || explicit) {
     const state = explicit ? {...history.state, bookwormScene: initialScene.id} : history.state;
     history.replaceState(state, '', entry);
