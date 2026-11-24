@@ -18,7 +18,7 @@ select { background: #fbf9f3; font: inherit; min-width: 3.6rem; }
 #chapter-audio { margin: .1rem 0 .7rem; padding:.45rem .85rem; font-size:.92rem; }
 #chapter-audio summary { cursor:pointer; padding:.25rem 0; }
 #audio-player iframe { width:100%; height:clamp(380px,60vh,540px); border:0; }
-#word-mode { margin-bottom:.65rem; font-size:.85rem; }
+
 #feedback p:empty { display:none; }
 #feedback p { font-size:.88rem; margin:.45rem 0; }
 #readalong { position:sticky; z-index:5; top:var(--site-header,0px); background:var(--paper); }
@@ -68,3 +68,25 @@ footer p { margin:.35rem 0; } #niv-copyright:empty {display:none;}
 }
 @media(max-width:365px) {.clip-label {font-size:.72rem;} #clock {font-size:.75rem;} }
 @media(forced-colors:active) { .word.current {text-decoration:underline double;} .verse-row.current,.verse-row.selected{border-left-color:Highlight;} }
+
+#lumo { margin:.2rem 0 .6rem; background:var(--paper); scroll-margin-top:var(--site-header,0px); }
+.film-head { display:flex; align-items:center; justify-content:space-between; gap:.6rem; max-width:24rem; font:500 .85rem var(--font-sans); color:var(--green); padding:.3rem 0; }
+.film-head a { font-size:.8rem; text-decoration:underline; }
+#film-screen { position:relative; width:min(100%,24rem); min-height:200px; aspect-ratio:16 / 9; background:#151715; }
+#film-screen iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+#film-status, #film-words-status { margin:.2rem 0; font:400 .82rem var(--font-sans); }
+#film-status:empty, #film-words-status:empty { display:none; }
+#lumo.playing { position:sticky; top:var(--site-header,0px); z-index:5; }
+@media (orientation:landscape) and (max-height:500px) {
+  body:has(#lumo.playing) .top { position:static; }
+  main:has(#lumo.playing) { display:flow-root; }
+  #lumo.playing { top:0; float:left; width:33%; min-width:200px; margin-right:.8rem; }
+  main:has(#lumo.playing) #passage, main:has(#lumo.playing) .column-head { display:flow-root; margin-left:max(35%, 215px); }
+  main:has(#lumo.playing) .column-head span + span { margin-left:.5rem; }
+  #lumo.playing .film-head { flex-wrap:wrap; gap:.2rem .6rem; }
+}
+.timing-note a { text-decoration:underline; }
+::highlight(lumo-word) { background-color:#ffdf71; color:#173328; text-decoration:underline; }
+@media (forced-colors:active) { ::highlight(lumo-word) { background-color:Highlight; color:HighlightText; } }
+
+.timing-note { color:var(--ink-soft); font:400 .75rem var(--font-sans); }

@@ -20,6 +20,11 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 ROOT = Path(__file__).resolve().parents[1] / "bible"
 BOOKS = {b["id"]: b for b in json.loads((ROOT / "books.json").read_text())}
 ORIGINS = {"https://finance-fixer.net", "https://www.finance-fixer.net"}
+PLAYER_FILES = {
+    "/player/lumo.html": ("lumo.html", "text/html; charset=utf-8"),
+    "/player/lumo.js": ("lumo.js", "text/javascript; charset=utf-8"),
+    "/player/lumo.css": ("lumo.css", "text/css; charset=utf-8"),
+}
 MAX_RESPONSE = 2_000_000
 
 
@@ -231,7 +236,11 @@ class Handler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
+        if urllib.parse.urlsplit(self.path).path == "/player/lumo.html":
+            self.send_header("Content-Security-Policy", "frame-ancestors https://finance-fixer.net https://www.finance-fixer.net http://127.0.0.1:* http://localhost:*")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        else:
+            self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Robots-Tag", "noindex, nofollow")
         origin = self.headers.get("Origin", "")
         if origin in ORIGINS:
@@ -270,7 +279,10 @@ class Handler(SimpleHTTPRequestHandler):
         return hashlib.sha256(self.server.ip_salt+address.encode()).hexdigest()
 
     def do_HEAD(self):
-        if urllib.parse.urlsplit(self.path).path == "/healthz":
+        path = urllib.parse.urlsplit(self.path).path
+        if path in PLAYER_FILES:
+            return self.do_GET()
+        if path == "/healthz":
             return self.reply(200, {"ok": True})
         return self.reply(405, {"error": "method_not_allowed"})
 
@@ -281,6 +293,13 @@ class Handler(SimpleHTTPRequestHandler):
         path = parsed.path
         if path == "/healthz":
             return self.reply(200, {"ok": True, "niv_enabled": self.server.gateway.enabled})
+        if path in PLAYER_FILES:
+            name, mime = PLAYER_FILES[path]
+            try:
+                data = (Path(__file__).parent / "player" / name).read_bytes()
+            except OSError:
+                return self.reply(503, {"error": "player_unavailable"})
+            return self.reply(200, data, mime)
         if self.server.development and path.startswith("/bible/") and not path.startswith("/bible/api/"):
             # Local preview serves only the public Bible directory, never its sibling service or key file.
             relative = urllib.parse.unquote(path[len("/bible/"):])

@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://cdn.youversion.com https://bible-api.finance-fixer.net https://fonts.googleapis.com; font-src https://cdn.youversion.com https://fonts.gstatic.com; connect-src 'self' https://board.finance-fixer.net https://bible-api.finance-fixer.net; img-src 'self' data:; frame-src https://www.bible.com; media-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://cdn.youversion.com https://bible-api.finance-fixer.net https://fonts.googleapis.com; font-src https://cdn.youversion.com https://fonts.gstatic.com; connect-src 'self' https://board.finance-fixer.net https://bible-api.finance-fixer.net; img-src 'self' data:; frame-src https://bible-api.finance-fixer.net https://www.bible.com; media-src 'self'; base-uri 'none'; form-action 'none'">
 <title>한영 성경 읽기 · 성경으로 영어 공부 | 재무해결사</title>
 <link rel="stylesheet" href="./study.css?v=20261121-recordings"><link rel="stylesheet" href="https://cdn.youversion.com/platform/1/bible.css">
 <script defer src="./study.js?v=20261124-paired-v3"></script>
-<script type="module" src="./reader.js?v=20261124-paired-v3"></script>
+<script type="module" src="./reader.js?v=20261124-lumo-3"></script>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&amp;family=IBM+Plex+Sans+KR:wght@300;400;500&amp;display=swap" rel="stylesheet">
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="./theme.css?v=20261121">
 <link rel="stylesheet" href="/nav.css">
 <script src="/nav.js?v=20261121-bible-theme" defer></script>
-<link rel="stylesheet" href="./reader.css?v=20261124-paired-v3">
+<link rel="stylesheet" href="./reader.css?v=20261124-lumo-3">
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
@@ -70,8 +70,13 @@
   <p id="error" role="alert" hidden></p>
 </div>
 <audio id="audio" preload="none"></audio>
+<section id="lumo" aria-label="마가복음 1장 NIV 영상" hidden>
+  <div class="film-head"><span>LUMO · NIV 1–8절 단어 따라읽기</span><a href="https://www.youtube.com/watch?v=BU4dy36OFEA" target="_blank" rel="noopener noreferrer">원본 영상 ↗</a></div>
+  <div id="film-screen"></div>
+  <small class="timing-note">단어 시각은 <a href="https://www.jesusfilm.org/watch/lumo-the-gospel-of-mark.html/lumo-mark-1-1-45/english.html" target="_blank" rel="noopener noreferrer">Jesus Film Project의 영어 낭독</a>을 기준으로 추정했습니다.</small><p id="film-words-status" role="status"></p><p id="film-status" role="status"></p>
+  <button id="film-retry" type="button" hidden>영상 다시 연결</button>
+</section>
 <details id="chapter-audio" hidden><summary>이 장의 NIV 공식 낭독 듣기</summary><div id="audio-player"></div><a id="audio-link" target="_blank" rel="noopener noreferrer">Bible Gateway에서 듣기 ↗</a></details>
-<button type="button" id="word-mode" hidden>▶ 단어 강조로 듣기 · BSB 1–8절</button>
 <div id="feedback"><p id="reader-status" role="status"></p><p id="english-status" role="status"></p><p id="krv-status" role="status"></p><button id="retry" type="button" hidden>다시 불러오기</button><button id="use-bsb" type="button" hidden>같은 장 BSB로 읽기</button></div>
 
 <div class="column-head"><span id="edition-title" lang="en">English</span><span class="ko-ref">한글 참고 · 개역한글</span></div>
@@ -87,7 +92,7 @@
 <p id="v7"><sup>7</sup> 그가 전파하여 가로되 나보다 능력 많으신 이가 내 뒤에 오시나니 나는 굽혀 그의 신들메를 풀기도 감당치 못하겠노라</p>
 <p id="v8"><sup>8</sup> 나는 너희에게 물로 세례를 주었거니와 그는 성령으로 너희에게 세례를 주시리라</p>
 <p>성경전서 개역한글판 · 대한성서공회. 1절 각주에 따르면 일부 사본에는 ‘하나님의 아들’이 없습니다.</p>
-<p><a href="https://www.biblegateway.com/passage/?search=Mark%201%3A1-8&amp;version=NIV">NIV 1–8절 읽기 ↗</a> · <a href="https://www.biblegateway.com/audio/mclean/niv/Mark.1">NIV 1장 낭독 듣기 ↗</a> · <a href="./read-along/mark-1.m4a">BSB 1–8절 낭독 듣기</a></p>
+<p><a href="https://www.biblegateway.com/passage/?search=Mark%201%3A1-8&amp;version=NIV">NIV 1–8절 읽기 ↗</a> · <a href="https://www.youtube.com/watch?v=BU4dy36OFEA">LUMO 마가복음 1장 영상 보기 ↗</a> · <a href="./read-along/mark-1.m4a">BSB 1–8절 낭독 듣기</a></p>
 <p>다른 책과 장을 고르거나 영어와 한글을 나란히 읽으려면 자바스크립트를 켜 주세요.</p>
 </section></noscript>
 </div>
@@ -102,7 +107,7 @@
         <p class="small">채터박스(Chatterbox) AI 음성이 읽는 단어가 차례로 강조됩니다. 반복 재생 중 점선이 보이면 소리 내어 따라 읽어 보세요.</p>
         <p id="speech-status" role="status" aria-live="polite">단어나 예문의 듣기 버튼을 눌러 보세요.</p>
       </div>
-      <noscript><p class="notice">영어 예문 듣기·복습 채점·진도 표시는 자바스크립트를 켜면 사용할 수 있습니다. <a href="https://www.biblegateway.com/audio/mclean/niv/Mark.1" target="_blank" rel="noopener noreferrer">Bible Gateway에서 마가복음 1장 낭독 듣기 ↗</a></p></noscript>
+      <noscript><p class="notice">영어 예문 듣기·복습 채점·진도 표시는 자바스크립트를 켜면 사용할 수 있습니다. <a href="https://www.youtube.com/watch?v=BU4dy36OFEA" target="_blank" rel="noopener noreferrer">LUMO 마가복음 1장 영상 보기 ↗</a></p></noscript>
       <div class="words">
         <article><div class="word-title"><h3 lang="en">messenger</h3><button type="button" data-say="messenger" aria-label="messenger 단어 듣기" hidden>단어 듣기</button></div><p class="meaning">소식을 전하는 사람, 사자</p><p class="example" lang="en">The messenger arrived before lunch.</p><p>그 전령은 점심 전에 도착했다.</p><p class="grammar"><b>before + 명사</b> · ‘~ 전에’라는 시간 표현.</p><button type="button" data-say="The messenger arrived before lunch." aria-label="messenger 예문 듣기" hidden>예문 듣기</button></article>
         <article><div class="word-title"><h3 lang="en">prepare</h3><button type="button" data-say="prepare" aria-label="prepare 단어 듣기" hidden>단어 듣기</button></div><p class="meaning">준비하다</p><p class="example" lang="en">We prepare for the trip together.</p><p>우리는 함께 여행을 준비한다.</p><p class="grammar"><b>prepare for + 명사</b> · 어떤 일을 대비하다.</p><button type="button" data-say="We prepare for the trip together." aria-label="prepare 예문 듣기" hidden>예문 듣기</button></article>

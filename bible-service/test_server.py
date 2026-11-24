@@ -158,6 +158,16 @@ class HttpTests(unittest.TestCase):
         except urllib.error.HTTPError as error: response=error
         with response:return response.status,response.headers,response.read()
 
+    def test_public_player_only_serves_three_files_without_fetching_scripture(self):
+        with patch.object(self.gateway, "fetch") as fetch:
+            for name, mime in [("lumo.html", "text/html"), ("lumo.js", "text/javascript"), ("lumo.css", "text/css")]:
+                status, headers, body = self.get("/player/" + name)
+                self.assertEqual(status, 200)
+                self.assertEqual(headers.get_content_type(), mime)
+                self.assertTrue(body)
+            self.assertEqual(self.get("/player/server.py")[0], 404)
+            fetch.assert_not_called()
+
     def headers(self,ip="203.0.113.1"):
         return {"Origin":"https://finance-fixer.net","CF-Connecting-IP":ip}
 

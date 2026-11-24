@@ -14,6 +14,7 @@ App Key는 `~/.config/finance-fixer/youversion-app-key`에 한 줄로 보관하�
 
 - `/chapter?book=MRK&chapter=1`: NIV 2011 한 장과 현재 저작권 문구. 책·장 허용목록, 원문 각주 포함. 메타·본문 어느 쪽이 실패해도 NIV를 반환하지 않는다.
 - `/fonts.css`: 공식 Fonts API의 CSS. 글꼴 파일은 직접 호스팅하지 않는다. CSS만 서버 메모리에 15분 보관한다.
+- `/player/lumo.html`, `/player/lumo.js`, `/player/lumo.css`는 마가복음 1장의 공개 영상 플레이어 파일이다. 운영 HTML과 SDK는 본문과 다른 출처에서 실행한다. 이 세 정적 파일에는 YouVersion 키와 본문 조회가 필요하지 않다. 배포할 때 서버 옆의 `player/`도 함께 반영한다.
 - `/healthz`: 서비스 상태. 본문·키는 포함하지 않는다.
 - 본문 응답은 `no-store`. 서버 디스크/로그에 NIV 본문을 저장하지 않는다. HTML은 브라우저에서 검증한 뒤 렌더링한다.
 - 허용 Origin은 finance-fixer.net와 www.finance-fixer.net. Origin 검사는 인증이나 완전한 복제 방지가 아니다.

@@ -1,3 +1,4 @@
+import {attachFilmWords, clearFilmWords, followFilm} from './read-along/film-words.js?v=1';
 import {attachReadAlong, detachReadAlong, readAlongChapter} from './read-along/paired-player.js?v=20261124-paired-v3';
 const $ = id => document.getElementById(id);
 const local = ['127.0.0.1', 'localhost'].includes(location.hostname);
@@ -105,13 +106,76 @@ function nivBlocks(html, chapterLength) {
   if (items.map(item => item.content.textContent).join('') !== root.textContent) throw new Error('text_mismatch');
   return items;
 }
+const filmOrigin = 'https://bible-api.finance-fixer.net';
+const film = $('lumo');
+const filmScreen = $('film-screen');
+let filmLoadTimer;
+function leaveFilm() {
+  film.classList.remove('playing');
+  filmScreen.firstElementChild?.contentWindow.postMessage({type:'lumo-pause'}, filmOrigin);
+}
+function filmUnavailable() {
+  clearTimeout(filmLoadTimer);
+  filmScreen.replaceChildren();
+  filmScreen.hidden = true;
+  film.classList.remove('playing');
+  followFilm(undefined, 'error');
+  $('film-status').textContent = '영상에 연결할 수 없습니다. 다시 연결하거나 원본 영상을 열어 주세요.';
+  $('film-retry').hidden = false;
+}
+function filmChapter() {
+  return current?.version === 'NIV' && isLesson();
+}
+function removeFilm() {
+  clearTimeout(filmLoadTimer);
+  $('film-retry').hidden = true;
+  clearFilmWords();
+  filmScreen.replaceChildren();
+  $('film-status').textContent = '';
+  film.classList.remove('playing');
+  film.hidden = true;
+}
+function showFilm() {
+  if (!filmChapter() || filmScreen.firstElementChild) return;
+  const frame = document.createElement('iframe');
+  frame.title = 'LUMO 마가복음 1장 NIV 영상 플레이어';
+  frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+  frame.allowFullscreen = true;
+  frame.referrerPolicy = 'origin';
+  frame.src = filmOrigin + '/player/lumo.html?v=3&site=' + encodeURIComponent(location.origin);
+  film.hidden = false;
+  filmScreen.hidden = false;
+  $('film-retry').hidden = true;
+  $('film-status').textContent = '영상 플레이어를 불러오는 중…';
+  filmScreen.append(frame);
+  filmLoadTimer = setTimeout(() => {
+    if (filmScreen.firstElementChild === frame) filmUnavailable();
+  }, 18000);
+}
+window.addEventListener('message', event => {
+  const frame = filmScreen.firstElementChild;
+  if (!frame || event.source !== frame.contentWindow || event.origin !== filmOrigin || event.data?.type !== 'lumo') return;
+  const {kind, time} = event.data;
+  if (kind === 'ready') {
+    clearTimeout(filmLoadTimer);
+    $('film-status').textContent = '';
+  }
+  if (kind === 'error') { filmUnavailable(); return; }
+  if (kind === 'play') {
+    document.dispatchEvent(new Event('stop-study-audio'));
+    film.classList.add('playing');
+  } else if (kind === 'ended') {
+    film.classList.remove('playing');
+  }
+  followFilm(time, kind);
+});
 function clearOfficial() {
   clearTimeout(playerTimer);
   $('audio-player').replaceChildren();
 }
 function updateOfficial() {
   clearOfficial();
-  if (!current || current.version !== 'NIV' || !audioPanel.open) return;
+  if (!current || current.version !== 'NIV' || filmChapter() || !audioPanel.open) return;
   document.dispatchEvent(new Event('stop-study-audio'));
   const {book, chapter} = current;
   playerTimer = setTimeout(() => {
@@ -215,12 +279,14 @@ function jump(scroll) {
   if (!n) return;
   const row=rowFor(n) || [...passage.querySelectorAll('.ko-text')].find(c=>c.dataset.verses.split(',').includes(String(n)))?.parentElement;
   row?.classList.add('selected');
-  if (scroll) row?.scrollIntoView({block:'center',behavior:'instant'});
+  if (scroll) { leaveFilm(); row?.scrollIntoView({block:'center',behavior:'instant'}); }
 }
 function anchor() {
   const hash=location.hash.slice(1);
   if (['study','english','review','context'].includes(hash) && isLesson()) {
-    study.open=true; $(hash)?.scrollIntoView({block:'start',behavior:'instant'});
+    leaveFilm(); study.open=true; $(hash)?.scrollIntoView({block:'start',behavior:'instant'});
+  } else if ((hash==='lumo' || hash==='chapter-audio') && filmChapter()) {
+    film.scrollIntoView({block:'start',behavior:'instant'});
   } else if (hash==='chapter-audio' && current.version==='NIV') {
     audioPanel.open=true; audioPanel.scrollIntoView({block:'start',behavior:'instant'});
   } else if (hash==='readalong' && !$('readalong').hidden) {
@@ -243,6 +309,7 @@ function displayEnglish(items, copyright, version) {
   $('niv-copyright').textContent=copyright;
   renderPassage(items);
   if (version==='BSB' && isLesson()) attachReadAlong();
+  if (filmChapter()) attachFilmWords(passage);
   anchor();
 }
 async function english(book,chapter,version,signal) {
@@ -281,7 +348,7 @@ async function loadEnglish(book, chapter, version, signal) {
 }
 function select(book,chapter,version,historyMode='push',hash='') {
   const keepOfficial = audioPanel.open && current?.version === 'NIV' && version === 'NIV';
-  request?.abort(); clearTimeout(fetchTimer); clearOfficial();
+  request?.abort(); clearTimeout(fetchTimer); clearOfficial(); removeFilm();
   detachReadAlong(); document.dispatchEvent(new Event('stop-study-audio'));
   request=new AbortController(); const signal=request.signal;
   current={book,chapter,version}; englishReady=false; koreanVerses=null; englishError=false; koreanError=false;
@@ -300,9 +367,10 @@ function select(book,chapter,version,historyMode='push',hash='') {
   $('audio-link').href='https://www.biblegateway.com/audio/mclean/niv/'+book.osis+'.'+chapter;
   $('krv-original').href='https://www.bskorea.or.kr/bible/korbibReadpage.php?version=HAN&book='+book.bsk+'&chap='+chapter+'&sec=0';
   $('context-link').href=book.id==='MRK'?'https://bibleproject.com/guides/book-of-mark/':'https://bibleproject.com/explore/book-overviews/';
-  audioPanel.open=version==='NIV' && (hash==='#chapter-audio' || keepOfficial); audioPanel.hidden=version!=='NIV';
-  $('word-mode').hidden = version !== 'NIV' || !isLesson();
-  if (audioPanel.open) updateOfficial();
+  audioPanel.hidden = version !== 'NIV' || filmChapter();
+  audioPanel.open = !audioPanel.hidden && (hash === '#chapter-audio' || keepOfficial);
+  if (filmChapter()) showFilm();
+  else if (audioPanel.open) updateOfficial();
   study.open=false; study.hidden=!isLesson();
   $('lesson-entry').textContent=isLesson()?'1–8절 단어·배경·복습':'마가복음 첫 학습 구절';
   $('lesson-entry').href='?book=MRK&chapter=1&version='+version+'#study';
@@ -348,10 +416,6 @@ async function start() {
   $('book').onchange=()=>select(books.find(b=>b.id===$('book').value),1,current.version);
   $('chapter').onchange=()=>select(current.book,Number($('chapter').value),current.version);
   $('version').onchange=()=>select(current.book,current.chapter,$('version').value);
-  $('word-mode').onclick = () => {
-    select(current.book,current.chapter,'BSB','push','#readalong');
-    $('toggle').click();
-  };
   $('use-bsb').onclick=()=>select(current.book,current.chapter,'BSB');
   $('previous').onclick=()=>move(-1); $('next').onclick=()=>move(1);
   $('verse').onchange=()=>jump(true);
@@ -368,10 +432,21 @@ async function start() {
     if(location.hash!=='#study') history.pushState(null,'','#study');
     anchor();
   };
+  $('film-retry').onclick = showFilm;
+  study.addEventListener('focusin', leaveFilm);
+  study.querySelector('summary')?.addEventListener('click', leaveFilm);
   audioPanel.addEventListener('toggle',updateOfficial);
-  document.addEventListener('stop-passage-audio',()=>{audioPanel.open=false;clearOfficial();});
-  window.addEventListener('pagehide',clearOfficial);
-  window.addEventListener('pageshow',e=>{if(e.persisted)updateOfficial();});
+  document.addEventListener('stop-passage-audio', () => {
+    audioPanel.open = false;
+    clearOfficial();
+    leaveFilm();
+  });
+  window.addEventListener('pagehide',()=>{clearOfficial(); removeFilm();});
+  window.addEventListener('pageshow', e => {
+    if (!e.persisted) return;
+    if (filmChapter()) { showFilm(); if (englishReady) attachFilmWords(passage); }
+    else updateOfficial();
+  });
   window.addEventListener('popstate',()=>openLocation('none'));
   const header=document.querySelector('.top');
   function measure(){document.documentElement.style.setProperty('--site-header',header.offsetHeight+'px');}
