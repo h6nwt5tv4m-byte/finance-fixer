@@ -30,7 +30,7 @@ def matches_topic(category, title, tags):
         return False
     # A comparison can cover apartments and shops. A shop-only article is outside this series.
     terms = re.sub(r"\s+", "", title + " " + tags)
-    if OTHER_BUILDINGS.search(title) and not re.search(r"아파트|공동주택", terms):
+    if OTHER_BUILDINGS.search(terms) and not re.search(r"아파트|공동주택", terms):
         return False
     if HOUSING.search(terms) and MANAGEMENT.search(terms):
         return True
@@ -136,6 +136,7 @@ def publish(db, log_no, title, body, source_day, now):
     pid = hashlib.sha256(key.encode()).hexdigest()[:24]
     existing = manual_duplicate(db, url, title)
     with write(db):
+        db.execute("DELETE FROM settings WHERE name=?", ("column-pending:" + log_no,))
         if not db.execute("INSERT OR IGNORE INTO seeded(key) VALUES(?)", (key,)).rowcount:
             return False
         if existing or db.execute("SELECT 1 FROM posts WHERE owner='editorial' AND source_url=?", (url,)).fetchone():
@@ -163,7 +164,7 @@ def main():
     excluded = set()
     try:
         items = public_items(fetch(FEED), since, datetime.now(timezone.utc), excluded)
-    except (requests.RequestException, ElementTree.ParseError, ValueError) as exc:
+    except (requests.RequestException, ElementTree.ParseError, ValueError, LookupError) as exc:
         # Already observed posts can still be completed while RSS is unavailable.
         print("RSS unavailable:", type(exc).__name__, flush=True)
         items, failed = [], ["RSS"]
@@ -185,8 +186,6 @@ def main():
                 html = fetch("https://m.blog.naver.com/financefixer/" + log_no)
                 body = board_body(html.decode("utf-8"), title, BLOG + log_no)
                 inserted = publish(db, log_no, title, body, published[:10], int(time.time()))
-                with write(db):
-                    db.execute("DELETE FROM settings WHERE name=?", (key,))
                 if inserted:
                     print("Published", BLOG + log_no, flush=True)
             except (requests.RequestException, ValueError) as exc:
