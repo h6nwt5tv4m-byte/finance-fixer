@@ -121,6 +121,15 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(put(2, 0, 3, first + 4).status_code, 409)
         self.assertEqual(put(2, 0, 4, first + 4).json["bookmark"]["scene"], 2)
 
+        def claim(marker, stamp, base, ms=0, explicit=True):
+            return reader.put(url, base_url=ORIGIN, headers=headers, json=dict(
+                chapter=1, scene=2, ms=ms, revision=base, chosen_at=stamp, choice_id=marker, claim=explicit))
+        self.assertEqual(claim("reader-b", first+6, 3).json["bookmark"]["revision"], 6)
+        self.assertEqual(claim("reader-a", first+6, 3).status_code, 409)
+        self.assertEqual(claim("reader-b", first+6, 3).json["bookmark"]["revision"], 6)
+        self.assertEqual(claim("reader-a", first+6, 6, 25000, False).status_code, 409)
+        self.assertEqual(claim("reader-b", first+6, 6, 12125, False).json["bookmark"]["ms"], 12125)
+
     def test_book_positions_remain_separate(self):
         reader = self.account("reader@example.com")
         origin = {"Origin": "https://finance-fixer.net"}

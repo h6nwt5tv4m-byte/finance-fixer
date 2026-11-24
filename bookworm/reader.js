@@ -6,7 +6,8 @@
   let earlyAudio;
   let earlySeek;
   let earlySelection;
-  let earlyChoice;
+  let pendingInitialHash;
+  let earlyChoice = new URL(location.href).searchParams.get('read') === '1' ? progress?.captureChoice?.() : undefined;
   const captureSeek = e => {
     if (e.target.matches?.('.scene audio')) { earlyAudio = earlySeek = e.target; earlySelection = null; earlyChoice = progress?.captureChoice?.(); }
   };
@@ -21,10 +22,16 @@
     earlySeek = null;
   }
   const captureLink = e => {
-    if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey)
-      selectEarly(e.target.closest?.('a[href^="#scene-"]')?.hash);
+    if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+      const hash = e.target.closest?.('a[href^="#scene-"]')?.hash;
+      pendingInitialHash = hash && location.hash !== hash ? hash : null;
+      selectEarly(hash);
+    }
   };
-  const captureHash = () => selectEarly(location.hash);
+  const captureHash = () => {
+    if (pendingInitialHash !== location.hash) selectEarly(location.hash);
+    pendingInitialHash = null;
+  };
   window.addEventListener('hashchange', captureHash);
   document.addEventListener('click', captureLink, true);
   document.addEventListener('play', capturePlay, true);
@@ -51,6 +58,7 @@
   let lastSavedTime = null;
   let expectedTime = null;
   const restoreTargets = new WeakMap();
+  const seekChoices = new WeakMap();
 
   function get(key, prefix = progressPrefix) {
     return progress ? progress.get(prefix + key) : (visit.get(prefix + key) ?? null);
@@ -318,7 +326,15 @@
       restoreTime();
       claimPosition(scene);
     });
+    audio.addEventListener('seeking', () => {
+      const target = restoreTargets.get(audio);
+      if (scene === active && !(target !== undefined && Math.abs(audio.currentTime - target) < .012)) {
+        seekChoices.set(audio, progress?.captureChoice?.());
+      }
+    });
     audio.addEventListener('seeked', () => {
+      const mark = seekChoices.get(audio);
+      seekChoices.delete(audio);
       const target = restoreTargets.get(audio);
       restoreTargets.delete(audio);
       if (target !== undefined && Math.abs(audio.currentTime - target) < .012) return;
@@ -327,8 +343,8 @@
       if (verifying) restored = true;
       if (!restored) return;
       // A seek made by the reader can take ownership of a previously paused position.
-      if (verifying || interacted || Math.abs(audio.currentTime - readingTime(scene)) >= .0005) {
-        claimPosition(scene);
+      if (mark || verifying || interacted || Math.abs(audio.currentTime - readingTime(scene)) >= .0005) {
+        claimPosition(scene, mark);
         saveTime();
       }
     });
@@ -365,7 +381,7 @@
   }
   const explicit = !!earlyAudio || chosen || (!history.state?.bookwormAccountReset &&
     (history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix)));
-  if (explicit && (chosen || !saved || bookmarkScene?.id === initialScene.id)) rememberScene(initialScene, chosen && (!saved || bookmarkScene?.id !== initialScene.id), undefined, earlyChoice);
+  if (explicit && (chosen || !saved || bookmarkScene?.id === initialScene.id)) rememberScene(initialScene, chosen && (!!earlyChoice || !saved || bookmarkScene?.id !== initialScene.id), undefined, earlyChoice);
   if (!entry.hash || earlyAudio) entry.hash = initialScene.id;
   if (chosen || !location.hash || explicit) {
     const state = explicit ? {...history.state, bookwormScene: initialScene.id} : history.state;
@@ -390,7 +406,9 @@
     const scene = fromHash();
     if (!scene) return;
     show(scene, true);
-    if (history.state?.bookwormScene === scene.id) rememberScene(scene);
+    const alreadySelected = pendingInitialHash === location.hash;
+    pendingInitialHash = null;
+    if (!alreadySelected && history.state?.bookwormScene === scene.id) rememberScene(scene);
   });
   window.addEventListener('bookworm-bookmark', () => {
     if (!active) return;

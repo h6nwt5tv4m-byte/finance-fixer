@@ -22,6 +22,7 @@
     const changedTimes = new Map();
     let session = null;
     let pending = null;
+    let selecting = false;
     let writing = false;
     let writable = true;
     let generation = 0;
@@ -36,6 +37,7 @@
     let choiceId;
     let chosenAt = 0;
     let clockOffset = 0;
+    let bestRoundTrip = Infinity;
     const localMicros = () => typeof performance !== 'undefined' && performance.timeOrigin
       ? Math.round((performance.timeOrigin + performance.now()) * 1000) : Date.now() * 1000;
     function captureChoice() {
@@ -70,7 +72,7 @@
       return returnCheck;
     }
     function acknowledged(bookmark) {
-      return attempts.some(attempt => samePosition(bookmark, attempt) && bookmark.revision === attempt.revision + 1);
+      return attempts.some(attempt => savedChoice(bookmark, attempt, attempt.stamp || 0, attempt.id) && bookmark.revision === attempt.revision + 1);
     }
     function acceptScope(next) {
       if (!next || invalidated) return false;
@@ -92,14 +94,27 @@
       window.dispatchEvent(new Event('bookworm-bookmark'));
     }
     function samePosition(a, b) { return !!a && !!b && a.chapter === b.chapter && a.scene === b.scene && a.ms === b.ms; }
+    function savedChoice(bookmark, position, stamp = chosenAt, id = choiceId) {
+      return samePosition(bookmark, position) && (!session?.server_us || !stamp ||
+        (bookmark.chosen_at === stamp && (!bookmark.choice_id || bookmark.choice_id === id)));
+    }
     function stored() {
       try { return JSON.parse(localStorage.getItem(outboxKey())); } catch { return null; }
     }
 
     async function fetchState() {
       try {
+        const started = localMicros();
         const r = await fetch(url, {credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(3500)});
         const next = r.status === 401 ? {scope: '', guest: true} : (r.ok ? await r.json() : null);
+        const end = localMicros();
+        const elapsed = Math.max(0, end - started);
+        if (Number.isSafeInteger(next?.server_us) && elapsed <= bestRoundTrip) {
+          bestRoundTrip = elapsed;
+          // The timestamp was sampled between dispatch and arrival. Network delay alone
+          // gives no evidence of clock skew when zero lies inside that interval.
+          clockOffset = Math.max(next.server_us - end, Math.min(0, next.server_us - started));
+        }
         return next;
       } catch { /* An unknown identity reads in memory for this visit. */ }
       return null;
@@ -132,7 +147,7 @@
         if (value) {
           const nextId = newValue || !storedId ? writer + ':' + (++serial) : storedId;
           localStorage.setItem(outboxKey(), JSON.stringify({value, id: nextId, revision: revision(),
-            lastSent, attempts, choiceId, chosenAt, intentional: generation > confirmedAction && generation !== retriedAction}));
+            lastSent, attempts, choiceId, chosenAt, selecting, intentional: generation > confirmedAction && generation !== retriedAction}));
           storedId = nextId;
         } else if (disk && disk.id === storedId) { localStorage.removeItem(outboxKey()); }
       } catch { /* The in-memory queue still retries during this visit. */ }
@@ -171,8 +186,8 @@
       if (disk && disk.id !== storedId) { writing = false; return; }
       attempts = attempts.filter(attempt => attempt.revision >= base);
       // Keep the previous attempt until the server acknowledges it. Its response may be lost.
-      if (!lastSent || !samePosition(lastSent, value) || lastSent.revision !== base) {
-        lastSent = {...value, revision: base, generation: observed};
+      if (!lastSent || !samePosition(lastSent, value) || lastSent.revision !== base || lastSent.id !== choiceId) {
+        lastSent = {...value, revision: base, generation: observed, stamp: chosenAt, id: choiceId};
         if (!attempts.some(attempt => samePosition(attempt, lastSent))) attempts.push(lastSent);
         storePending(pending);
       }
@@ -180,13 +195,15 @@
         const r = await fetch(url, {
           method: 'PUT', credentials: 'include', cache: 'no-store', keepalive: true,
           headers: {'Content-Type': 'application/json', 'X-Bookworm-CSRF': token},
-          body: JSON.stringify({...value, revision: base, ...(chosenAt && session.server_us ? {chosen_at: chosenAt} : {})}), signal: AbortSignal.timeout(6000)
+          body: JSON.stringify({...value, revision: base, ...(chosenAt && session.server_us ? {chosen_at: chosenAt, choice_id: choiceId, claim: selecting && observed > confirmedAction} : {})}), signal: AbortSignal.timeout(6000)
         });
         if (r.ok || r.status === 409) {
           const next = await r.json();
           if (!acceptScope(next)) return;
           advance(next.bookmark);
-          if (choiceSuperseded() || (chosenAt && session.bookmark?.chosen_at > chosenAt)) {
+          const otherTie = r.status === 409 && session.bookmark?.chosen_at === chosenAt &&
+            session.bookmark.choice_id && session.bookmark.choice_id !== choiceId;
+          if (choiceSuperseded() || otherTie || (chosenAt && session.bookmark?.chosen_at > chosenAt)) {
             relinquish();
             signal();
             return;
@@ -194,7 +211,7 @@
           if (r.ok) {
             // A successful response authorizes device hints captured before that request.
             // A newer remote selection has priority over hints from an older response.
-            if (writable && next.bookmark?.revision === revision()) {
+            if (writable && next.bookmark?.revision === revision() && samePosition(next.bookmark, value)) {
               for (const [id, time] of timesAtSend) {
                 try { localStorage.setItem(id, time); } catch {}
                 if (changedTimes.get(id) === time) {
@@ -260,7 +277,7 @@
       if (action) {
         const fresh = !mark;
         mark ??= captureChoice();
-        if (!stillCurrent(mark)) return;
+        if (!stillCurrent(mark)) { relinquish(); return; }
         if (mark.id !== choiceId) {
           generation++;
           choiceId = mark.id;
@@ -284,6 +301,7 @@
           !attempts.some(attempt => attempt.revision === revision() && samePosition(attempt, pending))) {
         attempts.push({...pending, revision: revision(), generation: confirmedAction});
       }
+      selecting = !!action;
       pending = {chapter: Number(chapter), scene: Number(scene), ms: Math.round(seconds * 1000)};
       if (!storePending(pending, action, true)) {
         writable = false;
@@ -298,10 +316,6 @@
     const ready = fetchState().then(value => {
       if (!acceptScope(value)) return;
       session = value;
-      if (Number.isSafeInteger(value.server_us)) {
-        const difference = value.server_us - localMicros();
-        if (Math.abs(difference) > 1_000_000) clockOffset = difference;
-      }
       if (!session?.scope) return;
       try {
         const old = stored();
@@ -313,7 +327,12 @@
         lastSent = old.lastSent;
         attempts = Array.isArray(old.attempts) ? old.attempts : (lastSent ? [lastSent] : []);
         const ours = acknowledged(session.bookmark);
-        if (samePosition(session.bookmark, old.value)) { storePending(null); return; }
+        selecting = old.selecting ?? !!old.intentional;
+        if (session.server_us && !chosenAt && session.bookmark?.chosen_at && old.revision < revision() && !ours) {
+          storePending(null);
+          return;
+        }
+        if (savedChoice(session.bookmark, old.value)) { storePending(null); return; }
         if (old.revision === revision() || ours || old.intentional) {
           pending = old.value;
           if (old.intentional) generation++;
@@ -333,6 +352,7 @@
       offlineWrite = false;
       if (!fresh.scope) { signal(); return true; }
       session.csrf = fresh.csrf;
+      if (fresh.server_us) session.server_us = fresh.server_us;
       if ((fresh.bookmark?.revision || 0) > revision()) {
         const ours = acknowledged(fresh.bookmark);
         advance(fresh.bookmark);
@@ -341,7 +361,7 @@
           memory.delete(remoteTime);
           changedTimes.delete(remoteTime);
         }
-        if (samePosition(pending, fresh.bookmark)) {
+        if (savedChoice(fresh.bookmark, pending)) {
           confirmedAction = Math.max(confirmedAction, generation);
           pending = null;
           storePending(null);

@@ -76,7 +76,7 @@ def install(app, db, viewer, label, digest, token):
         if request.headers.get("Origin") not in HOME:
             abort(403)
         def result(uid):
-            row = db().execute("SELECT chapter,scene,ms,revision,chosen_at FROM reading_bookmarks WHERE owner=? AND book=?", (uid, book)).fetchone()
+            row = db().execute("SELECT chapter,scene,ms,revision,chosen_at,choice_id FROM reading_bookmarks WHERE owner=? AND book=?", (uid, book)).fetchone()
             return {"scope": digest("book-cache", uid)[:24], "csrf": token(), "server_us": time.time_ns() // 1000,
                     "bookmark": dict(row) if row else None}
 
@@ -105,16 +105,26 @@ def install(app, db, viewer, label, digest, token):
             if type(chosen) is not int or not 0 <= chosen <= state["server_us"] + 5_000_000:
                 abort(400)
             previous = old["chosen_at"] if old else 0
-            if chosen and chosen < previous:
+            marker = data.get("choice_id", "")
+            if not isinstance(marker, str) or not re.fullmatch(r"[a-zA-Z0-9/_:-]{0,96}", marker):
+                abort(400)
+            current_rev = old["revision"] if old else 0
+            previous_id = old["choice_id"] if old else ""
+            different = bool(chosen and marker and marker != previous_id)
+            claim = data.get("claim") is True and different
+            if chosen and (chosen < previous or (chosen == previous and different and not claim)):
                 return jsonify(state), 409
-            if old and (old["chapter"], old["scene"], old["ms"]) == (ch, scene, ms) and chosen <= previous:
+            if marker and marker == previous_id and chosen == previous and data.get("claim") is True and rev < current_rev:
+                # A different tab can replay a selection that has already advanced in this session.
                 return jsonify(state)
-            if (old["revision"] if old else 0) != rev:
+            if old and (old["chapter"], old["scene"], old["ms"]) == (ch, scene, ms) and chosen <= previous and not different:
+                return jsonify(state)
+            if rev != current_rev and not (rev < current_rev and claim and chosen > previous):
                 return jsonify(state), 409
-            db().execute("""INSERT INTO reading_bookmarks(owner,book,chapter,scene,ms,revision,chosen_at)
-                            VALUES (?,?,?,?,?,?,?) ON CONFLICT(owner,book) DO UPDATE SET
-                            chapter=excluded.chapter,scene=excluded.scene,ms=excluded.ms,revision=excluded.revision,chosen_at=excluded.chosen_at""",
-                         (uid, book, ch, scene, ms, rev+1, chosen or previous))
+            db().execute("""INSERT INTO reading_bookmarks(owner,book,chapter,scene,ms,revision,chosen_at,choice_id)
+                            VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(owner,book) DO UPDATE SET
+                            chapter=excluded.chapter,scene=excluded.scene,ms=excluded.ms,revision=excluded.revision,chosen_at=excluded.chosen_at,choice_id=excluded.choice_id""",
+                         (uid, book, ch, scene, ms, current_rev+1, chosen or state["server_us"], marker))
             return jsonify(result(uid))
 
     @app.get("/bookworm-audio/<name>")

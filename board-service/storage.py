@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS events(kind TEXT, bucket TEXT, at INTEGER);
 CREATE INDEX IF NOT EXISTS event_idx ON events(kind,bucket,at);
 CREATE TABLE IF NOT EXISTS reading_bookmarks(
  owner TEXT NOT NULL, book TEXT NOT NULL, chapter INTEGER NOT NULL, scene INTEGER NOT NULL,
- ms INTEGER NOT NULL, revision INTEGER NOT NULL, chosen_at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(owner,book));
+ ms INTEGER NOT NULL, revision INTEGER NOT NULL, chosen_at INTEGER NOT NULL DEFAULT 0, choice_id TEXT NOT NULL DEFAULT '', PRIMARY KEY(owner,book));
 CREATE TABLE IF NOT EXISTS consultations(
  id TEXT PRIMARY KEY, email TEXT NOT NULL, topic TEXT NOT NULL, note TEXT NOT NULL,
  created INTEGER NOT NULL, notice TEXT NOT NULL, state TEXT NOT NULL DEFAULT '접수',
@@ -72,6 +72,8 @@ def initialize(path, identity_key=None):
                 raise RuntimeError("먼저 별도 복구 사본에 maintenance.py restore-consultations를 실행하세요.")
             if "chosen_at" not in {row["name"] for row in db.execute("PRAGMA table_info(reading_bookmarks)")}:
                 db.execute("ALTER TABLE reading_bookmarks ADD COLUMN chosen_at INTEGER NOT NULL DEFAULT 0")
+            if "choice_id" not in {row["name"] for row in db.execute("PRAGMA table_info(reading_bookmarks)")}:
+                db.execute("ALTER TABLE reading_bookmarks ADD COLUMN choice_id TEXT NOT NULL DEFAULT ''")
             if "restore_pending" not in {row["name"] for row in db.execute("PRAGMA table_info(consultations)")}:
                 db.execute("ALTER TABLE consultations ADD COLUMN restore_pending INTEGER NOT NULL DEFAULT 0")
             db.execute("INSERT OR IGNORE INTO settings VALUES ('consultation-ledger-id',?)", (secrets.token_hex(16),))
