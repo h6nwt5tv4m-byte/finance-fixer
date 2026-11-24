@@ -23,6 +23,18 @@ try {
     const hanja = panel.querySelector('a[href="/hanja/"], a[href="https://finance-fixer.net/hanja/"]');
     if (hanja) hanja.after(link); else panel.append(link);
   }
+  if (panel && !panel.querySelector('a[href="/bookworm/"], a[href="https://finance-fixer.net/bookworm/"]')) {
+    const link = document.createElement('a');
+    link.href = 'https://finance-fixer.net/bookworm/';
+    const label = document.createElement('b');
+    label.textContent = '북웜 고전 영어';
+    const detail = document.createElement('span');
+    detail.textContent = '고전소설 원문을 읽고 AI 낭독 듣기';
+    link.append(label, detail);
+    const bible = panel.querySelector('a[href="/bible/"], a[href="https://finance-fixer.net/bible/"]');
+    if (bible) bible.after(link);
+    else (panel.querySelector('.drop-inner') || panel).append(link);
+  }
   if (panel && !panel.querySelector('a[href="/g2b/"], a[href="https://finance-fixer.net/g2b/"]')) {
     const link = document.createElement('a');
     link.href = 'https://finance-fixer.net/g2b/';
@@ -95,7 +107,7 @@ try {
     if (mainSite && new URL(a.href, location.href).hostname === host && p !== '/' && path.startsWith(p)) a.classList.add('active');
   });
   // 도구 하위 페이지와 도구 서브도메인(aptfee·gamsain·sangkwon·econ·jobs·jiwon)에서는 '도구'를 표시
-  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|g2b|hanja|db|bible)\//.test(path))) btn.classList.add('active');
+  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|g2b|hanja|db|bible|bookworm)\//.test(path))) btn.classList.add('active');
   header.classList.add('stuck');
   if ('ResizeObserver' in window) new ResizeObserver(fit).observe(header);
   fit(); if (onHome) spy();
