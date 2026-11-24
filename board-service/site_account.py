@@ -2,7 +2,7 @@
 import hmac
 from pathlib import Path
 import re
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from flask import abort, jsonify, request, send_from_directory
 
@@ -29,9 +29,15 @@ def return_page(value):
         return None
     # Public tools may put searches in their query strings. Retain only the reading intent.
     query = "?read=1" if url.query == "read=1" and url.path.startswith("/bookworm/") else ""
-    if url.path == "/public-audit/" and re.fullmatch(r"id=[A-Z]-[A-Z0-9]{1,24}", url.query) and f"{url.scheme}://{url.netloc}" in HOME:
-        query = "?" + url.query
-    fragment = "#" + url.fragment if url.path.startswith("/bookworm/") and re.fullmatch(r"scene-\d{1,2}", url.fragment) else ""
+    home = f"{url.scheme}://{url.netloc}" in HOME
+    if home and url.path == "/public-audit/":
+        values = parse_qs(url.query)
+        kept = {key: values[key][0] for key, pattern in (("year", r"[0-9]{4}"), ("id", r"[A-Z]-[A-Z0-9]{1,24}"))
+                if key in values and re.fullmatch(pattern, values[key][0])}
+        query = "?" + urlencode(kept) if kept else ""
+    scene = url.path.startswith("/bookworm/") and re.fullmatch(r"scene-\d{1,2}", url.fragment)
+    section = url.path == "/" and url.fragment in {"services", "method", "people", "tools", "contact", "videos", "db"}
+    fragment = "#" + url.fragment if home and (scene or section) else ""
     return f"https://{url.netloc}{url.path or '/'}{query}{fragment}"
 
 

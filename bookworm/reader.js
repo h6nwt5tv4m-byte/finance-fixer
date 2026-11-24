@@ -1,10 +1,14 @@
 (async () => {
   const progress = window.BookwormProgress;
   let earlyPlayer;
+  let earlySeek;
+  const captureSeek = e => { if (e.target.matches?.('.scene audio')) earlySeek = e.target; };
   const capturePlay = e => { if (e.target.matches?.('.scene audio')) earlyPlayer = e.target; };
   document.addEventListener('play', capturePlay, true);
+  document.addEventListener('seeking', captureSeek, true);
   await progress?.ready;
   document.removeEventListener('play', capturePlay, true);
+  document.removeEventListener('seeking', captureSeek, true);
   const initialBookmark = progress?.remote();
   let remoteTimeAvailable = true;
   const scenes = Array.from(document.querySelectorAll('.scene'));
@@ -203,7 +207,11 @@
     expectedTime = get(scene.id + ':time');
     const audio = scene.querySelector('audio');
     rememberScene(scene, true, restored ? audio.currentTime : readingTime(scene));
-    if (restored) remoteTimeAvailable = false;
+    if (restored && initialBookmark?.chapter === Number(chapter) && initialBookmark.scene === Number(scene.id.slice(6))) {
+      set(scene.id + ':time', String(audio.currentTime));
+      expectedTime = get(scene.id + ':time');
+      remoteTimeAvailable = false;
+    }
   }
   function saveTime(immediate = false) {
     if (!interacted || !restored) return;
@@ -275,7 +283,7 @@
       restoreTargets.delete(audio);
       if (scene !== active || !restored) return;
       // A seek made by the reader can take ownership of a previously paused position.
-      if (interacted || Math.abs(audio.currentTime - Number(get(scene.id + ':time'))) > .3) {
+      if (interacted || Math.abs(audio.currentTime - readingTime(scene)) > .3) {
         claimPosition(scene);
         saveTime();
       }
@@ -298,7 +306,7 @@
   for (const scene of scenes) {
     if (scene !== initialScene) scene.querySelector('audio').pause();
   }
-  if (earlyPlayer) {
+  if (earlyPlayer && (bookmarkScene !== initialScene || earlySeek === earlyPlayer)) {
     remoteTimeAvailable = false;
     set(initialScene.id + ':time', String(earlyPlayer.currentTime));
   }
@@ -311,9 +319,9 @@
   if (!get('last-chapter', bookPrefix) && get('last-scene', preferencePrefix)) {
     set('last-chapter', '1', bookPrefix);
   }
-  const explicit = chosen || history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix);
+  const explicit = !!earlyPlayer || chosen || history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix);
   if (explicit && (chosen || !saved || bookmarkScene?.id === initialScene.id)) rememberScene(initialScene, chosen && (!saved || bookmarkScene?.id !== initialScene.id));
-  if (!entry.hash) entry.hash = initialScene.id;
+  if (!entry.hash || earlyPlayer) entry.hash = initialScene.id;
   if (chosen || !location.hash || explicit) {
     const state = explicit ? {...history.state, bookwormScene: initialScene.id} : history.state;
     history.replaceState(state, '', entry);

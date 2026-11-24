@@ -6,9 +6,17 @@
   function accountUrl() {
     const current = new URL(location.href);
     const chapter = /^\/bookworm\/\d+\/$/.test(current.pathname);
-    const publicAudit = current.pathname === '/public-audit/' && /^\?id=[A-Z]-[A-Z0-9]{1,24}$/.test(current.search);
-    if (!publicAudit && (!chapter || current.search !== '?read=1')) current.search = '';
-    if (!chapter || !/^#scene-\d{1,2}$/.test(current.hash)) current.hash = '';
+    const home = ['finance-fixer.net','www.finance-fixer.net'].includes(current.hostname);
+    const safe = new URLSearchParams();
+    if (home && chapter && current.searchParams.get('read') === '1') safe.set('read','1');
+    if (home && current.pathname === '/public-audit/') {
+      const year = current.searchParams.get('year'), id = current.searchParams.get('id');
+      if (/^\d{4}$/.test(year || '')) safe.set('year',year);
+      if (/^[A-Z]-[A-Z0-9]{1,24}$/.test(id || '')) safe.set('id',id);
+    }
+    current.search = safe.toString();
+    const section = current.pathname === '/' && /^#(services|method|people|tools|contact|videos|db)$/.test(current.hash);
+    if (!home || !(section || (chapter && /^#scene-\d{1,2}$/.test(current.hash)))) current.hash = '';
     const target = new URL('/account', board);
     target.searchParams.set('return_to', current.href);
     return target.href;

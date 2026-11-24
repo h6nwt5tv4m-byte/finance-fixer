@@ -14,6 +14,14 @@
   const revision = () => session?.bookmark?.revision || 0;
   const scopeKey = () => session?.scope ? 'bookworm:account:' + session.scope + ':' : '';
   const outboxKey = () => scopeKey() + 'pending';
+  const writer = crypto.randomUUID();
+  let serial = 0;
+  let storedId;
+  let lastSent;
+  function samePosition(a, b) { return !!a && !!b && a.chapter === b.chapter && a.scene === b.scene && a.ms === b.ms; }
+  function stored() {
+    try { return JSON.parse(localStorage.getItem(outboxKey())); } catch { return null; }
+  }
 
   async function fetchState() {
     try {
@@ -38,8 +46,11 @@
   }
   function storePending(value) {
     try {
-      if (value) sessionStorage.setItem(outboxKey(), JSON.stringify({...value, revision: revision()}));
-      else sessionStorage.removeItem(outboxKey());
+      if (value) {
+        storedId = writer + ':' + (++serial);
+        localStorage.setItem(outboxKey(), JSON.stringify({value, id: storedId, revision: revision(),
+          lastSent, intentional: generation > confirmedAction && generation !== retriedAction}));
+      } else if (stored()?.id === storedId) { localStorage.removeItem(outboxKey()); }
     } catch { /* The in-memory queue still retries during this visit. */ }
   }
 
@@ -49,11 +60,17 @@
     const value = pending;
     const observed = generation;
     let retryLater = false;
+    const base = revision();
+    // Keep the previous attempt until the server acknowledges it. Its response may be lost.
+    if (!lastSent || !samePosition(lastSent, value) || lastSent.revision !== base) {
+      lastSent = {...value, revision: base};
+      storePending(pending);
+    }
     try {
       const r = await fetch(url, {
         method: 'PUT', credentials: 'include', cache: 'no-store', keepalive: true,
         headers: {'Content-Type': 'application/json', 'X-Bookworm-CSRF': session.csrf},
-        body: JSON.stringify({...value, revision: revision()}), signal: AbortSignal.timeout(6000)
+        body: JSON.stringify({...value, revision: base}), signal: AbortSignal.timeout(6000)
       });
       if (r.ok || r.status === 409) {
         const next = await r.json();
@@ -70,6 +87,7 @@
           pending = null;
         }
         storePending(pending);
+        window.dispatchEvent(new Event('bookworm-bookmark'));
       } else if (r.status === 401 || r.status === 403) {
         // A later visibility change renews the current token or detects account changes.
         retryLater = true;
@@ -96,9 +114,15 @@
     session = value;
     if (!session?.scope) return;
     try {
-      const old = JSON.parse(sessionStorage.getItem(outboxKey()));
-      if (old && old.revision === revision()) {
-        pending = {chapter: old.chapter, scene: old.scene, ms: old.ms};
+      const old = stored();
+      if (!old?.value) return;
+      storedId = old.id;
+      const acknowledged = samePosition(session.bookmark, old.lastSent) && revision() === old.lastSent.revision + 1;
+      if (samePosition(session.bookmark, old.value)) { storePending(null); return; }
+      if (old.revision === revision() || acknowledged || old.intentional) {
+        pending = old.value;
+        if (old.intentional) generation++;
+        if (old.revision < revision() && !acknowledged) retriedAction = generation;
         void flush();
       } else { storePending(null); }
     } catch {}
@@ -113,10 +137,16 @@
     if (!fresh.scope) return;
     session.csrf = fresh.csrf;
     if ((fresh.bookmark?.revision || 0) > revision() && !writing) {
+      const acknowledged = samePosition(fresh.bookmark, lastSent) && fresh.bookmark.revision === lastSent.revision + 1;
       session.bookmark = fresh.bookmark;
-      writable = false;
-      pending = null;
-      storePending(null);
+      if (pending && !samePosition(pending, fresh.bookmark) && (acknowledged || (generation > confirmedAction && retriedAction !== generation))) {
+        if (!acknowledged) retriedAction = generation;
+        void flush();
+      } else {
+        writable = false;
+        pending = null;
+        storePending(null);
+      }
       window.dispatchEvent(new Event('bookworm-bookmark'));
     } else if (pending) { void flush(); }
   }
