@@ -5,8 +5,13 @@
   <a class="back" href="{{ url_for('consultations') }}">← 상담 관리</a>
   <h1>{{ item.topic }}</h1>
   <p class="byline">{{ item.created|day }} 접수 · {{ item.state }}</p>
-  <p>회신 이메일 · <a class="source" href="{{ mailto }}">{{ item.email }}</a></p>
+  <p>회신 이메일 · <span class="reply-address">{{ item.email }}</span></p>
   {% if item.note %}<p class="bodytext">{{ item.note }}</p>{% endif %}
+  <h2>진행 기록</h2>
+  <ol class="consult-history">
+    <li>접수 · {{ item.created|day }}</li>
+    {% for change in history %}<li>{{ change.state }} · {{ change.changed|day }}</li>{% endfor %}
+  </ol>
   <form class="stack" method="post">
     <input type="hidden" name="csrf" value="{{ csrf() }}">
     <input type="hidden" name="revision" value="{{ item.revision }}">
@@ -15,5 +20,13 @@
     </label>
     <button class="button" type="submit">상태 저장</button>
   </form>
+  <details>
+    <summary>신청 삭제</summary>
+    <form class="stack" method="post" action="{{ url_for('consultation_delete', inquiry_id=item.id) }}">
+      <input type="hidden" name="csrf" value="{{ csrf() }}">
+      <label><input type="checkbox" name="confirm" value="yes" required> 회신 이메일과 상담 내용, 진행 기록을 모두 삭제합니다.</label>
+      <button type="submit" class="button quiet">삭제 확정</button>
+    </form>
+  </details>
 </section>
 {% endblock %}

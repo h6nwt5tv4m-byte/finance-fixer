@@ -23,7 +23,7 @@ class BoardTest(unittest.TestCase):
         return c.get(url,base_url=ORIGIN)
 
     def send(self,c,url,data):
-        form=self.get(c,"/login").get_data(as_text=True)
+        form=self.get(c,"/consultation" if url == "/consultation" else "/login").get_data(as_text=True)
         csrf=re.search(r'name="csrf" value="([^"]+)"',form)[1]
         return c.post(url,base_url=ORIGIN,headers={"Origin":ORIGIN,"CF-Connecting-IP":"192.0.2.1"},
                       data=dict(csrf=csrf,**data))
@@ -489,7 +489,8 @@ class BoardTest(unittest.TestCase):
         response = self.get(admin, detail)
         self.assertIn("no-store", response.headers["Cache-Control"])
         self.assertIn("&lt;em&gt;private-note&lt;/em&gt;", response.get_data(as_text=True))
-        self.assertIn("mailto:first%2Breply@example.com", response.get_data(as_text=True))
+        self.assertIn("first+reply@example.com", response.get_data(as_text=True))
+        self.assertNotIn("mailto:first", response.get_data(as_text=True))
         for revision, state in enumerate(("회신","상담","수임","종결")):
             self.assertEqual(self.send(admin, detail, {"state":state,"revision":str(revision)}).status_code, 303)
         self.assertEqual(self.send(admin, detail, {"state":"회신","revision":"0"}).status_code, 409)
@@ -513,6 +514,50 @@ class BoardTest(unittest.TestCase):
             with write(db):
                 expire(db, now)
             self.assertEqual(db.execute("SELECT COUNT(*) FROM consultations").fetchone()[0], 9)
+
+    def test_consultation_restore_respects_later_deletions(self):
+        from maintenance import reconcile_consultations
+        import shutil
+        initialize(self.path, b"test-installation")
+        guest = self.guest
+        first, second = self.consultation_data(guest, note="erase"), self.consultation_data(guest, note="keep")
+        for form in [first, second]:
+            self.assertEqual(self.send(guest, "/consultation", form).status_code, 303)
+        with closing(connect(self.path)) as db:
+            gone, keep = [row["id"] for row in db.execute("SELECT id FROM consultations ORDER BY note")]
+        admin = self.account("admin@example.com")
+        self.send(admin, "/consultations/"+keep, {"state":"상담","revision":"0"})
+        directory=Path(self.tmp.name)/"copies"
+        backup(self.path,directory)
+        snapshot=next(directory.glob("*.sqlite"))
+        safe=Path(self.tmp.name)/"restore.sqlite"
+        discard=Path(self.tmp.name)/"no-ledger.sqlite"
+        shutil.copyfile(snapshot,safe)
+        shutil.copyfile(snapshot,discard)
+        self.assertEqual(self.send(admin, "/consultations/"+gone+"/delete", {"confirm":"yes"}).status_code, 303)
+        self.assertEqual(self.send(guest, "/consultation", first).status_code, 410)
+        with closing(connect(safe)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM consultations WHERE restore_pending=0").fetchone()[0],0)
+        reconcile_consultations(safe,self.path)
+        reconcile_consultations(discard,None)
+        with closing(connect(safe)) as db:
+            self.assertEqual([r[0] for r in db.execute("SELECT id FROM consultations WHERE restore_pending=0")],[keep])
+            self.assertEqual(db.execute("SELECT state FROM consultation_updates WHERE inquiry=?",(keep,)).fetchone()[0],"상담")
+        with closing(connect(discard)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM consultations").fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM consultation_updates").fetchone()[0],0)
+
+    def test_consultation_draft_survives_login_lifecycle(self):
+        guest=self.guest
+        data=self.consultation_data(guest)
+        page=self.get(guest,"/consultation").get_data(as_text=True)
+        data["csrf"]=re.search(r'name="csrf" value="([^"]+)"',page)[1]
+        self.send(guest,"/login/request",{"email":"reader@example.com"})
+        self.send(guest,"/login/confirm",{"code":self.sent["reader@example.com"]})
+        self.send(guest,"/logout",{})
+        response=guest.post("/consultation",base_url=ORIGIN,headers={"Origin":ORIGIN,"CF-Connecting-IP":"192.0.2.1"},data=data)
+        self.assertEqual(response.status_code,303)
+
 
 if __name__=="__main__":
     unittest.main()

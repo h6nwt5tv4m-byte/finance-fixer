@@ -31,7 +31,11 @@ CREATE TABLE IF NOT EXISTS reading_bookmarks(
 CREATE TABLE IF NOT EXISTS consultations(
  id TEXT PRIMARY KEY, email TEXT NOT NULL, topic TEXT NOT NULL, note TEXT NOT NULL,
  created INTEGER NOT NULL, notice TEXT NOT NULL, state TEXT NOT NULL DEFAULT '접수',
- revision INTEGER NOT NULL DEFAULT 0);
+ revision INTEGER NOT NULL DEFAULT 0, restore_pending INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS consultation_updates(
+ inquiry TEXT NOT NULL REFERENCES consultations(id) ON DELETE CASCADE, revision INTEGER NOT NULL,
+ state TEXT NOT NULL, changed INTEGER NOT NULL, PRIMARY KEY(inquiry,revision));
+CREATE TABLE IF NOT EXISTS erased_consultations(id TEXT PRIMARY KEY, erased INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS consultations_created ON consultations(created,id);
 CREATE TABLE IF NOT EXISTS blocked(owner TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS settings(name TEXT PRIMARY KEY,value TEXT NOT NULL);
@@ -98,6 +102,7 @@ def initialize(path, identity_key=None):
         db.close()
 
 def expire(db, now):
+    db.execute("DELETE FROM erased_consultations WHERE erased<=?", (now-CONSULTATION_RETENTION,))
     db.execute("DELETE FROM consultations WHERE created<=?", (now-CONSULTATION_RETENTION,))
     db.execute("DELETE FROM events WHERE at<=?", (now-86400,))
     db.execute("DELETE FROM sessions WHERE expires<=?", (now,))

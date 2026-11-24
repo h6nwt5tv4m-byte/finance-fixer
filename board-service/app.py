@@ -35,7 +35,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         return int(time.time())
 
     def digest(kind, value):
-        secret=identity_secret if kind in {"mail-limit","ip"} else key
+        secret=identity_secret if kind in {"mail-limit","ip","consultation-ip"} else key
         return hmac.new(secret,(kind+"\0"+value).encode(),"sha256").hexdigest()
 
     def owner_id(email):
@@ -73,7 +73,16 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     def args(uid):
         return dict(uid=uid,admin=int(editor(uid)))
 
+    def reset_login_session():
+        # A guest consultation draft can survive a separate tab signing in or out.
+        consultation_token = session.get("consultation_csrf")
+        session.clear()
+        if consultation_token:
+            session["consultation_csrf"] = consultation_token
+
     def current_form_token():
+        if request.endpoint == "consultation_form":
+            return session.get("consultation_csrf", "")
         if viewer():
             return digest("form-csrf",login_token())
         return session.get("csrf","")
@@ -82,8 +91,9 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         token=current_form_token()
         if token:
             return token
-        session["csrf"]=secrets.token_urlsafe(24)
-        return session["csrf"]
+        name = "consultation_csrf" if request.endpoint == "consultation_form" else "csrf"
+        session[name]=secrets.token_urlsafe(24)
+        return session[name]
 
     @app.before_request
     def check_request():
@@ -108,15 +118,15 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             response.headers["Cache-Control"] = "private, max-age=86400, no-transform"
         return response
 
-    def network():
+    def network(scope="ip"):
         try:
             ip = ipaddress.ip_address(request.headers.get("CF-Connecting-IP",""))
         except ValueError:
             abort(503,description="접속 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.")
         subnet=ipaddress.ip_network(f"{ip}/64" if ip.version==6 else f"{ip}/32",strict=False)
-        return digest("ip",str(subnet))
+        return digest(scope,str(subnet))
 
-    install_consultation(app, db, lambda: editor(viewer()), network)
+    install_consultation(app, db, lambda: editor(viewer()), lambda: network("consultation-ip"))
 
     def label(owner):
         if editor(owner) or owner=="editorial":
@@ -276,7 +286,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                         success=True
         if not success:
             abort(400,description="인증번호가 만료되었거나 일치하지 않습니다. 번호를 확인하거나 다시 요청해 주세요.")
-        session.clear()
+        reset_login_session()
         flash("이메일 인증이 완료되었습니다.")
         back = return_page(request.form.get("return_to"))
         response = move("continue_site", return_to=back) if back else move("index")
@@ -287,7 +297,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     def logout():
         db().execute("DELETE FROM sessions WHERE id=?",(digest("session",login_token()),))
         db().execute("DELETE FROM challenges WHERE id=?",(session.get("challenge",""),))
-        session.clear()
+        reset_login_session()
         back = return_page(request.form.get("return_to"))
         if back and back.startswith(("https://finance-fixer.net/bookworm/", "https://www.finance-fixer.net/bookworm/")):
             back = "https://finance-fixer.net/bookworm/"
