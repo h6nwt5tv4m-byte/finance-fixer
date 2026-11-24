@@ -47,7 +47,20 @@ button, summary { cursor: pointer; }
 .top { border-bottom: 1px solid var(--line); }
 .drop-btn { list-style: none; }
 .drop-btn::-webkit-details-marker { display: none; }
-.nav-drop[open] .drop { display: block; }
+/* Reserve the drawer's space so the next keyboard focus stays in view. */
+.top:has(.nav-drop[open]) {
+  --drawer-height: min(27rem, 52svh);
+  padding-bottom: calc(1.75rem + var(--drawer-height));
+}
+.nav-drop[open] .drop {
+  display: block; top: auto; bottom: 0; height: var(--drawer-height); max-height: none;
+}
+body:has(main :focus-visible, footer :focus-visible) .top:has(.nav-drop[open]) {
+  position: relative;
+}
+@media (max-width: 480px) {
+  .top:has(.nav-drop[open]) { padding-bottom: calc(1.1rem + var(--drawer-height)); }
+}
 .nav-drop[open] .drop-btn { border-bottom-color: var(--brass); }
 .drop .all-tools { width: fit-content; margin: .8rem auto 0; }
 
