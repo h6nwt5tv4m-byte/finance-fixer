@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import secrets
 import time
+from threading import BoundedSemaphore
 from zoneinfo import ZoneInfo
 
 from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
@@ -145,8 +146,19 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     def login():
         return render_template("login.html",pending=bool(session.get("challenge")))
 
+    # Bound SMTP waits per worker so normal reads always have threads available.
+    mail_slot=BoundedSemaphore(1)
+
     @app.post("/login/request")
     def request_code():
+        if not mail_slot.acquire(blocking=False):
+            abort(503,description="다른 인증 메일을 보내고 있습니다. 잠시 후 다시 요청해 주세요.")
+        try:
+            return issue_code()
+        finally:
+            mail_slot.release()
+
+    def issue_code():
         try:
             email=address(request.form.get("email","").strip())
         except (UnicodeError,ValueError):

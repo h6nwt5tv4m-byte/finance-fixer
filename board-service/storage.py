@@ -65,6 +65,12 @@ def initialize(path, identity_key=None):
                     db.execute("""INSERT INTO posts(id,owner,title,body,private,created,source_date,source_url)
                                   VALUES (?,'editorial',?,?,0,?,?,?)""", (pid,item["title"],item["body"],
                                int(time.time()),item["source_date"],item["source_url"]))
+            # The October archive entry referred to the contact link predating the video section.
+            if db.execute("INSERT OR IGNORE INTO settings VALUES ('correction-video-contact','done')").rowcount:
+                video=next(item for item in items if item["title"]=="글보다 영상이 편한 날에는")
+                db.execute("""UPDATE posts SET body=?,source_url=? WHERE owner='editorial'
+                              AND title=? AND source_url='https://finance-fixer.net/#videos'""",
+                           (video["body"],video["source_url"],video["title"]))
     finally:
         db.close()
 

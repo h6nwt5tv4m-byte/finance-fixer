@@ -123,6 +123,8 @@ class BoardTest(unittest.TestCase):
         self.app=create_app(b"session A",self.path,["admin@example.com"],self.sent.__setitem__,identity_key=identity)
         author=self.account("owner@example.com")
         url=self.create(author,"private")
+        op=self.account("admin@example.com")
+        self.assertEqual(self.send(op,url+"/reply",{"body":"복구용 비밀 댓글"}).status_code,303)
         self.send(self.guest,"/login/request",{"email":"pending@example.com"})
         dest=Path(self.tmp.name)/"restore"
         backup(self.path,dest)
@@ -134,7 +136,9 @@ class BoardTest(unittest.TestCase):
         with self.assertRaises(RuntimeError): initialize(self.path,b"wrong identity")
         initialize(self.path,identity)
         self.app=create_app(b"session B",self.path,["admin@example.com"],self.sent.__setitem__,identity_key=identity)
-        self.assertEqual(self.get(self.account("owner@example.com"),url).status_code,200)
+        response=self.get(self.account("owner@example.com"),url)
+        self.assertIn("복구용 비밀 댓글",response.get_data(as_text=True))
+        self.assertEqual(self.get(self.app.test_client(),url).status_code,404)
 
     def test_unblock_after_deletion_and_shared_gmail_owner(self):
         author=self.account("first.last+test@gmail.com")
@@ -162,6 +166,27 @@ class BoardTest(unittest.TestCase):
         with closing(connect(self.path)) as db: db.execute("UPDATE events SET at=at-65")
         self.assertEqual(self.send(c,"/login/request",{"email":"retry@example.com"}).status_code,503)
         self.assertEqual(self.send(c,"/login/confirm",{"code":codes[0]}).status_code,303)
+
+    def test_delivery_load_preserves_reads(self):
+        from threading import Event,Thread
+        started=Event()
+        release=Event()
+        def waiting(email,code):
+            started.set()
+            if not release.wait(3): raise OSError("mail timeout")
+        self.app=create_app(b"test-only",self.path,[],waiting)
+        first=self.app.test_client()
+        results=[]
+        t=Thread(target=lambda:results.append(self.send(first,"/login/request",{"email":"first@example.test"}).status_code))
+        t.start()
+        try:
+            self.assertTrue(started.wait(2))
+            self.assertEqual(self.send(self.app.test_client(),"/login/request",{"email":"next@example.test"}).status_code,503)
+            self.assertEqual(self.get(self.app.test_client(),"/").status_code,200)
+        finally:
+            release.set()
+            t.join(3)
+        self.assertEqual(results,[303])
 
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
