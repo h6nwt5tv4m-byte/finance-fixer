@@ -8,6 +8,7 @@ import time
 
 ROOT = Path(__file__).resolve().parent
 VISIBLE = "((p.hidden=0 OR :admin) AND (p.private=0 OR p.owner=:uid OR :admin))"
+CONSULTATION_RETENTION = 90 * 86400
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS posts(
  id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
@@ -27,6 +28,11 @@ CREATE INDEX IF NOT EXISTS event_idx ON events(kind,bucket,at);
 CREATE TABLE IF NOT EXISTS reading_bookmarks(
  owner TEXT NOT NULL, book TEXT NOT NULL, chapter INTEGER NOT NULL, scene INTEGER NOT NULL,
  ms INTEGER NOT NULL, revision INTEGER NOT NULL, PRIMARY KEY(owner,book));
+CREATE TABLE IF NOT EXISTS consultations(
+ id TEXT PRIMARY KEY, email TEXT NOT NULL, topic TEXT NOT NULL, note TEXT NOT NULL,
+ created INTEGER NOT NULL, notice TEXT NOT NULL, state TEXT NOT NULL DEFAULT '접수',
+ revision INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS consultations_created ON consultations(created,id);
 CREATE TABLE IF NOT EXISTS blocked(owner TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS settings(name TEXT PRIMARY KEY,value TEXT NOT NULL);
 """
@@ -64,7 +70,8 @@ def initialize(path, identity_key=None):
                     # The board launched with key fingerprints. Only initialize pristine/seed-only data.
                     has_owners=db.execute("""SELECT EXISTS(SELECT 1 FROM posts WHERE owner!='editorial')
                         OR EXISTS(SELECT 1 FROM comments) OR EXISTS(SELECT 1 FROM blocked)
-                        OR EXISTS(SELECT 1 FROM sessions) OR EXISTS(SELECT 1 FROM challenges) OR EXISTS(SELECT 1 FROM reading_bookmarks)""").fetchone()[0]
+                        OR EXISTS(SELECT 1 FROM sessions) OR EXISTS(SELECT 1 FROM challenges) OR EXISTS(SELECT 1 FROM reading_bookmarks)
+                        OR EXISTS(SELECT 1 FROM consultations)""").fetchone()[0]
                     if has_owners:
                         raise RuntimeError("Unversioned user data requires recovery from a verified source.")
                     db.execute("INSERT INTO settings VALUES ('identity-key',?)",(fingerprint,))
@@ -91,6 +98,7 @@ def initialize(path, identity_key=None):
         db.close()
 
 def expire(db, now):
+    db.execute("DELETE FROM consultations WHERE created<=?", (now-CONSULTATION_RETENTION,))
     db.execute("DELETE FROM events WHERE at<=?", (now-86400,))
     db.execute("DELETE FROM sessions WHERE expires<=?", (now,))
     db.execute("DELETE FROM challenges WHERE expires<=? OR tries<=0", (now,))

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}상담 관리{% endblock %}
+{% block main %}
+<section class="reading">
+  <h1>상담 관리</h1>
+  <p>접수된 상담 {{ total }}건</p>
+  {% if rows %}
+  <ul class="posts">
+    {% for row in rows %}
+    <li><a href="{{ url_for('consultation_detail', inquiry_id=row.id) }}">
+      <strong>{{ row.topic }}</strong><span>{{ row.email }}</span>
+      <span class="meta">{{ row.state }} · {{ row.created|day }}</span>
+    </a></li>
+    {% endfor %}
+  </ul>
+  {% if last > 1 %}<nav class="pages" aria-label="상담 목록 페이지">
+    {% if page > 1 %}<a href="{{ url_for('consultations', page=page-1) }}">← 이전</a>{% endif %}
+    <span>{{ page }} / {{ last }}</span>
+    {% if page < last %}<a href="{{ url_for('consultations', page=page+1) }}">다음 →</a>{% endif %}
+  </nav>{% endif %}
+  {% else %}<p class="empty">아직 접수된 상담이 없습니다.</p>{% endif %}
+</section>
+{% endblock %}

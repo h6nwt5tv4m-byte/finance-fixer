@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}상담 상세{% endblock %}
+{% block main %}
+<section class="reading">
+  <a class="back" href="{{ url_for('consultations') }}">← 상담 관리</a>
+  <h1>{{ item.topic }}</h1>
+  <p class="byline">{{ item.created|day }} 접수 · {{ item.state }}</p>
+  <p>회신 이메일 · <a class="source" href="{{ mailto }}">{{ item.email }}</a></p>
+  {% if item.note %}<p class="bodytext">{{ item.note }}</p>{% endif %}
+  <form class="stack" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <input type="hidden" name="revision" value="{{ item.revision }}">
+    <label>진행 상태
+      <select name="state">{% for state in states %}<option{% if item.state == state %} selected{% endif %}>{{ state }}</option>{% endfor %}</select>
+    </label>
+    <button class="button" type="submit">상태 저장</button>
+  </form>
+</section>
+{% endblock %}

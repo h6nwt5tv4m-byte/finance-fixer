@@ -227,3 +227,11 @@ body.yt-playing .grain { display: none; }
 #contact .kakao, #contact .yt, #contact .blog, #contact .li { color: #f4f1ea; border-color: rgba(244, 241, 234, .3); }
 #contact .kakao:hover, #contact .yt:hover, #contact .blog:hover, #contact .li:hover { border-color: var(--brass); }
 .foot { margin-top: 0; }
+
+#contact .consult-link {
+  display: inline-flex; align-items: center; gap: 1.25rem; margin: 0 0 1.5rem;
+  padding: .65rem 1.15rem; background: var(--paper); color: var(--green);
+  border: 1px solid var(--paper); border-radius: 2px; font-weight: 500;
+}
+#contact .consult-link:hover { background: var(--paper-deep); }
+#contact .consult-link:focus-visible { outline: 2px solid var(--paper); outline-offset: 4px; }

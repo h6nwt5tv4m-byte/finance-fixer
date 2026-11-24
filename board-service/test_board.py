@@ -447,5 +447,72 @@ class BoardTest(unittest.TestCase):
             self.assertEqual(copy.execute("SELECT COUNT(*) FROM posts").fetchone()[0],23)
             self.assertEqual(copy.execute("PRAGMA integrity_check").fetchone()[0],"ok")
 
+    def consultation_data(self, c, **changes):
+        html = self.get(c, "/consultation").get_data(as_text=True)
+        ticket = re.search(r'name="ticket" value="([^"]+)"', html)[1]
+        return dict(dict(ticket=ticket, email="first+reply@example.com", topic="세무 상담",
+                         note="공개되지 않을 상담 내용", consent="yes"), **changes)
+
+    def test_consultation_retries_and_validation(self):
+        c = self.guest
+        data = self.consultation_data(c)
+        for fields in ({"email":"invalid"}, {"topic":"없는 주제"}, {"consent":""}, {"note":"가"*1001},
+                       {"ticket":"expired-or-invalid"}):
+            self.assertEqual(self.send(c, "/consultation", dict(data, **fields)).status_code, 400)
+        self.assertEqual(self.get(c, "/consultation/received").status_code, 302)
+        for _ in range(2):
+            response = self.send(c, "/consultation", data)
+            self.assertEqual(response.status_code, 303)
+            self.assertEqual(response.location, "/consultation/received")
+        self.assertIn("신청이 접수되었습니다", self.get(c, response.location).get_data(as_text=True))
+        self.assertEqual(self.send(c, "/consultation", dict(data, note="새 문의")).status_code, 409)
+        with closing(connect(self.path)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM consultations").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM events WHERE kind='consultation'").fetchone()[0], 1)
+        self.assertFalse(self.sent)
+
+    def test_consultation_is_private_and_status_updates_keep_latest(self):
+        c = self.guest
+        data = self.consultation_data(c, note="<em>private-note</em>")
+        self.assertEqual(self.send(c, "/consultation", data).status_code, 303)
+        with closing(connect(self.path)) as db:
+            inquiry_id = db.execute("SELECT id FROM consultations").fetchone()[0]
+        detail = "/consultations/" + inquiry_id
+        member = self.account("reader@example.com")
+        for client in (c, member):
+            for path in ("/consultations", detail):
+                self.assertEqual(self.get(client,path).status_code, 404)
+            self.assertEqual(self.send(client, detail, {"state":"종결","revision":"0"}).status_code, 404)
+            for path in ("/", "/?view=mine", "/consultation/received"):
+                self.assertNotIn("private-note", self.get(client,path).get_data(as_text=True))
+        admin = self.account("admin@example.com")
+        response = self.get(admin, detail)
+        self.assertIn("no-store", response.headers["Cache-Control"])
+        self.assertIn("&lt;em&gt;private-note&lt;/em&gt;", response.get_data(as_text=True))
+        self.assertIn("mailto:first%2Breply@example.com", response.get_data(as_text=True))
+        for revision, state in enumerate(("회신","상담","수임","종결")):
+            self.assertEqual(self.send(admin, detail, {"state":state,"revision":str(revision)}).status_code, 303)
+        self.assertEqual(self.send(admin, detail, {"state":"회신","revision":"0"}).status_code, 409)
+        self.assertEqual(self.send(admin, detail, {"state":"종결","revision":"3"}).status_code, 303)
+        self.assertIn("종결", self.get(admin, "/consultations").get_data(as_text=True))
+
+    def test_consultation_expiry_and_quota(self):
+        from storage import CONSULTATION_RETENTION, expire, write
+        import time
+        c = self.guest
+        for i in range(11):
+            result = self.send(c, "/consultation", self.consultation_data(c, note=str(i)))
+            self.assertEqual(result.status_code, 303 if i < 10 else 429)
+        admin = self.account("admin@example.com")
+        now = int(time.time())
+        with closing(connect(self.path)) as db:
+            entry = db.execute("SELECT id FROM consultations LIMIT 1").fetchone()[0]
+            db.execute("UPDATE consultations SET created=? WHERE id=?", (now-CONSULTATION_RETENTION,entry))
+            self.assertEqual(self.get(admin, "/consultations/"+entry).status_code, 404)
+            self.assertNotIn(entry, self.get(admin, "/consultations").get_data(as_text=True))
+            with write(db):
+                expire(db, now)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM consultations").fetchone()[0], 9)
+
 if __name__=="__main__":
     unittest.main()

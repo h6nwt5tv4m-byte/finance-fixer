@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import HTTPException
 
+from consultation import install as install_consultation
 from mail_protocol import DeliveryUncertain, address, deliver, mailbox_limit
 from site_account import install as install_site_account, return_page
 from storage import VISIBLE, connect, expire, reserve, write
@@ -114,6 +115,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             abort(503,description="접속 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.")
         subnet=ipaddress.ip_network(f"{ip}/64" if ip.version==6 else f"{ip}/32",strict=False)
         return digest("ip",str(subnet))
+
+    install_consultation(app, db, lambda: editor(viewer()), network)
 
     def label(owner):
         if editor(owner) or owner=="editorial":

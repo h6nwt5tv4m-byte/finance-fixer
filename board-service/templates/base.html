@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   {% block extra_head %}{% endblock %}
-  <title>자유게시판 · 재무해결사</title>
+  <title>{% block title %}자유게시판{% endblock %} · 재무해결사</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='board.css') }}">
 </head>
@@ -13,7 +13,7 @@
   <main>
     {% if uid %}
     <nav class="account" aria-label="게시판 계정">
-      {% if admin %}<a href="{{ url_for('moderation') }}">차단 관리</a>{% endif %}
+      {% if admin %}<a href="{{ url_for('consultations') }}">상담 관리</a><a href="{{ url_for('moderation') }}">차단 관리</a>{% endif %}
       <form method="post" action="{{ url_for('logout') }}">
         {% if back %}<input type="hidden" name="return_to" value="{{ back }}">{% endif %}<input type="hidden" name="csrf" value="{{ csrf() }}">
         <button type="submit" class="plain">로그아웃</button>

@@ -125,10 +125,15 @@ h2 { font-size: 1.5rem; }
 .stack { display: grid; gap: 1.1rem; margin: 1.5rem 0; }
 .stack > label, .stack legend { font-weight: 500; }
 .stack .button { justify-self: start; }
-input:not([type=radio]):not([type=hidden]), textarea {
+input:not([type=radio]):not([type=checkbox]):not([type=hidden]), textarea, .stack select {
   display: block; width: 100%; margin-top: .35rem; padding: .65rem .8rem; color: var(--ink);
   font-weight: 300; background: #faf8f3; border: 1px solid #aaa599; border-radius: 2px;
 }
+.stack select { font: inherit; }
+.consult-consent { font-size: .875rem; }
+.consult-consent p { margin: 0 0 .75rem; }
+.consult-consent a { text-decoration: underline; }
+.consult-consent input { accent-color: var(--green); }
 textarea { resize: vertical; }
 fieldset { min-width: 0; margin: 0; border: 1px solid var(--line); padding: 1rem; }
 .radio { margin-right: 1.25rem; }
