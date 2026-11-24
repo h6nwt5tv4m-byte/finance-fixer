@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import time
+from urllib.parse import parse_qs, urlsplit
 from xml.etree import ElementTree
 
 import requests
@@ -78,6 +79,9 @@ def board_body(html, title, url=None):
     main = doc.select_one(".se-main-container")
     if not meta or meta.get("content") != title or not main:
         raise ValueError("Public title or article body unavailable")
+    for deleted in main.select('del, strike, s, .se-strikethrough, [style*="line-through"]'):
+        if deleted.parent is not None:
+            deleted.replace_with("(취소된 표기 " + text_of(deleted) + ")")
     for br in main.select("br"):
         br.replace_with("\n")
     sections = []
@@ -112,13 +116,26 @@ def board_body(html, title, url=None):
     return body
 
 
+def same_blog_link(candidate, log_no):
+    parts = urlsplit(candidate.rstrip(".,)〉]"))
+    if parts.scheme not in {"http", "https"} or parts.netloc not in {"m.blog.naver.com", "blog.naver.com"}:
+        return False
+    if parts.path.rstrip("/") == "/financefixer/" + log_no:
+        return True
+    query = parse_qs(parts.query)
+    return parts.path == "/PostView.naver" and query.get("blogId") == ["financefixer"] and query.get("logNo") == [log_no]
+
+
 def manual_duplicate(db, url, title):
-    # Only the board itself can label a signed-in contributor as an operator.
-    candidates = db.execute("""SELECT id, owner, body FROM posts WHERE title=? AND private=0 AND hidden=0
-                               AND (source_url=? OR instr(body,?)>0)""", (title, url, url)).fetchall()
-    for pid, owner, body in candidates:
-        if url in body and not re.search(re.escape(url) + r"(?![0-9])", body):
+    # A hidden public post was explicitly moderated. Honour that decision for the same source.
+    candidates = db.execute("SELECT id, owner, body, hidden, source_url FROM posts WHERE title=? AND private=0", (title,)).fetchall()
+    log_no = url.rsplit("/", 1)[1]
+    for pid, owner, body, hidden, source_url in candidates:
+        links = re.findall(r"https?://(?:m\.)?blog\.naver\.com/[^\s<>]+", body)
+        if not any(same_blog_link(link, log_no) for link in [source_url or "", *links]):
             continue
+        if hidden:
+            return True
         if owner == "editorial":
             return True
         page = BeautifulSoup(fetch("https://board.finance-fixer.net/p/" + pid).decode("utf-8"), "html.parser")
