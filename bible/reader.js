@@ -358,6 +358,15 @@ function select(book,chapter,version,historyMode='push',hash='') {
   try {localStorage.setItem(locationKey,JSON.stringify({book:book.id,chapter,version}));} catch {}
   $('book').value=book.id; $('chapter').replaceChildren(...Array.from({length:book.chapters},(_,i)=>option(String(i+1),i+1+'장')));
   $('chapter').value=String(chapter); $('version').value=version; $('verse').value='';
+  $('version-choice').hidden = version !== 'NIV';
+  if (version === 'NIV') {
+    const styles = $('niv-styles');
+    if (styles) {
+      const links = styles.content.cloneNode(true);
+      links.querySelector('[data-fonts]').href = api + '/fonts.css';
+      styles.replaceWith(links);
+    }
+  }
   $('chapter-title').textContent=book.name+' '+chapter+'장'; $('chapter-english').textContent=book.english+' '+chapter;
   document.title=$('chapter-title').textContent+' · '+version+' 한영 성경 읽기';
   $('edition-title').textContent=version==='BSB'?'Berean Standard Bible · BSB':'New International Version · NIV';
@@ -394,9 +403,14 @@ function openLocation(mode) {
   const hasRef=params.has('book')||params.has('chapter');
   let book=books.find(b=>b.id===(hasRef?params.get('book'):saved.book));
   let chapter=Number(hasRef?params.get('chapter'):saved.chapter);
-  if (!book||!Number.isInteger(chapter)||chapter<1||chapter>book.chapters) {book=books.find(b=>b.id==='MRK');chapter=1;}
-  const requested = params.get('version') || (hasRef || location.hash==='#chapter-audio'?'NIV':saved.version);
-  const version = requested === 'BSB' ? 'BSB' : 'NIV';
+  // Only a legacy audio bookmark can imply NIV when the URL omits the edition.
+  const requested = params.get('version');
+  const legacyAudio = ['#chapter-audio','#lumo'].includes(location.hash);
+  const version = requested === 'NIV' || (requested === null && legacyAudio) ? 'NIV' : 'BSB';
+  const filmBookmark = !hasRef && version === 'NIV' && location.hash === '#lumo';
+  if (filmBookmark || !book || !Number.isInteger(chapter) || chapter < 1 || chapter > book.chapters) {
+    book=books.find(b=>b.id==='MRK'); chapter=1;
+  }
   if (mode === 'none' && current?.book === book && current.chapter === chapter && current.version === version) {
     if (!['#study','#english','#review','#context'].includes(location.hash)) study.open = false;
     anchor();
@@ -451,7 +465,6 @@ async function start() {
   const header=document.querySelector('.top');
   function measure(){document.documentElement.style.setProperty('--site-header',header.offsetHeight+'px');}
   measure(); if(window.ResizeObserver)new ResizeObserver(measure).observe(header);
-  const font=document.createElement('link');font.rel='stylesheet';font.crossOrigin='anonymous';font.href=api+'/fonts.css';document.head.append(font);
   openLocation('replace');
 }
 start().catch(()=>{$('reader-status').textContent='책 목록을 불러오지 못했습니다. 새로고침해 주세요.';});

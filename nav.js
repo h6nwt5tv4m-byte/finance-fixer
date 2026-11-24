@@ -35,7 +35,7 @@ try {
     const link = document.createElement('a');
     link.href = 'https://finance-fixer.net/bible/';
     const label = document.createElement('b'); label.textContent = '성경으로 영어 공부';
-    const detail = document.createElement('span'); detail.textContent = 'NIV와 개역한글을 함께 읽고 배우기';
+    const detail = document.createElement('span'); detail.textContent = 'BSB 영어와 개역한글을 한 절씩 함께 읽기';
     link.append(label, detail);
     const hanja = panel.querySelector('a[href="/hanja/"], a[href="https://finance-fixer.net/hanja/"]');
     if (hanja) hanja.after(link); else panel.append(link);

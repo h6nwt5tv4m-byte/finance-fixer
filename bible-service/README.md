@@ -30,4 +30,4 @@ App Key는 `~/.config/finance-fixer/youversion-app-key`에 한 줄로 보관하�
 
 개역한글 출처·커밋·해시·표본 대조 범위는 `../bible/krv-source.json`에 기록했다. 전체 공식 본문을 대조한 것은 아니다. 오류를 정정할 때는 대한성서공회 기준 본문과의 비교 근거를 남긴다.
 
-한영 읽기 화면은 NIV·BSB 영어와 개역한글을 절 단위로 대조한다. 중계 서버는 NIV만 제공한다. BSB는 공식 공개 텍스트(https://bereanbible.com/bsb.txt)를 책별 정적 JSON으로 제공한다. 마가복음 1장 1–8절에는 Barry Hays의 BSB 낭독과 영어 학습 단원이 있다. 예전 두 단원 주소는 해당 본문 위치로 연결된다.
+한영 읽기 화면은 BSB와 개역한글을 절 단위로 대조한다. 기존 NIV 지정 주소와 공식 낭독 북마크는 해당 판본으로 열린다. 중계 서버는 NIV만 제공한다. BSB는 공식 공개 텍스트(https://bereanbible.com/bsb.txt)를 책별 정적 JSON으로 제공한다. 마가복음 1장 1–8절에는 Barry Hays의 BSB 낭독과 영어 학습 단원이 있다. 예전 두 단원 주소는 해당 본문 위치로 연결된다.
