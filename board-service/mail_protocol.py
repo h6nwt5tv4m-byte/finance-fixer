@@ -26,11 +26,21 @@ def mailbox_limit(email):
         local=local.lower().partition("+")[0]
     return local+"@"+domain
 
+class DeliveryUncertain(OSError):
+    """The relay may have delivered the email without returning its acknowledgement."""
+
 def deliver(email, code):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
         sock.settimeout(17)
         sock.connect("/run/finance-board-mail.sock")
-        sock.sendall(f"{email}\n{code}\n".encode("ascii"))
-        sock.shutdown(socket.SHUT_WR)
-        if sock.makefile("rb").readline(12) != b"OK\n":
+        try:
+            sock.sendall(f"{email}\n{code}\n".encode("ascii"))
+            sock.shutdown(socket.SHUT_WR)
+            with sock.makefile("rb") as reply:
+                status=reply.readline(12)
+        except OSError as exc:
+            raise DeliveryUncertain("relay acknowledgement unavailable") from exc
+        if status==b"FAILED\n":
             raise OSError("verification delivery unavailable")
+        if status!=b"OK\n":
+            raise DeliveryUncertain("relay acknowledgement unavailable")

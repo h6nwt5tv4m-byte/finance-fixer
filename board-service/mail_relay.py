@@ -11,7 +11,7 @@ import sqlite3
 import ssl
 import struct
 import time
-from mail_protocol import address, mailbox_limit
+from mail_protocol import DeliveryUncertain, address, mailbox_limit
 from storage import write
 
 def handle(sock):
@@ -45,15 +45,25 @@ def handle(sock):
     msg["To"] = recipient
     msg["Subject"] = "재무해결사 자유게시판 이메일 인증번호"
     msg.set_content(f"게시판 로그인 인증번호는 {code} 입니다. 10분 안에 요청한 화면에 입력하세요.\n직접 요청하지 않으셨다면 이 메일을 무시하세요.")
-    with smtplib.SMTP_SSL(mail["host"],int(mail["port"]),timeout=8,context=ssl.create_default_context()) as smtp:
-        smtp.login(mail["user"], mail["password"])
-        smtp.send_message(msg,from_addr=mail["from"],to_addrs=[recipient])
+    smtp=smtplib.SMTP_SSL(mail["host"],int(mail["port"]),timeout=8,context=ssl.create_default_context())
+    try:
+        smtp.login(mail["user"],mail["password"])
+        try:
+            smtp.send_message(msg,from_addr=mail["from"],to_addrs=[recipient])
+        except (smtplib.SMTPResponseException,smtplib.SMTPRecipientsRefused):
+            raise
+        except OSError as exc:
+            raise DeliveryUncertain("SMTP acknowledgement unavailable") from exc
+    finally:
+        smtp.close()
 
 if __name__ == "__main__":
     connection = socket.fromfd(0,socket.AF_UNIX,socket.SOCK_STREAM)
     connection.settimeout(4)
     try:
         handle(connection)
+    except DeliveryUncertain:
+        connection.sendall(b"UNKNOWN\n")
     except Exception:
         connection.sendall(b"FAILED\n")
     else:

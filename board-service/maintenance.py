@@ -1,5 +1,6 @@
 """Initialize board data and take a private, consistent daily snapshot."""
 from datetime import date
+import fcntl
 import os
 from contextlib import closing
 from pathlib import Path
@@ -12,6 +13,11 @@ DATABASE = Path("/var/lib/finance-board/board.sqlite")
 
 def backup(database, directory):
     directory.mkdir(mode=0o700,parents=True,exist_ok=True)
+    with (directory/".snapshot.lock").open("a") as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        save_snapshot(database,directory)
+
+def save_snapshot(database,directory):
     today=date.today()
     target=directory/f"{today}.sqlite"
     pending=directory/".snapshot.pending"

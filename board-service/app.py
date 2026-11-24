@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import HTTPException
 
-from mail_protocol import address, deliver, mailbox_limit
+from mail_protocol import DeliveryUncertain, address, deliver, mailbox_limit
 from storage import VISIBLE, connect, expire, reserve, write
 
 ORIGIN = "https://board.finance-fixer.net"
@@ -183,6 +183,16 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         try:
             if not blocked:
                 send_code(email,code)
+        except DeliveryUncertain:
+            # Keep the same browser's last usable challenge if it has one.
+            previous_valid=db().execute("SELECT 1 FROM challenges WHERE id=? AND expires>? AND tries>0",(previous,stamp())).fetchone()
+            if previous_valid:
+                db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
+                flash("새 메일 발송을 확인하지 못했습니다. 먼저 받은 유효한 번호를 입력해 주세요.")
+            else:
+                session["challenge"]=challenge
+                flash("발송 확인이 지연되고 있습니다. 메일이 도착했다면 번호를 입력해 주세요.")
+            return move("login")
         except OSError:
             with write(db()):
                 db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
@@ -311,6 +321,28 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             else:
                 abort(400)
         return move("post",pid=pid)
+
+    @app.route("/account/hidden",methods=["GET","POST"])
+    def hidden_items():
+        if request.method=="POST":
+            with authenticated_write() as uid:
+                item_id=request.form.get("id","")
+                if request.form.get("kind")=="comment":
+                    removed=db().execute("""DELETE FROM comments WHERE id=? AND owner=? AND
+                        (hidden=1 OR post IN (SELECT id FROM posts WHERE hidden=1))""",(item_id,uid))
+                else:
+                    removed=db().execute("DELETE FROM posts WHERE id=? AND owner=? AND hidden=1",(item_id,uid))
+                if not removed.rowcount:
+                    abort(404)
+            return move("hidden_items")
+        uid=viewer()
+        if not uid:
+            return move("login")
+        items=db().execute("""SELECT id,title AS text,'post' AS kind,created FROM posts WHERE owner=? AND hidden=1
+            UNION ALL SELECT c.id,substr(c.body,1,90),'comment',c.created FROM comments c
+            JOIN posts p ON p.id=c.post WHERE c.owner=? AND (c.hidden=1 OR p.hidden=1) ORDER BY created DESC""",
+            (uid,uid)).fetchall()
+        return render_template("hidden.html",items=items)
 
     @app.route("/moderation",methods=["GET","POST"])
     def moderation():

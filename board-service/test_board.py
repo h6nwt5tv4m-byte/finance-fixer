@@ -207,6 +207,33 @@ class BoardTest(unittest.TestCase):
         self.app=create_app(b"right",self.path,[],self.sent.__setitem__,identity_key=identity)
         self.assertEqual(self.send(self.app.test_client(),"/login/request",{"email":"one@example.test"}).status_code,429)
 
+    def test_ambiguous_first_mail_and_hidden_self_removal(self):
+        from mail_protocol import DeliveryUncertain
+        def delayed(email,code):
+            self.sent[email]=code
+            raise DeliveryUncertain()
+        self.app=create_app(b"test-only",self.path,["admin@example.com"],delayed)
+        author=self.account("writer@example.com")
+        admin=self.account("admin@example.com")
+        url=self.create(author,"private")
+        self.send(admin,url+"/manage",{"action":"hide"})
+        self.assertIn("표시 확인",self.get(author,"/account/hidden").get_data(as_text=True))
+        stranger=self.account("another@example.com")
+        self.assertNotIn("표시 확인",self.get(stranger,"/account/hidden").get_data(as_text=True))
+        data={"kind":"post","id":url.rsplit("/",1)[1]}
+        self.assertEqual(self.send(stranger,"/account/hidden",data).status_code,404)
+        self.assertEqual(self.send(author,"/account/hidden",data).status_code,303)
+        self.assertEqual(self.get(admin,url).status_code,404)
+
+    def test_concurrent_backups_publish_consistent_copy(self):
+        from concurrent.futures import ThreadPoolExecutor
+        dest=Path(self.tmp.name)/"overlap"
+        with ThreadPoolExecutor(2) as jobs:
+            list(jobs.map(lambda _:backup(self.path,dest),range(2)))
+        with closing(connect(next(dest.glob("*.sqlite")))) as saved:
+            self.assertEqual(saved.execute("SELECT COUNT(*) FROM posts").fetchone()[0],24)
+            self.assertEqual(saved.execute("PRAGMA integrity_check").fetchone()[0],"ok")
+
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
         second=self.get(self.guest,"/?page=2")
