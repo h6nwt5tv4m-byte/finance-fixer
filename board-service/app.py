@@ -135,7 +135,10 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                   404:"글이 없거나 열람할 수 없습니다.",413:"입력한 글이 너무 깁니다.",
                   429:"등록 한도에 도달했습니다. 잠시 뒤 다시 시도해 주세요."}
         detail=error.description if error.description and not error.description.isascii() else messages.get(error.code,"다시 시도해 주세요.")
-        return render_template("error.html",detail=detail),error.code
+        if request.endpoint == "book_audio" and error.code == 416:
+            return error.get_response()
+        back = return_page(request.form.get("return_to")) if error.code != 413 and request.endpoint in {"confirm", "request_code"} else None
+        return render_template("error.html", detail=detail, back=back),error.code
 
     def move(name,**kwargs):
         return redirect(url_for(name,**kwargs),code=303)
@@ -177,6 +180,14 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         if not viewer():
             return move("login", return_to=back)
         return render_template("account.html", back=back)
+
+    @app.get("/account/continue")
+    def continue_site():
+        back = return_page(request.args.get("return_to"))
+        if not back:
+            return move("index")
+        # The OTP form posts only to this host. Subsequent navigation is a new document.
+        return render_template("continue.html", back=back)
 
     # Bound SMTP waits per worker so normal reads always have threads available.
     mail_slot=BoundedSemaphore(1)
@@ -265,7 +276,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         session.clear()
         flash("이메일 인증이 완료되었습니다.")
         back = return_page(request.form.get("return_to"))
-        response = redirect(back, code=303) if back else move("index")
+        response = move("continue_site", return_to=back) if back else move("index")
         response.set_cookie(AUTH_COOKIE,token,max_age=lifetime,secure=True,httponly=True,samesite="Lax",path="/")
         return response
 
@@ -275,7 +286,9 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         db().execute("DELETE FROM challenges WHERE id=?",(session.get("challenge",""),))
         session.clear()
         back = return_page(request.form.get("return_to"))
-        response = redirect(back, code=303) if back else move("index")
+        if back and back.startswith(("https://finance-fixer.net/bookworm/", "https://www.finance-fixer.net/bookworm/")):
+            back = "https://finance-fixer.net/bookworm/"
+        response = move("continue_site", return_to=back) if back else move("index")
         response.delete_cookie(AUTH_COOKIE,secure=True,httponly=True,samesite="Lax",path="/")
         return response
 

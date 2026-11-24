@@ -21,6 +21,11 @@
         "path": "/bookworm/3/",
         "title": "도로시가 허수아비를 구하다",
         "scenes": 6
+      },
+      {
+        "path": "/bookworm/4/",
+        "title": "숲을 지나는 길",
+        "scenes": 5
       }
     ]
   }

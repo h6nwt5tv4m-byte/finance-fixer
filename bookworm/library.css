@@ -34,3 +34,7 @@
 @media(prefers-reduced-motion:reduce) { .jacket { transition:none; }.volume:hover .jacket {transform:none;} }
 .skip-link { position:absolute; top:-8rem; left:1rem; z-index:50; background:var(--paper); padding:.5rem; }
 .skip-link:focus { top:.4rem; }
+.legacy-scenes .scene { display: none; }
+.legacy-scenes .scene:target { display: block; padding-top: 2rem; }
+.library:has(.legacy-scenes .scene:target) > .shelf,
+.library:has(.legacy-scenes .scene:target) > .library-intro { display: none; }

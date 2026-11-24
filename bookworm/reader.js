@@ -1,6 +1,12 @@
 (async () => {
   const progress = window.BookwormProgress;
+  let earlyPlayer;
+  const capturePlay = e => { if (e.target.matches?.('.scene audio')) earlyPlayer = e.target; };
+  document.addEventListener('play', capturePlay, true);
   await progress?.ready;
+  document.removeEventListener('play', capturePlay, true);
+  const initialBookmark = progress?.remote();
+  let remoteTimeAvailable = true;
   const scenes = Array.from(document.querySelectorAll('.scene'));
   const toc = document.querySelector('.contents details');
   const sceneLinks = Array.from(toc.querySelectorAll('a'));
@@ -21,16 +27,23 @@
     try { return progress ? progress.get(prefix + key) : localStorage.getItem(prefix + key); } catch { return null; }
   }
   function set(key, value, prefix = progressPrefix) {
-    try { if (progress) progress.set(prefix + key, value); else localStorage.setItem(prefix + key, value); } catch { /* Reading works without storage. */ }
+    try {
+      if (!progress || key === 'rate' || key === 'follow') localStorage.setItem(prefix + key, value);
+      else progress.set(prefix + key, value);
+    } catch { /* Reading works without storage. */ }
   }
   const bookPrefix = 'bookworm:oz:';
   const resume = document.querySelector('.resume-chapter');
 
-  function rememberScene(scene, publish = true) {
+  function readingTime(scene) {
+    if (remoteTimeAvailable && initialBookmark?.chapter === Number(chapter) && initialBookmark.scene === Number(scene.id.slice(6))) return initialBookmark.ms / 1000;
+    return Number(get(scene.id + ':time')) || 0;
+  }
+  function rememberScene(scene, publish = true, seconds = readingTime(scene)) {
     set('last-scene', scene.id);
     set('last-chapter', chapter, bookPrefix);
     if (resume) resume.hidden = true;
-    if (publish) progress?.save(chapter, scene.id.slice(6), Number(get(scene.id + ':time')) || 0, true, true);
+    if (publish) progress?.save(chapter, scene.id.slice(6), seconds, true, true);
   }
   function installNarration() {
     const template = document.querySelector('#narration-options');
@@ -188,7 +201,9 @@
     interacted = true;
     lastSavedTime = null;
     expectedTime = get(scene.id + ':time');
-    rememberScene(scene);
+    const audio = scene.querySelector('audio');
+    rememberScene(scene, true, restored ? audio.currentTime : readingTime(scene));
+    if (restored) remoteTimeAvailable = false;
   }
   function saveTime(immediate = false) {
     if (!interacted || !restored) return;
@@ -208,7 +223,7 @@
     if (restored) return;
     const audio = active.querySelector('audio');
     if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
-    const time = Number(get(active.id + ':time'));
+    const time = readingTime(active);
     const target = time > 0 && time < audio.duration - 2 ? time : 0;
     if (Math.abs(audio.currentTime - target) > .25) {
       restoreTargets.set(audio, target);
@@ -277,14 +292,18 @@
   }
   if (narrow.matches) toc.open = false;
   const fromHash = () => sceneById(location.hash.slice(1));
-  const saved = progress?.remote();
+  const saved = initialBookmark;
   const bookmarkScene = saved?.chapter === Number(chapter) && sceneById('scene-' + saved.scene);
-  if (bookmarkScene) {
-    set('last-scene', bookmarkScene.id);
-    set(bookmarkScene.id + ':time', String(saved.ms / 1000));
+  const initialScene = earlyPlayer?.closest('.scene') || fromHash() || bookmarkScene || sceneById(get('last-scene')) || scenes[0];
+  for (const scene of scenes) {
+    if (scene !== initialScene) scene.querySelector('audio').pause();
   }
-  const initialScene = fromHash() || sceneById(get('last-scene')) || scenes[0];
+  if (earlyPlayer) {
+    remoteTimeAvailable = false;
+    set(initialScene.id + ':time', String(earlyPlayer.currentTime));
+  }
   show(initialScene, false);
+  if (earlyPlayer) claimPosition(initialScene);
   // Chapter-choice links signal intent even when opened in a new tab.
   const entry = new URL(location.href);
   const chosen = entry.searchParams.get('read') === '1';

@@ -46,13 +46,17 @@ class BoardTest(unittest.TestCase):
         issued = self.send(c, "/login/request", {"email":"reader@example.com", "return_to":back})
         self.assertIn("return_to=", issued.location)
         result = self.send(c, "/login/confirm", {"code":self.sent["reader@example.com"], "return_to":back})
-        self.assertEqual(result.location, back)
+        self.assertTrue(result.location.startswith("/account/continue?"))
+        self.assertIn(back, self.get(c,result.location).get_data(as_text=True))
         cookie = next(h for h in result.headers.getlist("Set-Cookie") if h.startswith("__Host-board-auth="))
         self.assertIn("Max-Age=604800", cookie)
         self.assertNotIn("Domain=", cookie)
         self.assertIn("HttpOnly", cookie)
         self.assertIn("Secure", cookie)
-        self.assertEqual(self.send(c, "/logout", {"return_to":back}).location, back)
+        out = self.send(c, "/logout", {"return_to":back})
+        out_page = self.get(c,out.location).get_data(as_text=True)
+        self.assertIn('href="https://finance-fixer.net/bookworm/"',out_page)
+        self.assertNotIn(back,out_page)
         self.assertNotIn("other.example", self.get(c, "/account?return_to=https://other.example/").location)
 
     def test_bookmark_scope_and_concurrent_devices(self):
@@ -64,7 +68,7 @@ class BoardTest(unittest.TestCase):
             return client.get(url, base_url=ORIGIN, headers={"Origin":site})
         def put(client, csrf, **args):
             return client.put(url, base_url=ORIGIN, headers={"Origin":origin,"X-Bookworm-CSRF":csrf},
-                              json=dict(chapter=24, scene=1, ms=3456, revision=0, **args))
+                              json=dict(chapter=4, scene=1, ms=3456, revision=0, **args))
         self.assertEqual(state(self.guest).status_code, 401)
         for client in (a,b):
             res = state(client)
@@ -78,7 +82,7 @@ class BoardTest(unittest.TestCase):
         stale = a.put(url,base_url=ORIGIN,headers={"Origin":origin,"X-Bookworm-CSRF":t},
                       json=dict(chapter=1,scene=2,ms=10,revision=0))
         self.assertEqual(stale.status_code,409)
-        self.assertEqual(stale.json["bookmark"]["chapter"],24)
+        self.assertEqual(stale.json["bookmark"]["chapter"],4)
         self.assertEqual(put(b,t).status_code,403)
         tool = "https://bench.finance-fixer.net"
         self.assertTrue(state(a,"/site/session",tool).json["label"])
@@ -86,7 +90,7 @@ class BoardTest(unittest.TestCase):
         self.assertNotIn("Access-Control-Allow-Origin",state(a,site=tool).headers)
         self.assertEqual(state(a,"/site/session","https://other.example").status_code,403)
         bad = a.put(url,base_url=ORIGIN,headers={"Origin":origin,"X-Bookworm-CSRF":t},
-                    json=dict(chapter=24,scene=2,ms=0,revision=1))
+                    json=dict(chapter=4,scene=99,ms=0,revision=1))
         self.assertEqual(bad.status_code,400)
         self.assertEqual(state(a).json["bookmark"]["revision"],1)
 

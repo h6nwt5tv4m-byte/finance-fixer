@@ -3,23 +3,20 @@
   if (!progress) return;
   await progress.ready;
   const links = document.querySelectorAll('[data-resume-label]');
-  let catalog;
-  try {
-    const response = await fetch('/bookworm/catalog.json', {cache: 'no-cache'});
-    if (!response.ok) return;
-    catalog = (await response.json()).find(book => book.slug === 'oz');
-  } catch { return; }
   function update() {
     const remote = progress.remote();
-    const chapter = remote?.chapter || Number(progress.get('bookworm:oz:last-chapter') ||
+    const device = Number(progress.get('bookworm:oz:last-chapter') ||
       (progress.get('bookworm:oz:ch1:audio-v1:last-scene') ? 1 : 0));
-    const entry = catalog?.chapters[chapter-1];
-    let scene = remote?.scene || Number((progress.get(`bookworm:oz:ch${chapter}:audio-v1:last-scene`) || '').match(/^scene-(\d+)$/)?.[1]);
-    if (!entry || !(scene >= 1 && scene <= entry.scenes)) scene = 1;
     for (const link of links) {
-      link.hidden = !entry || String(chapter) === document.documentElement.dataset.chapter;
-      if (entry) {
-        link.href = entry.path + '#scene-' + scene;
+      const counts = (link.dataset.ozScenes || '').split(' ').map(Number);
+      const fromAccount = !!counts[remote?.chapter - 1];
+      const chapter = fromAccount ? remote.chapter : device;
+      const saved = progress.get(`bookworm:oz:ch${chapter}:audio-v1:last-scene`);
+      let scene = fromAccount ? remote.scene : Number(saved?.match(/^scene-(\d+)$/)?.[1]);
+      if (!(scene >= 1 && scene <= counts[chapter-1])) scene = 1;
+      link.hidden = !counts[chapter-1] || String(chapter) === document.documentElement.dataset.chapter;
+      if (!link.hidden) {
+        link.href = `/bookworm/${chapter}/#scene-${scene}`;
         link.textContent = `오즈의 마법사 ${chapter}장 · 장면 ${scene} 이어 읽기 →`;
       }
     }
