@@ -7,7 +7,7 @@ import hashlib
 import json
 import re
 import time
-from urllib.parse import parse_qs, urlsplit
+from column_source import blog_ids, manual_key, title_key
 from xml.etree import ElementTree
 
 import requests
@@ -20,7 +20,7 @@ from storage import connect, reserve, write
 FEED = "https://rss.blog.naver.com/financefixer.xml"
 BLOG = "https://blog.naver.com/financefixer/"
 HOUSING = re.compile(r"아파트|공동주택|입주자대표|입대의|관리사무소|우리\s?단지|K-?apt", re.I)
-MANAGEMENT = re.compile(r"관리비|관리수수료|장기수선|장충금|수선유지비|승강기유지비|시설유지비|공동전기료|외부감사|회계감사|감사인|감사의견|감사보고서|감사보수")
+MANAGEMENT = re.compile(r"관리비|관리수수료|장기수선|장충금|수선유지비|승강기유지비|시설유지비|공동전기료|외부감사|회계감사|감사인(?!사)|감사의견|감사보고서|감사보수")
 SPECIFIC = re.compile(r"장기수선충당금|장충금|승강기유지비|수선유지비|공용관리비|개별사용료|위탁관리수수료|시설유지비|관리비[ ]?(고지서|회계감사비|잡비)")
 OTHER_BUILDINGS = re.compile(r"상가|상업용|오피스텔|사무실|매장|기숙사")
 KST = timezone(timedelta(hours=9))
@@ -31,7 +31,7 @@ def matches_topic(category, title, tags):
         return False
     # A comparison can cover apartments and shops. A shop-only article is outside this series.
     terms = re.sub(r"\s+", "", title + " " + tags)
-    if OTHER_BUILDINGS.search(terms) and not re.search(r"아파트|공동주택", terms):
+    if OTHER_BUILDINGS.search(title + " " + tags) and not re.search(r"아파트|공동주택", terms):
         return False
     if HOUSING.search(terms) and MANAGEMENT.search(terms):
         return True
@@ -54,8 +54,13 @@ def public_items(xml, since, now, excluded=None):
             if excluded is not None:
                 excluded.add(match[1])
             continue
+        if not 0 < len(title) <= 100:
+            continue
         try:
-            published = parsedate_to_datetime(item.findtext("pubDate", ""))
+            date_text = item.findtext("pubDate", "").strip()
+            if not re.search(r"(?:[+-](?:[01]\d|2[0-3])[0-5]\d|GMT|UTC)\Z", date_text, re.I):
+                raise ValueError("Malformed time zone")
+            published = parsedate_to_datetime(date_text)
             if published.tzinfo is None:
                 raise ValueError("Date has no time zone")
         except (TypeError, ValueError, OverflowError):
@@ -90,7 +95,7 @@ def board_body(html, title, url=None):
             if block.select_one('[rowspan]:not([rowspan="1"]), [colspan]:not([colspan="1"])'):
                 sections.append("이 표는 셀이 병합되어 있습니다. 아래 ‘관련 자료 보기’에서 원본 표를 확인해 주세요.")
                 continue
-            lines = [" | ".join(" ".join(cell.stripped_strings) for cell in row.find_all(["th", "td"], recursive=False))
+            lines = [" | ".join(" ".join(text_of(cell).split()) for cell in row.find_all(["th", "td"], recursive=False))
                      for row in block.select("tr")]
         else:
             lines = [text_of(p) for p in block.select(".se-text-paragraph")]
@@ -116,23 +121,12 @@ def board_body(html, title, url=None):
     return body
 
 
-def same_blog_link(candidate, log_no):
-    parts = urlsplit(candidate.rstrip(".,)〉]"))
-    if parts.scheme not in {"http", "https"} or parts.netloc not in {"m.blog.naver.com", "blog.naver.com"}:
-        return False
-    if parts.path.rstrip("/") == "/financefixer/" + log_no:
-        return True
-    query = parse_qs(parts.query)
-    return parts.path == "/PostView.naver" and query.get("blogId") == ["financefixer"] and query.get("logNo") == [log_no]
-
-
 def manual_duplicate(db, url, title):
-    # A hidden public post was explicitly moderated. Honour that decision for the same source.
-    candidates = db.execute("SELECT id, owner, body, hidden, source_url FROM posts WHERE title=? AND private=0", (title,)).fetchall()
     log_no = url.rsplit("/", 1)[1]
-    for pid, owner, body, hidden, source_url in candidates:
-        links = re.findall(r"https?://(?:m\.)?blog\.naver\.com/[^\s<>]+", body)
-        if not any(same_blog_link(link, log_no) for link in [source_url or "", *links]):
+    candidates = db.execute("""SELECT id, owner, body, hidden, source_url, title FROM posts WHERE private=0
+                               AND (instr(body,?)>0 OR instr(source_url,?)>0)""", (log_no, log_no)).fetchall()
+    for pid, owner, body, hidden, source_url, prior_title in candidates:
+        if title_key(title) != title_key(prior_title) or log_no not in blog_ids(body + " " + (source_url or "")):
             continue
         if hidden:
             return True
@@ -155,6 +149,8 @@ def publish(db, log_no, title, body, source_day, now):
     with write(db):
         db.execute("DELETE FROM settings WHERE name=?", ("column-pending:" + log_no,))
         if not db.execute("INSERT OR IGNORE INTO seeded(key) VALUES(?)", (key,)).rowcount:
+            return False
+        if db.execute("SELECT 1 FROM seeded WHERE key=?", (manual_key(log_no, title),)).fetchone():
             return False
         if existing or db.execute("SELECT 1 FROM posts WHERE owner='editorial' AND source_url=?", (url,)).fetchone():
             return False
