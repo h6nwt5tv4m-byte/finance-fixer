@@ -36,8 +36,10 @@
       if (contact) {
         const pair = document.createElement('span');
         pair.className = 'nav-account-links';
+        const contactWasFocused = document.activeElement === contact;
         contact.before(pair);
         pair.append(contact, link);
+        if (contactWasFocused) contact.focus({preventScroll: true});
       } else {
         slot.append(link);
       }
