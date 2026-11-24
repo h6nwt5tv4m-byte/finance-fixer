@@ -11,6 +11,8 @@
 }
 .top nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem 1.25rem; font-size: .875rem; color: var(--ink-soft); }
 .top nav a { color: inherit; }
+.nav-account-links { display: inline-flex; align-items: baseline; column-gap: inherit; max-width: 100%; }
+.nav-account-links > a:first-child { flex: none; }
 /* 도구 — 마우스를 올리거나 누르면 헤더 아래로 목록 패널이 펼쳐진다 */
 /* 상단 탭은 스크롤해도 화면 위에 붙어 있다 */
 .top { position: sticky; top: 0; z-index: 30; background: var(--paper); }

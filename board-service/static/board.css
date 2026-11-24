@@ -77,11 +77,11 @@ body:has(main :focus-visible, footer :focus-visible) .top:has(.nav-drop[open]) {
 .drop .all-tools { width: fit-content; margin: .8rem auto 0; }
 
 main, footer { width: min(60rem, calc(100% - 2 * var(--nav-gutter))); margin-inline: auto; }
-main { flex: 1; padding-bottom: clamp(3rem, 7vw, 6rem); }
+main { flex: 1; padding-top: 1rem; padding-bottom: clamp(3rem, 7vw, 6rem); }
 .account, .mast, .tabs, .meta, .byline, .actions, .pages, footer {
   display: flex; align-items: center; gap: 1rem;
 }
-.account { justify-content: flex-end; margin: 1rem 0 1.8rem; font-size: .875rem; }
+.account { justify-content: flex-end; margin: 0 0 1.8rem; font-size: .875rem; }
 .account a, .plain { color: var(--ink-soft); }
 .plain { padding: 0; background: none; border: 0; border-bottom: 1px solid transparent; }
 h1, h2 { font-family: var(--font-display); font-weight: 400; line-height: 1.4; color: var(--green); }
@@ -141,7 +141,8 @@ footer a { color: var(--ink-faint); }
 
 @media (max-width: 630px) {
   html { scroll-padding-top: 10rem; }
-  .account { margin: .65rem 0 1.1rem; }
+  main { padding-top: .65rem; }
+  .account { margin-bottom: 1.1rem; }
   .mast { align-items: flex-start; gap: .65rem; padding-bottom: 1.5rem; }
   .mast p { font-size: .9375rem; }
   .mast .button { padding: .4rem .8rem; }

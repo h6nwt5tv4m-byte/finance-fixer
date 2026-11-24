@@ -30,6 +30,13 @@
     </details>
     <a href="https://finance-fixer.net/faq/">세금 FAQ</a>
     <a href="{{ url_for('index') }}" class="active" aria-current="location">자유게시판</a>
-    <a href="https://finance-fixer.net/#contact">문의</a>
+    <span class="nav-account-links">
+      <a href="https://finance-fixer.net/#contact">문의</a>
+      {% if uid %}
+      <a href="{{ url_for('account', return_to=back|default(none)) }}" title="내 계정">{{ label(uid) }}</a>
+      {% else %}
+      <a href="{{ url_for('login', return_to=back|default(none)) }}">로그인</a>
+      {% endif %}
+    </span>
   </nav>
 </header>

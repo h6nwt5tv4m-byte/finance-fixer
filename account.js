@@ -31,7 +31,17 @@
     for (const event of ['click', 'focus', 'pointerdown', 'contextmenu']) link.addEventListener(event, syncUrl);
     window.addEventListener('hashchange', syncUrl);
     link.textContent = english ? 'Sign in' : '로그인';
-    if (slot !== link) slot.append(link);
+    if (slot !== link) {
+      const contact = slot.querySelector(':scope > a[href$="/#contact"]');
+      if (contact) {
+        const pair = document.createElement('span');
+        pair.className = 'nav-account-links';
+        contact.before(pair);
+        pair.append(contact, link);
+      } else {
+        slot.append(link);
+      }
+    }
     link.dataset.siteAccount = '';
     return link;
   }
