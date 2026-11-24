@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import HTTPException
 
+from column_source import remember as remember_public_column
 from consultation import install as install_consultation
 from mail_protocol import DeliveryUncertain, address, deliver, mailbox_limit
 from site_account import install as install_site_account, return_page
@@ -338,6 +339,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             quota(uid)
             db().execute("INSERT INTO posts(id,owner,title,body,private,created) VALUES (?,?,?,?,?,?)",
                          (pid,uid,title,body,int(visibility=="private"),stamp()))
+            if visibility == "public" and editor(uid):
+                remember_public_column(db(), title, body)
         return move("post",pid=pid)
 
     @app.get("/p/<pid>")
@@ -378,6 +381,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                 table="comments"
                 target=cid
             if action=="delete" and (uid==item["owner"] or editor(uid)):
+                if not cid and not item["private"] and (editor(item["owner"]) or item["owner"] == "editorial"):
+                    remember_public_column(db(), item["title"], item["body"] + " " + (item["source_url"] or ""))
                 db().execute(f"DELETE FROM {table} WHERE id=?",(target,))
                 return move("post",pid=pid) if cid else move("index")
             if not editor(uid):
