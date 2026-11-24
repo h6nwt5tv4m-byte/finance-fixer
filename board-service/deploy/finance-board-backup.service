@@ -4,6 +4,7 @@ After=finance-board.service
 [Service]
 Type=oneshot
 Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStartPre=/usr/bin/python3 /opt/finance-board/current/maintenance.py prune-backups
 ExecStartPre=/usr/sbin/runuser -u finance-board -- /usr/bin/python3 /opt/finance-board/current/maintenance.py expire
 ExecStart=/usr/bin/python3 /opt/finance-board/current/maintenance.py backup
 StateDirectory=finance-board-backup

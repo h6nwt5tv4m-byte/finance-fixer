@@ -7,7 +7,7 @@
   <p>회신받을 이메일과 상담 주제를 남겨 주세요. 회계사가 내용을 확인하고 연락드립니다.</p>
   {% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
   <form class="stack" method="post" action="{{ url_for('consultation_form') }}">
-    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <input type="hidden" name="csrf" value="{{ consultation_csrf() }}">
     <input type="hidden" name="ticket" value="{{ token }}">
     <label>회신 이메일<input type="email" name="email" required maxlength="254" autocomplete="email" value="{{ values.get('email', '') }}"></label>
     <label>상담 주제

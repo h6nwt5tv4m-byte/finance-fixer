@@ -81,8 +81,6 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             session["consultation_csrf"] = consultation_token
 
     def current_form_token():
-        if request.endpoint == "consultation_form":
-            return session.get("consultation_csrf", "")
         if viewer():
             return digest("form-csrf",login_token())
         return session.get("csrf","")
@@ -91,16 +89,24 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         token=current_form_token()
         if token:
             return token
-        name = "consultation_csrf" if request.endpoint == "consultation_form" else "csrf"
-        session[name]=secrets.token_urlsafe(24)
-        return session[name]
+        session["csrf"]=secrets.token_urlsafe(24)
+        return session["csrf"]
+
+    def consultation_csrf():
+        if not session.get("consultation_csrf"):
+            session["consultation_csrf"] = secrets.token_urlsafe(24)
+        return session["consultation_csrf"]
 
     @app.before_request
     def check_request():
         if request.method=="POST":
             supplied=request.form.get("csrf","")
-            expected=current_form_token()
-            if request.headers.get("Origin")!=ORIGIN or not supplied.isascii() or not expected or not hmac.compare_digest(expected,supplied):
+            expected = session.get("consultation_csrf","") if request.endpoint=="consultation_form" else current_form_token()
+            if request.headers.get("Origin") != ORIGIN:
+                abort(403,description="화면을 새로 열고 다시 시도해 주세요.")
+            if not supplied.isascii() or not expected or not hmac.compare_digest(expected,supplied):
+                if request.endpoint == "consultation_form":
+                    return app.view_functions["consultation_form"](renew_csrf=True)
                 abort(403,description="화면을 새로 열고 다시 시도해 주세요.")
 
     install_site_account(app, db, viewer, lambda uid: label(uid), digest, lambda: digest("bookmark-form", login_token()))
@@ -140,7 +146,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     @app.context_processor
     def context():
         uid=viewer()
-        return dict(uid=uid,admin=editor(uid),label=label,csrf=csrf)
+        return dict(uid=uid,admin=editor(uid),label=label,csrf=csrf,consultation_csrf=consultation_csrf)
 
     @app.errorhandler(HTTPException)
     def problem(error):

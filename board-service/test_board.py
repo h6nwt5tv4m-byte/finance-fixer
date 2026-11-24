@@ -24,6 +24,8 @@ class BoardTest(unittest.TestCase):
 
     def send(self,c,url,data):
         form=self.get(c,"/consultation" if url == "/consultation" else "/login").get_data(as_text=True)
+        if url == "/consultation":
+            form = form.split('action="/consultation"',1)[1]
         csrf=re.search(r'name="csrf" value="([^"]+)"',form)[1]
         return c.post(url,base_url=ORIGIN,headers={"Origin":ORIGIN,"CF-Connecting-IP":"192.0.2.1"},
                       data=dict(csrf=csrf,**data))
@@ -534,12 +536,19 @@ class BoardTest(unittest.TestCase):
         discard=Path(self.tmp.name)/"no-ledger.sqlite"
         shutil.copyfile(snapshot,safe)
         shutil.copyfile(snapshot,discard)
-        self.assertEqual(self.send(admin, "/consultations/"+gone+"/delete", {"confirm":"yes"}).status_code, 303)
+        self.assertEqual(self.send(admin, "/consultations/"+gone+"/delete", {"confirm":"yes","revision":"0"}).status_code, 303)
         self.assertEqual(self.send(guest, "/consultation", first).status_code, 410)
         with closing(connect(safe)) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM consultations WHERE restore_pending=0").fetchone()[0],0)
+        with self.assertRaises(RuntimeError):
+            initialize(safe, b"test-installation")
         reconcile_consultations(safe,self.path)
         reconcile_consultations(discard,None)
+        older = Path(self.tmp.name)/"older.sqlite"
+        shutil.copyfile(snapshot,older)
+        reconcile_consultations(older,discard)
+        with closing(connect(older)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM consultations").fetchone()[0],0)
         with closing(connect(safe)) as db:
             self.assertEqual([r[0] for r in db.execute("SELECT id FROM consultations WHERE restore_pending=0")],[keep])
             self.assertEqual(db.execute("SELECT state FROM consultation_updates WHERE inquiry=?",(keep,)).fetchone()[0],"상담")
@@ -554,7 +563,10 @@ class BoardTest(unittest.TestCase):
         data["csrf"]=re.search(r'name="csrf" value="([^"]+)"',page)[1]
         self.send(guest,"/login/request",{"email":"reader@example.com"})
         self.send(guest,"/login/confirm",{"code":self.sent["reader@example.com"]})
-        self.send(guest,"/logout",{})
+        form = self.get(guest,"/consultation").get_data(as_text=True).split('action="/logout"',1)[1]
+        logout_csrf = re.search(r'name="csrf" value="([^"]+)"',form)[1]
+        logout = guest.post("/logout",base_url=ORIGIN,headers={"Origin":ORIGIN},data={"csrf":logout_csrf})
+        self.assertEqual(logout.status_code,303)
         response=guest.post("/consultation",base_url=ORIGIN,headers={"Origin":ORIGIN,"CF-Connecting-IP":"192.0.2.1"},data=data)
         self.assertEqual(response.status_code,303)
 

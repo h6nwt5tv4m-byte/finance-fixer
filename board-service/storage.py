@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 import hashlib
 import json
+import secrets
 from pathlib import Path
 import sqlite3
 import time
@@ -67,6 +68,11 @@ def initialize(path, identity_key=None):
         db.executescript(SCHEMA)
         items = json.loads((ROOT / "seed.json").read_text())
         with write(db):
+            if db.execute("SELECT 1 FROM settings WHERE name='consultation-restore-pending'").fetchone():
+                raise RuntimeError("먼저 별도 복구 사본에 maintenance.py restore-consultations를 실행하세요.")
+            if "restore_pending" not in {row["name"] for row in db.execute("PRAGMA table_info(consultations)")}:
+                db.execute("ALTER TABLE consultations ADD COLUMN restore_pending INTEGER NOT NULL DEFAULT 0")
+            db.execute("INSERT OR IGNORE INTO settings VALUES ('consultation-ledger-id',?)", (secrets.token_hex(16),))
             if identity_key is not None:
                 fingerprint=hashlib.sha256(identity_key).hexdigest()
                 stored=db.execute("SELECT value FROM settings WHERE name='identity-key'").fetchone()
@@ -102,6 +108,8 @@ def initialize(path, identity_key=None):
         db.close()
 
 def expire(db, now):
+    db.execute("DELETE FROM settings WHERE name='consultation-discard-through' AND CAST(value AS INTEGER)<=?",
+               (now-CONSULTATION_RETENTION,))
     db.execute("DELETE FROM erased_consultations WHERE erased<=?", (now-CONSULTATION_RETENTION,))
     db.execute("DELETE FROM consultations WHERE created<=?", (now-CONSULTATION_RETENTION,))
     db.execute("DELETE FROM events WHERE at<=?", (now-86400,))

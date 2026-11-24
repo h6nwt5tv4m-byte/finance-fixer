@@ -10,7 +10,7 @@
   <h2>진행 기록</h2>
   <ol class="consult-history">
     <li>접수 · {{ item.created|day }}</li>
-    {% for change in history %}<li>{{ change.state }} · {{ change.changed|day }}</li>{% endfor %}
+    {% for change in history %}<li>{{ change.recorded_state }} · {{ change.changed|day }}</li>{% endfor %}
   </ol>
   <form class="stack" method="post">
     <input type="hidden" name="csrf" value="{{ csrf() }}">
@@ -24,6 +24,7 @@
     <summary>신청 삭제</summary>
     <form class="stack" method="post" action="{{ url_for('consultation_delete', inquiry_id=item.id) }}">
       <input type="hidden" name="csrf" value="{{ csrf() }}">
+      <input type="hidden" name="revision" value="{{ item.revision }}">
       <label><input type="checkbox" name="confirm" value="yes" required> 회신 이메일과 상담 내용, 진행 기록을 모두 삭제합니다.</label>
       <button type="submit" class="button quiet">삭제 확정</button>
     </form>

@@ -14,22 +14,30 @@ NOTICE = "2026-11-24"
 
 
 def install(app, db, is_admin, network):
+    forms = URLSafeTimedSerializer(app.secret_key, salt="consultation-form-" + NOTICE)
 
     @app.route("/consultation", methods=["GET", "POST"])
-    def consultation_form():
+    def consultation_form(renew_csrf=False):
         generation = db().execute("SELECT value FROM settings WHERE name='consultation-ticket-generation'").fetchone()
-        forms = URLSafeTimedSerializer(app.secret_key, salt="consultation-form-" + NOTICE + (generation[0] if generation else ""))
+        epoch = generation[0] if generation else ""
+        def new_ticket():
+            return forms.dumps([epoch, secrets.token_hex(16)])
         if request.method != "POST":
             return render_template("consultation_form.html", topics=TOPICS, values={},
-                                   token=forms.dumps(secrets.token_hex(16)))
+                                   token=new_ticket())
         values = request.form
         token = values.get("ticket", "")
+        if renew_csrf:
+            return render_template("consultation_form.html", topics=TOPICS, values=values,
+                                   token=token or new_ticket(), renew=True,
+                                   error="신청 화면이 갱신되었습니다. 작성한 내용을 확인하고 다시 접수해 주세요."), 400
         try:
-            inquiry_id, issued = forms.loads(token, return_timestamp=True)
+            payload, issued = forms.loads(token, return_timestamp=True)
+            token_epoch, inquiry_id = payload if isinstance(payload, list) else ("", payload)
         except BadData:
             # A stale recovery generation needs a fresh consent and ticket.
             return render_template("consultation_form.html", topics=TOPICS, values=values,
-                                   token=forms.dumps(secrets.token_hex(16)), renew=True,
+                                   token=new_ticket(), renew=True,
                                    error="신청 화면을 갱신했습니다. 내용을 확인하고 다시 접수해 주세요."), 400
         topic = values.get("topic", "")
         note = values.get("note", "").replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -53,15 +61,17 @@ def install(app, db, is_admin, network):
         with write(conn):
             if conn.execute("SELECT 1 FROM erased_consultations WHERE id=?", (inquiry_id,)).fetchone():
                 abort(410, description="이미 삭제된 신청입니다. 새 상담은 홈페이지 문의에서 신청해 주세요.")
-            existing = conn.execute("SELECT email,topic,note FROM consultations WHERE id=?", (inquiry_id,)).fetchone()
-            if existing and tuple(existing) != (email, topic, note):
+            existing = conn.execute("SELECT email,topic,note,created FROM consultations WHERE id=?", (inquiry_id,)).fetchone()
+            if existing and existing["created"] <= now - CONSULTATION_RETENTION:
+                abort(410, description="보관 기간이 지난 상담입니다. 새 상담은 홈페이지 문의에서 신청해 주세요.")
+            if existing and tuple(existing)[:3] != (email, topic, note):
                 return render_template("consultation_form.html", topics=TOPICS, values=values,
-                                       token=forms.dumps(secrets.token_hex(16)), renew=True,
+                                       token=new_ticket(), renew=True,
                                        error="이 신청서는 이미 접수되었습니다. 별도 상담이라면 다시 확인해 접수해 주세요."), 409
             if not existing:
-                if not 0 <= now - int(issued.timestamp()) <= 86400:
+                if token_epoch != epoch or not 0 <= now - int(issued.timestamp()) <= 86400:
                     return render_template("consultation_form.html", topics=TOPICS, values=values,
-                                           token=forms.dumps(secrets.token_hex(16)), renew=True,
+                                           token=new_ticket(), renew=True,
                                            error="신청서가 만료되었습니다. 내용을 확인하고 다시 접수해 주세요."), 400
                 if not reserve(conn, "consultation", [(network(), 3600, 10)], now):
                     abort(429, description="잠시 후 다시 신청하거나 홈페이지의 전화·이메일로 문의해 주세요.")
@@ -118,26 +128,35 @@ def install(app, db, is_admin, network):
                                     VALUES (?,?,?,?)""", (inquiry_id, row["revision"]+1, state, int(time.time())))
             flash("진행 상태를 저장했습니다.")
             return redirect(url_for("consultation_detail", inquiry_id=inquiry_id), code=303)
-        row = conn.execute("SELECT * FROM consultations WHERE id=? AND restore_pending=0 AND created>?", (inquiry_id, cutoff)).fetchone()
-        if row is None:
+        rows = conn.execute("""SELECT c.*, u.state AS recorded_state, u.changed
+                               FROM consultations c LEFT JOIN consultation_updates u ON u.inquiry=c.id
+                               WHERE c.id=? AND c.restore_pending=0 AND c.created>? ORDER BY u.revision""",
+                            (inquiry_id, cutoff)).fetchall()
+        if not rows:
             abort(404)
-        history = conn.execute("SELECT state,changed FROM consultation_updates WHERE inquiry=? ORDER BY revision",
-                               (inquiry_id,)).fetchall()
-        return render_template("consultation_detail.html", item=row, states=STATES, history=history)
+        history = [row for row in rows if row["changed"] is not None]
+        return render_template("consultation_detail.html", item=rows[0], states=STATES, history=history)
 
     @app.post("/consultations/<inquiry_id>/delete")
     def consultation_delete(inquiry_id):
         if not is_admin():
             abort(404)
-        if request.form.get("confirm") != "yes":
+        revision = request.form.get("revision", "")
+        if (request.form.get("confirm") != "yes" or not revision.isascii()
+                or not revision.isdigit() or len(revision)>15):
             abort(400)
         conn = db()
         with write(conn):
             if not is_admin():
                 abort(404)
             now = int(time.time())
-            deleted = conn.execute("DELETE FROM consultations WHERE id=? AND restore_pending=0 AND created>?",
-                                   (inquiry_id, now-CONSULTATION_RETENTION))
+            row = conn.execute("SELECT revision FROM consultations WHERE id=? AND restore_pending=0 AND created>?",
+                               (inquiry_id, now-CONSULTATION_RETENTION)).fetchone()
+            if row is None:
+                abort(404)
+            if row["revision"] != int(revision):
+                abort(409, description="진행 기록이 바뀌었습니다. 최신 내용을 확인한 뒤 다시 삭제해 주세요.")
+            deleted = conn.execute("DELETE FROM consultations WHERE id=?", (inquiry_id,))
             if deleted.rowcount != 1:
                 abort(404)
             conn.execute("INSERT INTO erased_consultations(id,erased) VALUES (?,?)", (inquiry_id, now))
