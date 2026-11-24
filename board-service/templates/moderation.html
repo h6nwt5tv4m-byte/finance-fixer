@@ -1,0 +1,2 @@
+{% extends 'base.html' %}{% block main %}<section class="reading"><a class="back" href="/">← 글 목록</a><h1>차단 관리</h1>
+{% for item in accounts %}<form class="actions" method="post"><input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="owner" value="{{ item.owner }}"><span>{{ label(item.owner) }}</span><button>차단 해제</button></form>{% else %}<p>차단한 작성자가 없습니다.</p>{% endfor %}</section>{% endblock %}

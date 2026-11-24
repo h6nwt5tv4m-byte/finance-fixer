@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, owner TEXT NOT NULL, ex
 CREATE TABLE IF NOT EXISTS events(kind TEXT, bucket TEXT, at INTEGER);
 CREATE INDEX IF NOT EXISTS event_idx ON events(kind,bucket,at);
 CREATE TABLE IF NOT EXISTS blocked(owner TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS settings(name TEXT PRIMARY KEY,value TEXT NOT NULL);
 """
 
 def connect(path):
@@ -44,13 +45,19 @@ def write(db):
         db.rollback()
         raise
 
-def initialize(path):
+def initialize(path, identity_key=None):
     db = connect(path)
     try:
         db.execute("PRAGMA journal_mode=WAL")
         db.executescript(SCHEMA)
         items = json.loads((ROOT / "seed.json").read_text())
         with write(db):
+            if identity_key is not None:
+                fingerprint=hashlib.sha256(identity_key).hexdigest()
+                db.execute("INSERT OR IGNORE INTO settings VALUES ('identity-key',?)",(fingerprint,))
+                stored=db.execute("SELECT value FROM settings WHERE name='identity-key'").fetchone()[0]
+                if stored!=fingerprint:
+                    raise RuntimeError("Restore the matching board identity key before starting.")
             for i, item in enumerate(items, start=1):
                 key = f"opening-{i:02}"
                 if db.execute("INSERT OR IGNORE INTO seeded VALUES (?)", (key,)).rowcount:

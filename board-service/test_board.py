@@ -117,6 +117,52 @@ class BoardTest(unittest.TestCase):
                 for _ in range(5): self.assertEqual(self.send(c,"/login/confirm",{"code":wrong}).status_code,400)
             self.assertEqual(self.send(c,"/login/confirm",{"code":self.sent[email]}).status_code,400)
 
+    def test_restore_identity_and_fresh_login(self):
+        identity=b"persistent identity only"
+        initialize(self.path,identity)
+        self.app=create_app(b"session A",self.path,["admin@example.com"],self.sent.__setitem__,identity_key=identity)
+        author=self.account("owner@example.com")
+        url=self.create(author,"private")
+        self.send(self.guest,"/login/request",{"email":"pending@example.com"})
+        dest=Path(self.tmp.name)/"restore"
+        backup(self.path,dest)
+        self.path=next(dest.glob("*.sqlite"))
+        with closing(connect(self.path)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM challenges").fetchone()[0],0)
+            db.execute("DELETE FROM events")
+        with self.assertRaises(RuntimeError): initialize(self.path,b"wrong identity")
+        initialize(self.path,identity)
+        self.app=create_app(b"session B",self.path,["admin@example.com"],self.sent.__setitem__,identity_key=identity)
+        self.assertEqual(self.get(self.account("owner@example.com"),url).status_code,200)
+
+    def test_unblock_after_deletion_and_shared_gmail_owner(self):
+        author=self.account("first.last+test@gmail.com")
+        url=self.create(author,"private")
+        with closing(connect(self.path)) as db: db.execute("DELETE FROM events")
+        other=self.account("firstlast@gmail.com")
+        self.assertEqual(self.get(other,url).status_code,200)
+        op=self.account("admin@example.com")
+        self.send(op,url+"/manage",{"action":"block"})
+        self.send(op,url+"/manage",{"action":"delete"})
+        self.assertEqual(self.get(other,"/moderation").status_code,404)
+        body=self.get(op,"/moderation").get_data(as_text=True)
+        value=re.search(r'name="owner" value="([^"]+)"',body)[1]
+        self.assertEqual(self.send(op,"/moderation",{"owner":value}).status_code,303)
+        self.assertIn("차단한 작성자가 없습니다",self.get(op,"/moderation").get_data(as_text=True))
+
+    def test_failed_resend_retains_valid_code(self):
+        codes=[]
+        def mail(email,code):
+            if codes: raise OSError("test delivery outage")
+            codes.append(code)
+        self.app=create_app(b"test-only",self.path,[],mail)
+        c=self.app.test_client()
+        self.send(c,"/login/request",{"email":"retry@example.com"})
+        with closing(connect(self.path)) as db: db.execute("UPDATE events SET at=at-65")
+        self.assertEqual(self.send(c,"/login/request",{"email":"retry@example.com"}).status_code,503)
+        self.assertEqual(self.send(c,"/login/confirm",{"code":codes[0]}).status_code,303)
+
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
         second=self.get(self.guest,"/?page=2")

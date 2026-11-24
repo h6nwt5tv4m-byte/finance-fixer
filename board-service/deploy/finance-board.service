@@ -10,6 +10,7 @@ Group=finance-board
 WorkingDirectory=/opt/finance-board/current
 Environment=BOARD_ADMINS=hyungjun@finance-fixer.net
 Environment=PYTHONDONTWRITEBYTECODE=1
+LoadCredential=identity-key:/etc/finance-board/identity.key
 LoadCredential=board-key:/etc/finance-board/board.key
 StateDirectory=finance-board
 StateDirectoryMode=0700

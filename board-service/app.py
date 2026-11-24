@@ -18,7 +18,7 @@ from storage import VISIBLE, connect, expire, reserve, write
 ORIGIN = "https://board.finance-fixer.net"
 PAGE_SIZE = 12
 
-def create_app(key, database, admins, send_code=deliver):
+def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     app = Flask(__name__)
     app.config.update(SECRET_KEY=key, MAX_CONTENT_LENGTH=48000, MAX_FORM_MEMORY_SIZE=48000,
                       SESSION_COOKIE_NAME="__Host-board",SESSION_COOKIE_SECURE=True,
@@ -30,7 +30,13 @@ def create_app(key, database, admins, send_code=deliver):
     def digest(kind, value):
         return hmac.new(key,(kind+"\0"+value).encode(),"sha256").hexdigest()
 
-    admin_ids = {digest("email",address(x.strip())) for x in admins if x.strip()}
+    def owner_id(email):
+        local,domain=email.split("@")
+        if domain in {"gmail.com","googlemail.com"}:
+            email=mailbox_limit(email)
+        return hmac.new(identity_key or key,("email\0"+email).encode(),"sha256").hexdigest()
+
+    admin_ids = {owner_id(address(x.strip())) for x in admins if x.strip()}
     def editor(uid):
         return uid in admin_ids
 
@@ -145,7 +151,7 @@ def create_app(key, database, admins, send_code=deliver):
             email=address(request.form.get("email","").strip())
         except (UnicodeError,ValueError):
             abort(400,description="이메일 주소를 확인해 주세요.")
-        owner=digest("email",email)
+        owner=owner_id(email)
         mail_bucket=digest("mail-limit",mailbox_limit(email))
         ip=network()
         now=stamp()
@@ -156,7 +162,6 @@ def create_app(key, database, admins, send_code=deliver):
             if not reserve(db(),"mail",[(mail_bucket,60,1),(mail_bucket,86400,6),(ip,3600,10),(ip,86400,36),("*",3600,40),("*",86400,180)],now):
                 abort(429,description="인증번호 요청이 많습니다. 1분 뒤 다시 시도해 주세요. 일일 한도를 넘으면 다음 날 다시 이용할 수 있습니다.")
             previous=session.get("challenge","")
-            db().execute("DELETE FROM challenges WHERE id=?",(previous,))
             db().execute("INSERT INTO challenges VALUES (?,?,?,?,5)",(challenge,owner,digest("otp",challenge+code),now+600))
             blocked=db().execute("SELECT 1 FROM blocked WHERE owner=?",(owner,)).fetchone()
         try:
@@ -165,8 +170,9 @@ def create_app(key, database, admins, send_code=deliver):
         except OSError:
             with write(db()):
                 db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
-            session.pop("challenge",None)
             abort(503,description="인증 메일을 보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.")
+        if previous:
+            db().execute("DELETE FROM challenges WHERE id=?",(previous,))
         session["challenge"]=challenge
         flash("인증번호를 보냈습니다. 10분 안에 입력해 주세요.")
         return move("login")
@@ -290,8 +296,23 @@ def create_app(key, database, admins, send_code=deliver):
                 abort(400)
         return move("post",pid=pid)
 
+    @app.route("/moderation",methods=["GET","POST"])
+    def moderation():
+        if request.method=="POST":
+            with authenticated_write() as uid:
+                if not editor(uid):
+                    abort(404)
+                db().execute("DELETE FROM blocked WHERE owner=?",(request.form.get("owner",""),))
+            return move("moderation")
+        if not editor(viewer()):
+            abort(404)
+        accounts=db().execute("SELECT owner FROM blocked ORDER BY owner").fetchall()
+        return render_template("moderation.html",accounts=accounts)
+
     return app
 
 def production():
     keyfile=Path(os.environ["CREDENTIALS_DIRECTORY"])/"board-key"
-    return create_app(keyfile.read_bytes(),"/var/lib/finance-board/board.sqlite",os.environ["BOARD_ADMINS"].split(","))
+    identity_key=(keyfile.parent/"identity-key").read_bytes()
+    return create_app(keyfile.read_bytes(),"/var/lib/finance-board/board.sqlite",
+                      os.environ["BOARD_ADMINS"].split(","),identity_key=identity_key)

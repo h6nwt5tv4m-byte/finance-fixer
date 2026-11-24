@@ -19,6 +19,10 @@ def backup(database, directory):
         dest=sqlite3.connect(pending)
         try:
             source.backup(dest)
+            dest.execute("PRAGMA secure_delete=ON")
+            with dest:
+                dest.execute("DELETE FROM sessions")
+                dest.execute("DELETE FROM challenges")
             if dest.execute("PRAGMA integrity_check").fetchone()[0]!="ok":
                 raise RuntimeError("invalid snapshot")
         finally:
@@ -35,7 +39,8 @@ def backup(database, directory):
 if __name__=="__main__":
     os.umask(0o077)
     if sys.argv[1]=="initialize":
-        initialize(DATABASE)
+        key=(Path(os.environ["CREDENTIALS_DIRECTORY"])/"identity-key").read_bytes()
+        initialize(DATABASE,key)
     elif sys.argv[1]=="expire":
         db=connect(DATABASE)
         try:
