@@ -39,6 +39,72 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(result.status_code,303)
         return result.location
 
+    def test_homepage_login_return_and_remember(self):
+        back = "https://finance-fixer.net/bookworm/4/?read=1#scene-2"
+        c = self.guest
+        self.assertIn("return_to", self.get(c, "/account?return_to="+back).location)
+        issued = self.send(c, "/login/request", {"email":"reader@example.com", "return_to":back})
+        self.assertIn("return_to=", issued.location)
+        result = self.send(c, "/login/confirm", {"code":self.sent["reader@example.com"], "return_to":back})
+        self.assertEqual(result.location, back)
+        cookie = next(h for h in result.headers.getlist("Set-Cookie") if h.startswith("__Host-board-auth="))
+        self.assertIn("Max-Age=604800", cookie)
+        self.assertNotIn("Domain=", cookie)
+        self.assertIn("HttpOnly", cookie)
+        self.assertIn("Secure", cookie)
+        self.assertEqual(self.send(c, "/logout", {"return_to":back}).location, back)
+        self.assertNotIn("other.example", self.get(c, "/account?return_to=https://other.example/").location)
+
+    def test_bookmark_scope_and_concurrent_devices(self):
+        origin = "https://finance-fixer.net"
+        url = "/site/bookworm/oz"
+        a = self.account("reader@example.com")
+        b = self.account("second@example.com")
+        def state(client, url=url, site=origin):
+            return client.get(url, base_url=ORIGIN, headers={"Origin":site})
+        def put(client, csrf, **args):
+            return client.put(url, base_url=ORIGIN, headers={"Origin":origin,"X-Bookworm-CSRF":csrf},
+                              json=dict(chapter=24, scene=1, ms=3456, revision=0, **args))
+        self.assertEqual(state(self.guest).status_code, 401)
+        for client in (a,b):
+            res = state(client)
+            self.assertEqual(res.headers["Access-Control-Allow-Origin"], origin)
+            self.assertIn("no-store",res.headers["Cache-Control"])
+            self.assertIsNone(res.json["bookmark"])
+        t = state(a).json["csrf"]
+        self.assertEqual(put(a, t).json["bookmark"]["ms"], 3456)
+        self.assertEqual(put(a, t).json["bookmark"]["revision"], 1)
+        self.assertIsNone(state(b).json["bookmark"])
+        stale = a.put(url,base_url=ORIGIN,headers={"Origin":origin,"X-Bookworm-CSRF":t},
+                      json=dict(chapter=1,scene=2,ms=10,revision=0))
+        self.assertEqual(stale.status_code,409)
+        self.assertEqual(stale.json["bookmark"]["chapter"],24)
+        self.assertEqual(put(b,t).status_code,403)
+        tool = "https://bench.finance-fixer.net"
+        self.assertTrue(state(a,"/site/session",tool).json["label"])
+        self.assertEqual(state(a,site=tool).status_code,403)
+        self.assertNotIn("Access-Control-Allow-Origin",state(a,site=tool).headers)
+        self.assertEqual(state(a,"/site/session","https://other.example").status_code,403)
+        bad = a.put(url,base_url=ORIGIN,headers={"Origin":origin,"X-Bookworm-CSRF":t},
+                    json=dict(chapter=24,scene=2,ms=0,revision=1))
+        self.assertEqual(bad.status_code,400)
+        self.assertEqual(state(a).json["bookmark"]["revision"],1)
+
+    def test_public_narration_ranges(self):
+        media = Path(self.tmp.name)/"audio"
+        media.mkdir()
+        self.app.config["BOOKWORM_MEDIA"] = media
+        name = "oz-24-01-0123456789ab.mp3"
+        (media/name).write_bytes(bytes(range(100)))
+        res = self.guest.get("/bookworm-audio/"+name,base_url=ORIGIN,headers={"Range":"bytes=2-4"})
+        self.addCleanup(res.close)
+        self.assertEqual((res.status_code,res.data),(206,bytes([2,3,4])))
+        self.assertIn("immutable",res.headers["Cache-Control"])
+        self.assertNotIn("Set-Cookie",res.headers)
+        bad = self.get(self.guest,"/bookworm-audio/missing.mp3")
+        self.assertEqual(bad.status_code,404)
+        self.assertIn("no-store",bad.headers["Cache-Control"])
+
     def test_private_and_comments(self):
         a=self.account("a@example.com")
         b=self.account("b@example.com")

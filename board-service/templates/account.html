@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block main %}<section class="narrow">
+<h1>내 계정</h1><p>{{ label(uid) }} 계정으로 로그인했습니다.</p>
+<p><a class="button" href="{{ back }}">홈페이지로 돌아가기</a></p>
+<p><a href="/?view=mine">게시판에 내가 쓴 글</a> · <a href="https://finance-fixer.net/bookworm/">북웜 책장</a></p>
+</section>{% endblock %}

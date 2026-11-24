@@ -1,0 +1,27 @@
+[
+  {
+    "slug": "oz",
+    "title": "오즈의 마법사",
+    "original": "The Wonderful Wizard of Oz",
+    "author": "L. 프랭크 바움",
+    "year": 1900,
+    "cover": "cover.jpg",
+    "chapters": [
+      {
+        "path": "/bookworm/1/",
+        "title": "회오리바람",
+        "scenes": 6
+      },
+      {
+        "path": "/bookworm/2/",
+        "title": "먼치킨들과의 의논",
+        "scenes": 6
+      },
+      {
+        "path": "/bookworm/3/",
+        "title": "도로시가 허수아비를 구하다",
+        "scenes": 6
+      }
+    ]
+  }
+]

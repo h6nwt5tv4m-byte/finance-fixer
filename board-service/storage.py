@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS challenges(
 CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, owner TEXT NOT NULL, expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS events(kind TEXT, bucket TEXT, at INTEGER);
 CREATE INDEX IF NOT EXISTS event_idx ON events(kind,bucket,at);
+CREATE TABLE IF NOT EXISTS reading_bookmarks(
+ owner TEXT NOT NULL, book TEXT NOT NULL, chapter INTEGER NOT NULL, scene INTEGER NOT NULL,
+ ms INTEGER NOT NULL, revision INTEGER NOT NULL, PRIMARY KEY(owner,book));
 CREATE TABLE IF NOT EXISTS blocked(owner TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS settings(name TEXT PRIMARY KEY,value TEXT NOT NULL);
 """
@@ -61,7 +64,7 @@ def initialize(path, identity_key=None):
                     # The board launched with key fingerprints. Only initialize pristine/seed-only data.
                     has_owners=db.execute("""SELECT EXISTS(SELECT 1 FROM posts WHERE owner!='editorial')
                         OR EXISTS(SELECT 1 FROM comments) OR EXISTS(SELECT 1 FROM blocked)
-                        OR EXISTS(SELECT 1 FROM sessions) OR EXISTS(SELECT 1 FROM challenges)""").fetchone()[0]
+                        OR EXISTS(SELECT 1 FROM sessions) OR EXISTS(SELECT 1 FROM challenges) OR EXISTS(SELECT 1 FROM reading_bookmarks)""").fetchone()[0]
                     if has_owners:
                         raise RuntimeError("Unversioned user data requires recovery from a verified source.")
                     db.execute("INSERT INTO settings VALUES ('identity-key',?)",(fingerprint,))

@@ -1,3 +1,10 @@
+// Use the same account entry on pages and tools that load this shared navigation.
+if (!document.querySelector('script[data-finance-account]')) {
+  const account = document.createElement('script');
+  account.src = new URL('account.js', document.currentScript.src).href;
+  account.dataset.financeAccount = '';
+  document.head.append(account);
+}
 // 방문 통계: 메뉴 코드와 따로 돈다(둘 중 하나가 실패해도 다른 쪽은 영향 없음). 내용은 /ga.js 한 곳.
 try {
   if (document.documentElement.dataset.analytics !== 'off') {

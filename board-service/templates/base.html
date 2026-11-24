@@ -13,8 +13,9 @@
     <nav class="account" aria-label="게시판 계정">
       {% if admin %}<a href="{{ url_for('moderation') }}">차단 관리</a>{% endif %}
       {% if uid %}
+      <a href="{{ url_for('account', return_to=back) }}">{{ label(uid) }}</a>
       <form method="post" action="{{ url_for('logout') }}">
-        <input type="hidden" name="csrf" value="{{ csrf() }}">
+        {% if back %}<input type="hidden" name="return_to" value="{{ back }}">{% endif %}<input type="hidden" name="csrf" value="{{ csrf() }}">
         <button type="submit" class="plain">로그아웃</button>
       </form>
       {% else %}

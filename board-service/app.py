@@ -14,6 +14,7 @@ from flask import Flask, abort, flash, g, redirect, render_template, request, se
 from werkzeug.exceptions import HTTPException
 
 from mail_protocol import DeliveryUncertain, address, deliver, mailbox_limit
+from site_account import install as install_site_account, return_page
 from storage import VISIBLE, connect, expire, reserve, write
 
 ORIGIN = "https://board.finance-fixer.net"
@@ -91,6 +92,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             if request.headers.get("Origin")!=ORIGIN or not supplied.isascii() or not expected or not hmac.compare_digest(expected,supplied):
                 abort(403,description="화면을 새로 열고 다시 시도해 주세요.")
 
+    install_site_account(app, db, viewer, lambda uid: label(uid), digest, lambda: digest("bookmark-form", login_token()))
+
     @app.after_request
     def privacy(response):
         response.headers.update({
@@ -163,7 +166,17 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
 
     @app.get("/login")
     def login():
-        return render_template("login.html",pending=bool(session.get("challenge")))
+        back = return_page(request.args.get("return_to"))
+        if back and viewer():
+            return redirect(back, code=303)
+        return render_template("login.html", pending=bool(session.get("challenge")), back=back)
+
+    @app.get("/account")
+    def account():
+        back = return_page(request.args.get("return_to")) or "https://finance-fixer.net/"
+        if not viewer():
+            return move("login", return_to=back)
+        return render_template("account.html", back=back)
 
     # Bound SMTP waits per worker so normal reads always have threads available.
     mail_slot=BoundedSemaphore(1)
@@ -216,14 +229,14 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         except DeliveryUncertain:
             session["challenge"]=challenge
             flash("발송 확인이 지연되고 있습니다. 메일이 도착했다면 번호를 입력해 주세요.")
-            return move("login")
+            return move("login", return_to=return_page(request.form.get("return_to")))
         except OSError:
             if not prior:
                 db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
             abort(503,description="인증 메일을 보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.")
         session["challenge"]=challenge
         flash("인증번호를 보냈습니다. 번호는 최초 발급 후 10분 동안 유효합니다.")
-        return move("login")
+        return move("login", return_to=return_page(request.form.get("return_to")))
 
     @app.post("/login/confirm")
     def confirm():
@@ -244,14 +257,16 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                     owner=row["owner"]
                     if not db().execute("SELECT 1 FROM blocked WHERE owner=?",(owner,)).fetchone():
                         db().execute("DELETE FROM sessions WHERE id=?",(digest("session",login_token()),))
-                        db().execute("INSERT INTO sessions VALUES (?,?,?)",(digest("session",token),owner,now+(43200 if editor(owner) else 604800)))
+                        lifetime = 43200 if editor(owner) else 604800
+                        db().execute("INSERT INTO sessions VALUES (?,?,?)",(digest("session",token),owner,now+lifetime))
                         success=True
         if not success:
             abort(400,description="인증번호가 만료되었거나 일치하지 않습니다. 번호를 확인하거나 다시 요청해 주세요.")
         session.clear()
         flash("이메일 인증이 완료되었습니다.")
-        response=move("index")
-        response.set_cookie(AUTH_COOKIE,token,secure=True,httponly=True,samesite="Lax",path="/")
+        back = return_page(request.form.get("return_to"))
+        response = redirect(back, code=303) if back else move("index")
+        response.set_cookie(AUTH_COOKIE,token,max_age=lifetime,secure=True,httponly=True,samesite="Lax",path="/")
         return response
 
     @app.post("/logout")
@@ -259,7 +274,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         db().execute("DELETE FROM sessions WHERE id=?",(digest("session",login_token()),))
         db().execute("DELETE FROM challenges WHERE id=?",(session.get("challenge",""),))
         session.clear()
-        response=move("index")
+        back = return_page(request.form.get("return_to"))
+        response = redirect(back, code=303) if back else move("index")
         response.delete_cookie(AUTH_COOKIE,secure=True,httponly=True,samesite="Lax",path="/")
         return response
 

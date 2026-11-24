@@ -1,4 +1,6 @@
-(() => {
+(async () => {
+  const progress = window.BookwormProgress;
+  await progress?.ready;
   const scenes = Array.from(document.querySelectorAll('.scene'));
   const toc = document.querySelector('.contents details');
   const sceneLinks = Array.from(toc.querySelectorAll('a'));
@@ -16,18 +18,19 @@
   const restoreTargets = new WeakMap();
 
   function get(key, prefix = progressPrefix) {
-    try { return localStorage.getItem(prefix + key); } catch { return null; }
+    try { return progress ? progress.get(prefix + key) : localStorage.getItem(prefix + key); } catch { return null; }
   }
   function set(key, value, prefix = progressPrefix) {
-    try { localStorage.setItem(prefix + key, value); } catch { /* Reading works without storage. */ }
+    try { if (progress) progress.set(prefix + key, value); else localStorage.setItem(prefix + key, value); } catch { /* Reading works without storage. */ }
   }
   const bookPrefix = 'bookworm:oz:';
   const resume = document.querySelector('.resume-chapter');
 
-  function rememberScene(scene) {
+  function rememberScene(scene, publish = true) {
     set('last-scene', scene.id);
     set('last-chapter', chapter, bookPrefix);
     if (resume) resume.hidden = true;
+    if (publish) progress?.save(chapter, scene.id.slice(6), Number(get(scene.id + ':time')) || 0, true, true);
   }
   function installNarration() {
     const template = document.querySelector('#narration-options');
@@ -187,7 +190,7 @@
     expectedTime = get(scene.id + ':time');
     rememberScene(scene);
   }
-  function saveTime() {
+  function saveTime(immediate = false) {
     if (!interacted || !restored) return;
     const audio = active.querySelector('audio');
     if (!Number.isFinite(audio.duration)) return;
@@ -199,6 +202,7 @@
     set(key, expectedTime);
     lastSavedTime = time;
     lastWrite = Date.now();
+    progress?.save(chapter, active.id.slice(6), time, false, immediate === true);
   }
   function restoreTime() {
     if (restored) return;
@@ -268,11 +272,17 @@
       if (Date.now() - lastWrite > 2000) saveTime();
     });
     for (const event of ['pause', 'ended']) {
-      audio.addEventListener(event, () => { if (scene === active) saveTime(); });
+      audio.addEventListener(event, () => { if (scene === active) { saveTime(true); progress?.flush(); } });
     }
   }
   if (narrow.matches) toc.open = false;
   const fromHash = () => sceneById(location.hash.slice(1));
+  const saved = progress?.remote();
+  const bookmarkScene = saved?.chapter === Number(chapter) && sceneById('scene-' + saved.scene);
+  if (bookmarkScene) {
+    set('last-scene', bookmarkScene.id);
+    set(bookmarkScene.id + ':time', String(saved.ms / 1000));
+  }
   const initialScene = fromHash() || sceneById(get('last-scene')) || scenes[0];
   show(initialScene, false);
   // Chapter-choice links signal intent even when opened in a new tab.
@@ -283,7 +293,7 @@
     set('last-chapter', '1', bookPrefix);
   }
   const explicit = chosen || history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix);
-  if (explicit) rememberScene(initialScene);
+  if (explicit && (chosen || !saved || bookmarkScene?.id === initialScene.id)) rememberScene(initialScene, chosen && (!saved || bookmarkScene?.id !== initialScene.id));
   if (!entry.hash) entry.hash = initialScene.id;
   if (chosen || !location.hash || explicit) {
     const state = explicit ? {...history.state, bookwormScene: initialScene.id} : history.state;
@@ -310,6 +320,7 @@
     show(scene, true);
     if (history.state?.bookwormScene === scene.id) rememberScene(scene);
   });
-  window.addEventListener('pagehide', saveTime);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) saveTime(); });
+  function finishVisit() { saveTime(true); progress?.flush(); }
+  window.addEventListener('pagehide', finishVisit);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) finishVisit(); });
 })();
