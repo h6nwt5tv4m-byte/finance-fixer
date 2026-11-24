@@ -34,6 +34,19 @@
     const outboxKey = () => scopeKey() + (book === 'oz' ? 'pending' : book + ':pending');
     const choiceKey = () => scopeKey() + book + ':latest-choice';
     let choiceId;
+    let chosenAt = 0;
+    let clockOffset = 0;
+    const localMicros = () => typeof performance !== 'undefined' && performance.timeOrigin
+      ? Math.round((performance.timeOrigin + performance.now()) * 1000) : Date.now() * 1000;
+    function captureChoice() {
+      const mark = {id: writer + '/' + (++serial), time: localMicros()};
+      try { localStorage.setItem(prefix + 'latest-input', mark.id); } catch {}
+      return mark;
+    }
+    function stillCurrent(mark) {
+      try { const latest = localStorage.getItem(prefix + 'latest-input'); return !latest || latest === mark.id; }
+      catch { return true; }
+    }
     function choiceSuperseded() {
       try {
         const latest = localStorage.getItem(choiceKey());
@@ -119,7 +132,7 @@
         if (value) {
           const nextId = newValue || !storedId ? writer + ':' + (++serial) : storedId;
           localStorage.setItem(outboxKey(), JSON.stringify({value, id: nextId, revision: revision(),
-            lastSent, attempts, choiceId, intentional: generation > confirmedAction && generation !== retriedAction}));
+            lastSent, attempts, choiceId, chosenAt, intentional: generation > confirmedAction && generation !== retriedAction}));
           storedId = nextId;
         } else if (disk && disk.id === storedId) { localStorage.removeItem(outboxKey()); }
       } catch { /* The in-memory queue still retries during this visit. */ }
@@ -131,8 +144,14 @@
       memory.clear();
     });
 
+    function relinquish() {
+      writable = false;
+      pending = null;
+      storePending(null);
+    }
     async function flush() {
       if (invalidated || verifyingReturn || writing || !pending || !session?.csrf || !writable) return;
+      if (choiceSuperseded() || (chosenAt && session.bookmark?.chosen_at > chosenAt)) { relinquish(); return; }
       if (offlineWrite) {
         // Check whether the lost request arrived before issuing a new write.
         if (!checkingConnection) {
@@ -161,16 +180,14 @@
         const r = await fetch(url, {
           method: 'PUT', credentials: 'include', cache: 'no-store', keepalive: true,
           headers: {'Content-Type': 'application/json', 'X-Bookworm-CSRF': token},
-          body: JSON.stringify({...value, revision: base}), signal: AbortSignal.timeout(6000)
+          body: JSON.stringify({...value, revision: base, ...(chosenAt && session.server_us ? {chosen_at: chosenAt} : {})}), signal: AbortSignal.timeout(6000)
         });
         if (r.ok || r.status === 409) {
           const next = await r.json();
           if (!acceptScope(next)) return;
           advance(next.bookmark);
-          if (choiceSuperseded()) {
-            writable = false;
-            pending = null;
-            storePending(null);
+          if (choiceSuperseded() || (chosenAt && session.bookmark?.chosen_at > chosenAt)) {
+            relinquish();
             signal();
             return;
           }
@@ -232,27 +249,35 @@
       } catch { retryLater = true; offlineWrite = true; }
       finally {
         writing = false;
+        if (retryLater && revision() > base && !acknowledged(session.bookmark) &&
+            (generation <= confirmedAction || retriedAction === generation)) relinquish();
         if (pending && !retryLater) void flush();
       }
     }
 
-    function save(chapter, scene, seconds, action, immediate) {
+    function save(chapter, scene, seconds, action, immediate, mark) {
       if (invalidated || !session?.csrf) return;
+      if (action) {
+        const fresh = !mark;
+        mark ??= captureChoice();
+        if (!stillCurrent(mark)) return;
+        if (mark.id !== choiceId) {
+          generation++;
+          choiceId = mark.id;
+          const observed = fresh ? (session.bookmark?.chosen_at || 0) : 0;
+          chosenAt = Math.max(chosenAt + 1, observed + 1, mark.time + clockOffset);
+          try { localStorage.setItem(choiceKey(), choiceId); } catch {}
+        }
+      }
       if (verifyingReturn) {
-        deferredChoice = [chapter, scene, seconds, action || !!deferredChoice?.[3], immediate];
+        deferredChoice = [chapter, scene, seconds, action || !!deferredChoice?.[3], immediate, mark || deferredChoice?.[5]];
         void checkReturn();
         return;
       }
       if (typeof seconds === 'function') seconds = seconds();
       if (!Number.isFinite(seconds)) return;
-      if (action) {
-        generation++;
-        writable = true;
-        choiceId = writer + '/' + generation;
-        try { localStorage.setItem(choiceKey(), choiceId); } catch {}
-      } else if (choiceSuperseded()) {
-        writable = false;
-      }
+      if (choiceSuperseded()) { relinquish(); return; }
+      if (action) writable = true;
       if (!writable) return;
       // Another tab can already be delivering the shared outbox entry we are replacing.
       if (pending && samePosition(stored()?.value, pending) &&
@@ -273,12 +298,17 @@
     const ready = fetchState().then(value => {
       if (!acceptScope(value)) return;
       session = value;
+      if (Number.isSafeInteger(value.server_us)) {
+        const difference = value.server_us - localMicros();
+        if (Math.abs(difference) > 1_000_000) clockOffset = difference;
+      }
       if (!session?.scope) return;
       try {
         const old = stored();
         if (!old?.value) return;
         storedId = old.id;
         choiceId = old.choiceId;
+        chosenAt = old.chosenAt || 0;
         if (choiceSuperseded()) { storePending(null); return; }
         lastSent = old.lastSent;
         attempts = Array.isArray(old.attempts) ? old.attempts : (lastSent ? [lastSent] : []);
@@ -347,7 +377,7 @@
       }
     });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) recheck(); });
-    return {ready, verifying: () => verifyingReturn, remote: () => invalidated || verifyingReturn ? null : (pending || session?.bookmark || null), get, set, save, flush};
+    return {ready, captureChoice, verifying: () => verifyingReturn, remote: () => invalidated || verifyingReturn ? null : (pending || session?.bookmark || null), get, set, save, flush};
   }
   const books = new Map();
   function forBook(book) {

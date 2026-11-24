@@ -99,6 +99,28 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(bad.status_code,400)
         self.assertEqual(state(a).json["bookmark"]["revision"],1)
 
+    def test_bookmark_orders_choices_from_two_devices(self):
+        reader = self.account("devices@example.com")
+        url = "/site/bookworm/holmes"
+        headers = {"Origin": "https://finance-fixer.net"}
+        state = reader.get(url, base_url=ORIGIN, headers=headers).json
+        headers["X-Bookworm-CSRF"] = state["csrf"]
+        first = state["server_us"] - 10000
+        def put(scene, ms, revision, chosen):
+            return reader.put(url, base_url=ORIGIN, headers=headers,
+                              json=dict(chapter=1, scene=scene, ms=ms, revision=revision, chosen_at=chosen))
+
+        self.assertEqual(put(1, 10000, 0, first).json["bookmark"]["revision"], 1)
+        self.assertEqual(put(1, 10000, 1, first + 1).json["bookmark"]["revision"], 2)
+        self.assertEqual(put(1, 10000, 1, first + 1).json["bookmark"]["revision"], 2)
+        self.assertEqual(put(1, 25345, 1, first).status_code, 409)
+        self.assertEqual(put(1, 12125, 2, first + 1).json["bookmark"]["ms"], 12125)
+        self.assertEqual(put(3, 0, 3, first + 3).json["bookmark"]["revision"], 4)
+        self.assertEqual(put(2, 0, 3, first + 2).status_code, 409)
+        self.assertEqual(put(2, 0, 4, first + 2).status_code, 409)
+        self.assertEqual(put(2, 0, 3, first + 4).status_code, 409)
+        self.assertEqual(put(2, 0, 4, first + 4).json["bookmark"]["scene"], 2)
+
     def test_book_positions_remain_separate(self):
         reader = self.account("reader@example.com")
         origin = {"Origin": "https://finance-fixer.net"}

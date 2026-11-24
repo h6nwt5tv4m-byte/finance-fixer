@@ -6,15 +6,17 @@
   let earlyAudio;
   let earlySeek;
   let earlySelection;
+  let earlyChoice;
   const captureSeek = e => {
-    if (e.target.matches?.('.scene audio')) { earlyAudio = earlySeek = e.target; earlySelection = null; }
+    if (e.target.matches?.('.scene audio')) { earlyAudio = earlySeek = e.target; earlySelection = null; earlyChoice = progress?.captureChoice?.(); }
   };
   const capturePlay = e => {
-    if (e.target.matches?.('.scene audio')) { earlyAudio = e.target; earlySelection = null; }
+    if (e.target.matches?.('.scene audio')) { earlyAudio = e.target; earlySelection = null; earlyChoice = progress?.captureChoice?.(); }
   };
   function selectEarly(hash) {
     if (!/^#scene-\d+$/.test(hash)) return;
     earlySelection = hash;
+    earlyChoice = progress?.captureChoice?.();
     earlyAudio = null;
     earlySeek = null;
   }
@@ -70,15 +72,18 @@
     const bookmark = progress?.remote();
     if ((remoteTimeAvailable || bookmark?.revision !== initialBookmark?.revision) &&
         bookmark?.chapter === Number(chapter) && bookmark.scene === Number(scene.id.slice(6))) return bookmark.ms / 1000;
-    return Number(get(scene.id + ':time')) || 0;
+    const cached = get(scene.id + ':time');
+    if (cached === null && remoteTimeAvailable && initialBookmark?.chapter === Number(chapter) &&
+        initialBookmark.scene === Number(scene.id.slice(6))) return initialBookmark.ms / 1000;
+    return Number(cached) || 0;
   }
-  function rememberScene(scene, publish = true, seconds) {
+  function rememberScene(scene, publish = true, seconds, mark) {
     set('last-scene', scene.id);
     set('last-chapter', chapter, bookPrefix);
     if (resume) resume.hidden = true;
     if (publish) {
       const time = seconds ?? (progress?.verifying?.() ? () => readingTime(scene) : readingTime(scene));
-      progress?.save(chapter, scene.id.slice(6), time, true, true);
+      progress?.save(chapter, scene.id.slice(6), time, true, true, mark);
     }
   }
   function installNarration() {
@@ -233,12 +238,12 @@
   function sceneById(id) {
     return scenes.find(scene => scene.id === id);
   }
-  function claimPosition(scene) {
+  function claimPosition(scene, mark) {
     interacted = true;
     lastSavedTime = null;
     expectedTime = storedTime(get(scene.id + ':time'));
     const audio = scene.querySelector('audio');
-    rememberScene(scene, true, restored ? audio.currentTime : readingTime(scene));
+    rememberScene(scene, true, restored ? audio.currentTime : undefined, mark);
     if (restored) {
       set(scene.id + ':time', storedTime(audio.currentTime));
       expectedTime = storedTime(get(scene.id + ':time'));
@@ -294,6 +299,10 @@
       restoreTime();
     }
     if (selected) {
+      if (!interacted && scene.querySelector('audio').paused) {
+        restored = false;
+        restoreTime();
+      }
       if (narrow.matches) toc.open = false;
       const title = scene.querySelector('h2');
       title.focus({preventScroll: true});
@@ -314,10 +323,11 @@
       restoreTargets.delete(audio);
       if (target !== undefined && Math.abs(audio.currentTime - target) < .012) return;
       if (scene !== active) return;
-      if (!restored && progress?.verifying?.()) restored = true;
+      const verifying = progress?.verifying?.();
+      if (verifying) restored = true;
       if (!restored) return;
       // A seek made by the reader can take ownership of a previously paused position.
-      if (interacted || Math.abs(audio.currentTime - readingTime(scene)) >= .0005) {
+      if (verifying || interacted || Math.abs(audio.currentTime - readingTime(scene)) >= .0005) {
         claimPosition(scene);
         saveTime();
       }
@@ -345,7 +355,7 @@
     set(initialScene.id + ':time', storedTime(earlyAudio.currentTime));
   }
   show(initialScene, false);
-  if (earlyAudio) claimPosition(initialScene);
+  if (earlyAudio) claimPosition(initialScene, earlyChoice);
   // Chapter-choice links signal intent even when opened in a new tab.
   const entry = new URL(location.href);
   const chosen = entry.searchParams.get('read') === '1' || earlySelection === '#' + initialScene.id;
@@ -355,7 +365,7 @@
   }
   const explicit = !!earlyAudio || chosen || (!history.state?.bookwormAccountReset &&
     (history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix)));
-  if (explicit && (chosen || !saved || bookmarkScene?.id === initialScene.id)) rememberScene(initialScene, chosen && (!saved || bookmarkScene?.id !== initialScene.id));
+  if (explicit && (chosen || !saved || bookmarkScene?.id === initialScene.id)) rememberScene(initialScene, chosen && (!saved || bookmarkScene?.id !== initialScene.id), undefined, earlyChoice);
   if (!entry.hash || earlyAudio) entry.hash = initialScene.id;
   if (chosen || !location.hash || explicit) {
     const state = explicit ? {...history.state, bookwormScene: initialScene.id} : history.state;
@@ -383,7 +393,12 @@
     if (history.state?.bookwormScene === scene.id) rememberScene(scene);
   });
   window.addEventListener('bookworm-bookmark', () => {
-    if (active && !restored) restoreTime();
+    if (!active) return;
+    if (progress?.verifying?.() && active.querySelector('audio').paused) {
+      restored = false;
+      interacted = false;
+    }
+    if (!restored) restoreTime();
   });
   function finishVisit() { saveTime(true); progress?.flush(); }
   window.addEventListener('pagehide', finishVisit);

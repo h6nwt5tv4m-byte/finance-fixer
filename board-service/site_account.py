@@ -2,6 +2,7 @@
 import hmac
 from pathlib import Path
 import re
+import time
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from flask import abort, jsonify, request, send_from_directory
@@ -75,8 +76,8 @@ def install(app, db, viewer, label, digest, token):
         if request.headers.get("Origin") not in HOME:
             abort(403)
         def result(uid):
-            row = db().execute("SELECT chapter,scene,ms,revision FROM reading_bookmarks WHERE owner=? AND book=?", (uid, book)).fetchone()
-            return {"scope": digest("book-cache", uid)[:24], "csrf": token(),
+            row = db().execute("SELECT chapter,scene,ms,revision,chosen_at FROM reading_bookmarks WHERE owner=? AND book=?", (uid, book)).fetchone()
+            return {"scope": digest("book-cache", uid)[:24], "csrf": token(), "server_us": time.time_ns() // 1000,
                     "bookmark": dict(row) if row else None}
 
         if request.method in {"GET", "HEAD"}:
@@ -100,14 +101,20 @@ def install(app, db, viewer, label, digest, token):
                 abort(400)
             state = result(uid)
             old = state["bookmark"]
-            if old and (old["chapter"], old["scene"], old["ms"]) == (ch, scene, ms):
+            chosen = data.get("chosen_at", 0)
+            if type(chosen) is not int or not 0 <= chosen <= state["server_us"] + 5_000_000:
+                abort(400)
+            previous = old["chosen_at"] if old else 0
+            if chosen and chosen < previous:
+                return jsonify(state), 409
+            if old and (old["chapter"], old["scene"], old["ms"]) == (ch, scene, ms) and chosen <= previous:
                 return jsonify(state)
             if (old["revision"] if old else 0) != rev:
                 return jsonify(state), 409
-            db().execute("""INSERT INTO reading_bookmarks(owner,book,chapter,scene,ms,revision)
-                            VALUES (?,?,?,?,?,?) ON CONFLICT(owner,book) DO UPDATE SET
-                            chapter=excluded.chapter,scene=excluded.scene,ms=excluded.ms,revision=excluded.revision""",
-                         (uid, book, ch, scene, ms, rev+1))
+            db().execute("""INSERT INTO reading_bookmarks(owner,book,chapter,scene,ms,revision,chosen_at)
+                            VALUES (?,?,?,?,?,?,?) ON CONFLICT(owner,book) DO UPDATE SET
+                            chapter=excluded.chapter,scene=excluded.scene,ms=excluded.ms,revision=excluded.revision,chosen_at=excluded.chosen_at""",
+                         (uid, book, ch, scene, ms, rev+1, chosen or previous))
             return jsonify(result(uid))
 
     @app.get("/bookworm-audio/<name>")
