@@ -80,7 +80,7 @@ def initialize(path, identity_key=None):
                 db.execute("""UPDATE posts SET body=?,source_url=? WHERE owner='editorial'
                               AND title=? AND source_url='https://finance-fixer.net/#videos'""",
                            (video["body"],video["source_url"],video["title"]))
-            if db.execute("INSERT OR IGNORE INTO settings VALUES ('correction-audit-example','done')").rowcount:
+            if db.execute("INSERT OR IGNORE INTO settings VALUES ('correction-audit-plan-amount','done')").rowcount:
                 audit=items[0]
                 db.execute("""UPDATE posts SET body=? WHERE id=? AND owner='editorial' AND title=?""",
                            (audit["body"],hashlib.sha256(b"opening-01").hexdigest()[:24],audit["title"]))
