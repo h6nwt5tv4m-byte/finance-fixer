@@ -1,7 +1,10 @@
 (() => {
   const library = window.BookwormProgress;
   if (!library) return;
-  for (const link of document.querySelectorAll('[data-resume-label]')) {
+  const links = Array.from(document.querySelectorAll('[data-resume-label]'));
+  const clients = links.map(link => library.forBook?.(link.dataset.book || 'oz') || library);
+  const ready = Promise.all(clients.map(client => client.ready));
+  for (const link of links) {
     const book = link.dataset.book || 'oz';
     const progress = library.forBook ? library.forBook(book) : (book === 'oz' ? library : null);
     if (!progress) continue;
@@ -24,9 +27,9 @@
         link.textContent = (link.dataset.title || '오즈의 마법사') + ' ' + chapter + (link.dataset.unit || '장') + ' · 장면 ' + scene + ' 이어 읽기 →';
       }
     }
-    progress.ready.then(update);
-    window.addEventListener('storage', update);
-    window.addEventListener('pageshow', update);
-    window.addEventListener('bookworm-bookmark', update);
+    ready.then(update);
+    window.addEventListener('storage', () => ready.then(update));
+    window.addEventListener('pageshow', () => ready.then(update));
+    window.addEventListener('bookworm-bookmark', () => ready.then(update));
   }
 })();

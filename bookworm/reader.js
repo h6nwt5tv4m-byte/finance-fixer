@@ -1,5 +1,8 @@
 (async () => {
-  const progress = window.BookwormProgress;
+  const book = document.documentElement.dataset.book || 'oz';
+  const library = window.BookwormProgress;
+  const progress = library?.forBook?.(book) || (book === 'oz' ? library : null);
+  const visit = new Map();
   let earlyPlayer;
   let earlySeek;
   const captureSeek = e => { if (e.target.matches?.('.scene audio')) earlySeek = e.target; };
@@ -16,10 +19,9 @@
   const sceneLinks = Array.from(toc.querySelectorAll('a'));
   const narrow = matchMedia('(max-width: 760px)');
   const chapter = document.documentElement.dataset.chapter || '1';
-  const book = document.documentElement.dataset.book || 'oz';
   const progressPrefix = `bookworm:${book}:ch${chapter}:audio-v1:`;
   // Retain chapter one's existing speed and follow preferences across the book.
-  const preferencePrefix = 'bookworm:oz:ch1:audio-v1:';
+  const preferencePrefix = `bookworm:${book}:ch1:audio-v1:`;
   let active;
   let restored = false;
   let interacted = false;
@@ -29,12 +31,13 @@
   const restoreTargets = new WeakMap();
 
   function get(key, prefix = progressPrefix) {
-    try { return progress ? progress.get(prefix + key) : localStorage.getItem(prefix + key); } catch { return null; }
+    return progress ? progress.get(prefix + key) : (visit.get(prefix + key) ?? null);
   }
   function set(key, value, prefix = progressPrefix) {
     try {
-      if (!progress || key === 'rate' || key === 'follow') localStorage.setItem(prefix + key, value);
-      else progress.set(prefix + key, value);
+      if (key === 'rate' || key === 'follow') localStorage.setItem(prefix + key, value);
+      else if (progress) progress.set(prefix + key, value);
+      else visit.set(prefix + key, String(value));
     } catch { /* Reading works without storage. */ }
   }
   const bookPrefix = `bookworm:${book}:`;
@@ -234,7 +237,7 @@
     if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
     const time = readingTime(active);
     const target = time > 0 && time < audio.duration - 2 ? time : 0;
-    if (Math.abs(audio.currentTime - target) > .25) {
+    if (Math.abs(audio.currentTime - target) >= .0005) {
       restoreTargets.set(audio, target);
       try { audio.currentTime = target; } catch { restoreTargets.delete(audio); return; }
     }
@@ -280,11 +283,11 @@
     });
     audio.addEventListener('seeked', () => {
       const target = restoreTargets.get(audio);
-      if (target !== undefined && Math.abs(audio.currentTime - target) < .3) return;
       restoreTargets.delete(audio);
+      if (target !== undefined && Math.abs(audio.currentTime - target) < .012) return;
       if (scene !== active || !restored) return;
       // A seek made by the reader can take ownership of a previously paused position.
-      if (interacted || Math.abs(audio.currentTime - readingTime(scene)) > .3) {
+      if (interacted || Math.abs(audio.currentTime - readingTime(scene)) >= .0005) {
         claimPosition(scene);
         saveTime();
       }
@@ -292,7 +295,7 @@
     audio.addEventListener('timeupdate', () => {
       if (scene !== active || audio.paused) return;
       const target = restoreTargets.get(audio);
-      if (target !== undefined && Math.abs(audio.currentTime - target) >= .3) restoreTargets.delete(audio);
+      if (target !== undefined && Math.abs(audio.currentTime - target) >= .012) restoreTargets.delete(audio);
       if (Date.now() - lastWrite > 2000) saveTime();
     });
     for (const event of ['pause', 'ended']) {

@@ -1,5 +1,13 @@
 // A confirmed guest uses the original local keys. Each account has its own cache.
 (() => {
+  let pageScope;
+  let invalidated = false;
+  function invalidate() {
+    if (invalidated) return;
+    invalidated = true;
+    for (const link of document.querySelectorAll('[data-resume-label]')) link.hidden = true;
+    location.reload();
+  }
   function openBook(book) {
     const url = 'https://board.finance-fixer.net/site/bookworm/' + book;
     const memory = new Map();
@@ -15,6 +23,8 @@
     const revision = () => session?.bookmark?.revision || 0;
     const scopeKey = () => session?.scope ? 'bookworm:account:' + session.scope + ':' : '';
     const outboxKey = () => scopeKey() + (book === 'oz' ? 'pending' : book + ':pending');
+    const changedKey = () => scopeKey() + book + ':server-revision';
+    const prefix = 'bookworm:' + book + ':';
     const writer = crypto.randomUUID();
     let serial = 0;
     let storedId;
@@ -27,13 +37,17 @@
     async function fetchState() {
       try {
         const r = await fetch(url, {credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(3500)});
-        if (r.status === 401) return {scope: '', guest: true};
-        if (r.ok) return await r.json();
+        const next = r.status === 401 ? {scope: '', guest: true} : (r.ok ? await r.json() : null);
+        if (!next || invalidated) return null;
+        if (pageScope !== undefined && next.scope !== pageScope) { invalidate(); return null; }
+        pageScope = next.scope;
+        return next;
       } catch { /* An unknown identity reads in memory for this visit. */ }
       return null;
     }
 
     function set(key, value) {
+      if (invalidated || !key.startsWith(prefix)) return;
       const id = scopeKey() + key;
       if (session) {
         try { localStorage.setItem(id, value); memory.delete(id); return; } catch {}
@@ -41,6 +55,7 @@
       memory.set(id, String(value));
     }
     function get(key) {
+      if (invalidated || !key.startsWith(prefix)) return null;
       const id = scopeKey() + key;
       if (memory.has(id)) return memory.get(id);
       try { return session && localStorage.getItem(id); } catch { return null; }
@@ -56,12 +71,13 @@
     }
 
     async function flush() {
-      if (writing || !pending || !session?.csrf || !writable) return;
+      if (invalidated || writing || !pending || !session?.csrf || !writable) return;
       writing = true;
       const value = pending;
       const observed = generation;
       let retryLater = false;
       const base = revision();
+      const priorAttempt = lastSent;
       // Keep the previous attempt until the server acknowledges it. Its response may be lost.
       if (!lastSent || !samePosition(lastSent, value) || lastSent.revision !== base) {
         lastSent = {...value, revision: base};
@@ -75,11 +91,15 @@
         });
         if (r.ok || r.status === 409) {
           const next = await r.json();
-          if (next.scope !== session.scope) { location.reload(); return; }
+          if (next.scope !== session.scope) { storePending(null); invalidate(); return; }
           if ((next.bookmark?.revision || 0) >= revision()) session.bookmark = next.bookmark;
           if (r.ok) {
             confirmedAction = Math.max(confirmedAction, observed);
             if (pending === value) pending = null;
+            try { localStorage.setItem(changedKey(), String(revision())); } catch {}
+          } else if (samePosition(next.bookmark, priorAttempt) && next.bookmark.revision === priorAttempt.revision + 1) {
+            // The server accepted our preceding write even though its response was lost.
+            // The newer pending value can safely advance from the acknowledged revision.
           } else if (generation > confirmedAction && retriedAction !== generation) {
             // One deliberate selection may claim the newer revision. A stale timer may not.
             retriedAction = generation;
@@ -90,8 +110,24 @@
           storePending(pending);
           window.dispatchEvent(new Event('bookworm-bookmark'));
         } else if (r.status === 401 || r.status === 403) {
-          // A later visibility change renews the current token or detects account changes.
+          // A rejected write cannot stay in the previous account's durable queue.
+          storePending(null);
           retryLater = true;
+          if (r.status === 401) {
+            pending = null;
+            invalidate();
+          } else {
+            const rejectedToken = session.csrf;
+            session.csrf = null;
+            const fresh = await fetchState();
+            if (fresh?.scope === session.scope && !invalidated) {
+              session.csrf = fresh.csrf;
+              if (fresh.csrf !== rejectedToken) {
+                storePending(pending);
+                retryLater = false;
+              }
+            }
+          }
         } else { retryLater = true; }
       } catch { retryLater = true; }
       finally {
@@ -101,7 +137,7 @@
     }
 
     function save(chapter, scene, seconds, action, immediate) {
-      if (!session?.csrf || !Number.isFinite(seconds)) return;
+      if (invalidated || !session?.csrf || !Number.isFinite(seconds)) return;
       if (action) { generation++; writable = true; }
       if (!writable) return;
       pending = {chapter: Number(chapter), scene: Number(scene), ms: Math.round(seconds * 1000)};
@@ -134,7 +170,7 @@
       const ticket = ++lastCheck;
       const fresh = await fetchState();
       if (!fresh || ticket !== lastCheck) return;
-      if (fresh.scope !== session?.scope) { location.reload(); return; }
+      if (fresh.scope !== session?.scope) { invalidate(); return; }
       if (!fresh.scope) return;
       session.csrf = fresh.csrf;
       if ((fresh.bookmark?.revision || 0) > revision() && !writing) {
@@ -151,10 +187,13 @@
         window.dispatchEvent(new Event('bookworm-bookmark'));
       } else if (pending) { void flush(); }
     }
+    window.addEventListener('storage', event => {
+      if (session?.scope && event.key === changedKey() && Number(event.newValue) > revision()) void recheck();
+    });
     window.addEventListener('online', recheck);
     window.addEventListener('pageshow', e => { if (e.persisted) recheck(); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) recheck(); });
-    return {ready, remote: () => pending || session?.bookmark || null, get, set, save, flush};
+    return {ready, remote: () => invalidated ? null : (pending || session?.bookmark || null), get, set, save, flush};
   }
   const books = new Map();
   function forBook(book) {
