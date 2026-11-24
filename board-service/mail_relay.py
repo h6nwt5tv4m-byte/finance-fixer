@@ -58,11 +58,15 @@ class ReplyLines:
     """Keep smtplib's reply parser, but require complete CRLF lines after submission."""
     def __init__(self,stream):
         self.stream=stream
+        self.status=None
 
     def readline(self,limit):
         line=self.stream.readline(limit)
-        if not line.endswith(b"\r\n"):
-            raise DeliveryUncertain("incomplete SMTP reply line")
+        if not re.fullmatch(rb"[2-5][0-9]{2}(?:[ -][^\r\n]*)?\r\n",line):
+            raise DeliveryUncertain("invalid SMTP reply line")
+        if self.status is not None and self.status!=line[:3]:
+            raise DeliveryUncertain("inconsistent multiline SMTP reply")
+        self.status=line[:3]
         return line
 
     def close(self):

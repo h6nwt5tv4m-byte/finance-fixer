@@ -315,7 +315,7 @@ class BoardTest(unittest.TestCase):
         from unittest.mock import Mock
         from mail_relay import submit
         from mail_protocol import DeliveryUncertain
-        for raw in (b"250 queued",b"550 rejected"):
+        for raw in (b"250 queued",b"550 rejected",b"250Xdone\r\n",b"450-wait\r\n250 done\r\n"):
             smtp=smtplib.SMTP()
             smtp.file=io.BytesIO(raw)
             smtp.mail=Mock(return_value=(250,b"ok"));smtp.rcpt=Mock(return_value=(250,b"ok"))
@@ -323,6 +323,19 @@ class BoardTest(unittest.TestCase):
             msg=EmailMessage();msg.set_content("test")
             with self.assertRaises(DeliveryUncertain): submit(smtp,msg,"a@example.test","b@example.test")
             smtp.close()
+
+    def test_form_follows_current_authenticated_account(self):
+        c=self.account("first@example.test")
+        def form_token():
+            return re.search(r'name="csrf" value="([^"]+)"',self.get(c,"/write").get_data(as_text=True))[1]
+        old=form_token()
+        c.delete_cookie("__Host-board",domain="board.finance-fixer.net")
+        self.assertEqual(form_token(),old)
+        self.send(c,"/login/request",{"email":"second@example.test"})
+        self.send(c,"/login/confirm",{"code":self.sent["second@example.test"]})
+        r=c.post("/write",base_url=ORIGIN,headers={"Origin":ORIGIN},data=dict(csrf=old,title="이전 작업",body="이전 작성자",visibility="public"))
+        self.assertEqual(r.status_code,403)
+        self.assertNotEqual(old,form_token())
 
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")

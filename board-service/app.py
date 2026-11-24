@@ -72,6 +72,9 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         return dict(uid=uid,admin=int(editor(uid)))
 
     def csrf():
+        token=login_token()
+        if token:
+            return digest("form-csrf",token)
         if "csrf" not in session:
             session["csrf"] = secrets.token_urlsafe(24)
         return session["csrf"]
@@ -80,7 +83,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     def check_request():
         if request.method=="POST":
             supplied=request.form.get("csrf","")
-            if request.headers.get("Origin")!=ORIGIN or not supplied.isascii() or not session.get("csrf") or not hmac.compare_digest(session["csrf"],supplied):
+            expected=digest("form-csrf",login_token()) if login_token() else session.get("csrf","")
+            if request.headers.get("Origin")!=ORIGIN or not supplied.isascii() or not expected or not hmac.compare_digest(expected,supplied):
                 abort(403,description="화면을 새로 열고 다시 시도해 주세요.")
 
     @app.after_request
