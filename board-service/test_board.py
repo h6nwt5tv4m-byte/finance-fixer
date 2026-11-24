@@ -282,6 +282,20 @@ class BoardTest(unittest.TestCase):
         smtp.getreply.side_effect=None; smtp.getreply.return_value=(25,b"")
         with self.assertRaises(DeliveryUncertain): submit(smtp,msg,"from@example.test","to@example.test")
 
+    def test_former_moderator_has_no_comment_access_on_someone_elses_private_post(self):
+        owner=self.account("owner@example.test")
+        op=self.account("admin@example.com")
+        url=self.create(owner,"private")
+        self.send(op,url+"/reply",{"body":"운영자만 쓴 답변"})
+        self.send(op,url+"/manage",{"action":"hide"})
+        with closing(connect(self.path)) as db:
+            cid=db.execute("SELECT id FROM comments").fetchone()[0]
+            db.execute("DELETE FROM events")
+        self.app=create_app(b"test-only",self.path,[],self.sent.__setitem__)
+        former=self.account("admin@example.com")
+        self.assertNotIn("운영자만 쓴 답변",self.get(former,"/account/hidden").get_data(as_text=True))
+        self.assertEqual(self.send(former,"/account/hidden",{"kind":"comment","id":cid}).status_code,404)
+
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
         second=self.get(self.guest,"/?page=2")

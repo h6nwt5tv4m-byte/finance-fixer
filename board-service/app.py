@@ -335,8 +335,10 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             with authenticated_write() as uid:
                 item_id=request.form.get("id","")
                 if request.form.get("kind")=="comment":
-                    removed=db().execute("""DELETE FROM comments WHERE id=? AND owner=? AND
-                        (hidden=1 OR post IN (SELECT id FROM posts WHERE hidden=1))""",(item_id,uid))
+                    removed=db().execute("""DELETE FROM comments WHERE id=:id AND owner=:uid
+                        AND EXISTS(SELECT 1 FROM posts p WHERE p.id=comments.post
+                        AND (p.private=0 OR p.owner=:uid OR :admin) AND (comments.hidden=1 OR p.hidden=1))""",
+                        dict(id=item_id,**args(uid)))
                 else:
                     removed=db().execute("DELETE FROM posts WHERE id=? AND owner=? AND hidden=1",(item_id,uid))
                 if not removed.rowcount:
@@ -349,8 +351,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             UNION ALL SELECT c.id, CASE WHEN p.owner=:uid OR (p.private=0 AND p.hidden=0)
                            THEN p.title ELSE '숨김 처리된 원글' END,
                            c.body,'comment',c.created FROM comments c JOIN posts p ON p.id=c.post
-                    WHERE c.owner=:uid AND (c.hidden=1 OR p.hidden=1) ORDER BY created DESC""",
-            {"uid":uid}).fetchall()
+                    WHERE c.owner=:uid AND (p.private=0 OR p.owner=:uid OR :admin)
+                    AND (c.hidden=1 OR p.hidden=1) ORDER BY created DESC""",args(uid)).fetchall()
         return render_template("hidden.html",items=items)
 
     @app.route("/moderation",methods=["GET","POST"])
