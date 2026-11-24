@@ -1,5 +1,6 @@
 """systemd Accept=yes handler. Only the board UID may send fixed verification messages."""
 from email.message import EmailMessage
+from email.policy import SMTP
 import json
 import os
 from pathlib import Path
@@ -44,18 +45,32 @@ def handle(sock):
     msg["From"] = "재무해결사 자유게시판 <"+address(mail["from"])+">"
     msg["To"] = recipient
     msg["Subject"] = "재무해결사 자유게시판 이메일 인증번호"
-    msg.set_content(f"게시판 로그인 인증번호는 {code} 입니다. 10분 안에 요청한 화면에 입력하세요.\n직접 요청하지 않으셨다면 이 메일을 무시하세요.")
+    msg.set_content(f"게시판 로그인 인증번호는 {code} 입니다. 10분 안에 요청한 화면에 입력하세요.\n직접 요청하지 않으셨다면 이 메일을 무시하세요.",cte="base64")
     smtp=smtplib.SMTP_SSL(mail["host"],int(mail["port"]),timeout=8,context=ssl.create_default_context())
     try:
         smtp.login(mail["user"],mail["password"])
-        try:
-            smtp.send_message(msg,from_addr=mail["from"],to_addrs=[recipient])
-        except (smtplib.SMTPResponseException,smtplib.SMTPRecipientsRefused):
-            raise
-        except OSError as exc:
-            raise DeliveryUncertain("SMTP acknowledgement unavailable") from exc
+        submit(smtp,msg,mail["from"],recipient)
     finally:
         smtp.close()
+
+def submit(smtp,msg,sender,recipient):
+    # A refusal or disconnect before the server invites the message body is definite.
+    for operation,expected in ((lambda:smtp.mail(sender),(250,)),(lambda:smtp.rcpt(recipient),(250,251)),
+                               (lambda:smtp.docmd("DATA"),(354,))):
+        status,note=operation()
+        if status not in expected:
+            raise smtplib.SMTPResponseException(status,note)
+    # The fixed RFC 5322 message starts with From. Protect subsequent dot-leading lines.
+    payload=msg.as_bytes(policy=SMTP).replace(b"\r\n.",b"\r\n..")
+    if not payload.endswith(b"\r\n"):
+        payload+=b"\r\n"
+    try:
+        smtp.send(payload+b".\r\n")
+        status,note=smtp.getreply()
+    except OSError as exc:
+        raise DeliveryUncertain("SMTP acknowledgement unavailable") from exc
+    if status!=250:
+        raise smtplib.SMTPDataError(status,note)
 
 if __name__ == "__main__":
     connection = socket.fromfd(0,socket.AF_UNIX,socket.SOCK_STREAM)

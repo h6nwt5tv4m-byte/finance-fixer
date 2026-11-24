@@ -178,6 +178,11 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             if not reserve(db(),"mail",[(mail_bucket,60,1),(mail_bucket,86400,6),(ip,3600,10),(ip,86400,36),("*",3600,40),("*",86400,180)],now):
                 abort(429,description="인증번호 요청이 많습니다. 1분 뒤 다시 시도해 주세요. 일일 한도를 넘으면 다음 날 다시 이용할 수 있습니다.")
             previous=session.get("challenge","")
+            if previous and not db().execute("SELECT 1 FROM challenges WHERE id=? AND owner=? AND expires>? AND tries>0",
+                                             (previous,owner,now)).fetchone():
+                db().execute("DELETE FROM challenges WHERE id=?",(previous,))
+                session.pop("challenge",None)
+                previous=""
             db().execute("INSERT INTO challenges VALUES (?,?,?,?,5)",(challenge,owner,digest("otp",challenge+code),now+600))
             blocked=db().execute("SELECT 1 FROM blocked WHERE owner=?",(owner,)).fetchone()
         try:
@@ -185,7 +190,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                 send_code(email,code)
         except DeliveryUncertain:
             # Keep the same browser's last usable challenge if it has one.
-            previous_valid=db().execute("SELECT 1 FROM challenges WHERE id=? AND expires>? AND tries>0",(previous,stamp())).fetchone()
+            previous_valid=db().execute("SELECT 1 FROM challenges WHERE id=? AND owner=? AND expires>? AND tries>0",(previous,owner,stamp())).fetchone()
             if previous_valid:
                 db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
                 flash("새 메일 발송을 확인하지 못했습니다. 먼저 받은 유효한 번호를 입력해 주세요.")
@@ -338,10 +343,12 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         uid=viewer()
         if not uid:
             return move("login")
-        items=db().execute("""SELECT id,title AS text,'post' AS kind,created FROM posts WHERE owner=? AND hidden=1
-            UNION ALL SELECT c.id,substr(c.body,1,90),'comment',c.created FROM comments c
-            JOIN posts p ON p.id=c.post WHERE c.owner=? AND (c.hidden=1 OR p.hidden=1) ORDER BY created DESC""",
-            (uid,uid)).fetchall()
+        items=db().execute("""SELECT id,title AS heading,body AS text,'post' AS kind,created FROM posts WHERE owner=:uid AND hidden=1
+            UNION ALL SELECT c.id, CASE WHEN p.owner=:uid OR (p.private=0 AND p.hidden=0)
+                           THEN p.title ELSE '숨김 처리된 원글' END,
+                           c.body,'comment',c.created FROM comments c JOIN posts p ON p.id=c.post
+                    WHERE c.owner=:uid AND (c.hidden=1 OR p.hidden=1) ORDER BY created DESC""",
+            {"uid":uid}).fetchall()
         return render_template("hidden.html",items=items)
 
     @app.route("/moderation",methods=["GET","POST"])

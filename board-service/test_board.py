@@ -234,6 +234,33 @@ class BoardTest(unittest.TestCase):
             self.assertEqual(saved.execute("SELECT COUNT(*) FROM posts").fetchone()[0],24)
             self.assertEqual(saved.execute("PRAGMA integrity_check").fetchone()[0],"ok")
 
+    def test_mailbox_switch_when_delivery_acknowledgement_is_late(self):
+        from mail_protocol import DeliveryUncertain
+        codes={}
+        def mail(email,code):
+            codes[email]=code
+            if len(codes)>1: raise DeliveryUncertain()
+        self.app=create_app(b"test-only",self.path,[],mail)
+        c=self.app.test_client()
+        self.send(c,"/login/request",{"email":"first@example.test"})
+        self.assertEqual(self.send(c,"/login/request",{"email":"second@example.test"}).status_code,303)
+        self.assertEqual(self.send(c,"/login/confirm",{"code":codes["second@example.test"]}).status_code,303)
+
+    def test_smtp_delivery_boundary(self):
+        from email.message import EmailMessage
+        from unittest.mock import Mock
+        from mail_relay import submit
+        from mail_protocol import DeliveryUncertain
+        msg=EmailMessage();msg["From"]="from@example.test";msg.set_content("test")
+        smtp=Mock()
+        smtp.mail.return_value=(250,b"ok");smtp.rcpt.return_value=(250,b"ok")
+        smtp.docmd.side_effect=ConnectionError()
+        with self.assertRaises(ConnectionError): submit(smtp,msg,"from@example.test","to@example.test")
+        smtp.send.assert_not_called()
+        smtp.docmd.side_effect=None;smtp.docmd.return_value=(354,b"continue")
+        smtp.getreply.side_effect=ConnectionError()
+        with self.assertRaises(DeliveryUncertain): submit(smtp,msg,"from@example.test","to@example.test")
+
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
         second=self.get(self.guest,"/?page=2")
