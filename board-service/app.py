@@ -171,41 +171,43 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         mail_bucket=digest("mail-limit",mailbox_limit(email))
         ip=network()
         now=stamp()
-        challenge=secrets.token_urlsafe(24)
-        code=f"{secrets.randbelow(1000000):06}"
         with write(db()):
             expire(db(),now)
             if not reserve(db(),"mail",[(mail_bucket,60,1),(mail_bucket,86400,6),(ip,3600,10),(ip,86400,36),("*",3600,40),("*",86400,180)],now):
                 abort(429,description="인증번호 요청이 많습니다. 1분 뒤 다시 시도해 주세요. 일일 한도를 넘으면 다음 날 다시 이용할 수 있습니다.")
             previous=session.get("challenge","")
-            if previous and not db().execute("SELECT 1 FROM challenges WHERE id=? AND owner=? AND expires>? AND tries>0",
-                                             (previous,owner,now)).fetchone():
-                db().execute("DELETE FROM challenges WHERE id=?",(previous,))
-                session.pop("challenge",None)
-                previous=""
-            db().execute("INSERT INTO challenges VALUES (?,?,?,?,5)",(challenge,owner,digest("otp",challenge+code),now+600))
+            prior=db().execute("SELECT * FROM challenges WHERE id=? AND owner=? AND expires>? AND tries>0",
+                               (previous,owner,now)).fetchone()
+            # In the same browser, resending a live challenge sends the same number
+            # without extending its lifetime or replenishing the allowed attempts.
+            challenge=previous if prior else secrets.token_urlsafe(24)
+            code=f"{int(digest('mail-code',challenge),16)%1000000:06d}"
+            proof=digest("otp",challenge+code)
+            if prior and not hmac.compare_digest(prior["proof"],proof):
+                # A challenge issued by a previous app version cannot be reconstructed.
+                prior=None
+                challenge=secrets.token_urlsafe(24)
+                code=f"{int(digest('mail-code',challenge),16)%1000000:06d}"
+                proof=digest("otp",challenge+code)
+            if not prior:
+                if previous:
+                    db().execute("DELETE FROM challenges WHERE id=?",(previous,))
+                    session.pop("challenge",None)
+                db().execute("INSERT INTO challenges VALUES (?,?,?,?,5)",(challenge,owner,proof,now+600))
             blocked=db().execute("SELECT 1 FROM blocked WHERE owner=?",(owner,)).fetchone()
         try:
             if not blocked:
                 send_code(email,code)
         except DeliveryUncertain:
-            # Keep the same browser's last usable challenge if it has one.
-            previous_valid=db().execute("SELECT 1 FROM challenges WHERE id=? AND owner=? AND expires>? AND tries>0",(previous,owner,stamp())).fetchone()
-            if previous_valid:
-                db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
-                flash("새 메일 발송을 확인하지 못했습니다. 먼저 받은 유효한 번호를 입력해 주세요.")
-            else:
-                session["challenge"]=challenge
-                flash("발송 확인이 지연되고 있습니다. 메일이 도착했다면 번호를 입력해 주세요.")
+            session["challenge"]=challenge
+            flash("발송 확인이 지연되고 있습니다. 메일이 도착했다면 번호를 입력해 주세요.")
             return move("login")
         except OSError:
-            with write(db()):
+            if not prior:
                 db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
             abort(503,description="인증 메일을 보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.")
-        if previous:
-            db().execute("DELETE FROM challenges WHERE id=?",(previous,))
         session["challenge"]=challenge
-        flash("인증번호를 보냈습니다. 10분 안에 입력해 주세요.")
+        flash("인증번호를 보냈습니다. 번호는 최초 발급 후 10분 동안 유효합니다.")
         return move("login")
 
     @app.post("/login/confirm")

@@ -246,6 +246,25 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(self.send(c,"/login/request",{"email":"second@example.test"}).status_code,303)
         self.assertEqual(self.send(c,"/login/confirm",{"code":codes["second@example.test"]}).status_code,303)
 
+    def test_uncertain_resend_keeps_one_code_and_attempt_limit(self):
+        from mail_protocol import DeliveryUncertain
+        codes=[]
+        def delayed(email,code):
+            codes.append(code)
+            raise DeliveryUncertain()
+        self.app=create_app(b"test-only",self.path,[],delayed)
+        c=self.app.test_client()
+        self.send(c,"/login/request",{"email":"delay@example.com"})
+        with closing(connect(self.path)) as db:
+            db.execute("UPDATE events SET at=at-65")
+            db.execute("UPDATE challenges SET tries=3")
+            first=tuple(db.execute("SELECT id,expires,tries FROM challenges").fetchone())
+        self.send(c,"/login/request",{"email":"delay@example.com"})
+        self.assertEqual(codes[0],codes[1])
+        with closing(connect(self.path)) as db:
+            self.assertEqual(tuple(db.execute("SELECT id,expires,tries FROM challenges").fetchone()),first)
+        self.assertEqual(self.send(c,"/login/confirm",{"code":codes[-1]}).status_code,303)
+
     def test_smtp_delivery_boundary(self):
         from email.message import EmailMessage
         from unittest.mock import Mock
@@ -259,6 +278,8 @@ class BoardTest(unittest.TestCase):
         smtp.send.assert_not_called()
         smtp.docmd.side_effect=None;smtp.docmd.return_value=(354,b"continue")
         smtp.getreply.side_effect=ConnectionError()
+        with self.assertRaises(DeliveryUncertain): submit(smtp,msg,"from@example.test","to@example.test")
+        smtp.getreply.side_effect=None; smtp.getreply.return_value=(25,b"")
         with self.assertRaises(DeliveryUncertain): submit(smtp,msg,"from@example.test","to@example.test")
 
     def test_seed_idempotence_and_restore(self):

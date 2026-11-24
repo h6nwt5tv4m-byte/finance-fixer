@@ -45,7 +45,7 @@ def handle(sock):
     msg["From"] = "재무해결사 자유게시판 <"+address(mail["from"])+">"
     msg["To"] = recipient
     msg["Subject"] = "재무해결사 자유게시판 이메일 인증번호"
-    msg.set_content(f"게시판 로그인 인증번호는 {code} 입니다. 10분 안에 요청한 화면에 입력하세요.\n직접 요청하지 않으셨다면 이 메일을 무시하세요.",cte="base64")
+    msg.set_content(f"게시판 로그인 인증번호는 {code} 입니다. 최초 발급 후 10분 안에 요청한 화면에 입력하세요.\n직접 요청하지 않으셨다면 이 메일을 무시하세요.",cte="base64")
     smtp=smtplib.SMTP_SSL(mail["host"],int(mail["port"]),timeout=8,context=ssl.create_default_context())
     try:
         smtp.login(mail["user"],mail["password"])
@@ -69,8 +69,10 @@ def submit(smtp,msg,sender,recipient):
         status,note=smtp.getreply()
     except OSError as exc:
         raise DeliveryUncertain("SMTP acknowledgement unavailable") from exc
-    if status!=250:
+    if 400<=status<600:
         raise smtplib.SMTPDataError(status,note)
+    if status!=250:
+        raise DeliveryUncertain("incomplete SMTP acknowledgement")
 
 if __name__ == "__main__":
     connection = socket.fromfd(0,socket.AF_UNIX,socket.SOCK_STREAM)
