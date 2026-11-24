@@ -16,6 +16,15 @@ def address(value):
         local=local.lower()
     return local+"@"+domain
 
+def mailbox_limit(email):
+    """Group obvious delivery aliases only for throttling, never for access to posts."""
+    local, domain = email.lower().split("@")
+    local = local.partition("+")[0]
+    if domain in {"gmail.com", "googlemail.com"}:
+        local = local.replace(".", "")
+        domain = "gmail.com"
+    return local+"@"+domain
+
 def deliver(email, code):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
         sock.settimeout(17)

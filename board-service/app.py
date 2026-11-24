@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import HTTPException
 
-from mail_protocol import address, deliver
+from mail_protocol import address, deliver, mailbox_limit
 from storage import VISIBLE, connect, expire, reserve, write
 
 ORIGIN = "https://board.finance-fixer.net"
@@ -146,7 +146,7 @@ def create_app(key, database, admins, send_code=deliver):
         except (UnicodeError,ValueError):
             abort(400,description="이메일 주소를 확인해 주세요.")
         owner=digest("email",email)
-        mail_bucket=digest("mail-limit",email.lower())
+        mail_bucket=digest("mail-limit",mailbox_limit(email))
         ip=network()
         now=stamp()
         challenge=secrets.token_urlsafe(24)
@@ -158,8 +158,10 @@ def create_app(key, database, admins, send_code=deliver):
             previous=session.get("challenge","")
             db().execute("DELETE FROM challenges WHERE id=?",(previous,))
             db().execute("INSERT INTO challenges VALUES (?,?,?,?,5)",(challenge,owner,digest("otp",challenge+code),now+600))
+            blocked=db().execute("SELECT 1 FROM blocked WHERE owner=?",(owner,)).fetchone()
         try:
-            send_code(email,code)
+            if not blocked:
+                send_code(email,code)
         except OSError:
             with write(db()):
                 db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
@@ -222,7 +224,7 @@ def create_app(key, database, admins, send_code=deliver):
         if request.method=="GET":
             return render_template("write.html") if viewer() else move("login")
         title=request.form.get("title","").strip()
-        body=request.form.get("body","").strip()
+        body=request.form.get("body","").replace("\r\n","\n").strip()
         visibility=request.form.get("visibility","")
         if not (1<=len(title)<=100 and 1<=len(body)<=4000 and visibility in ("public","private")):
             return render_template("write.html",error="제목은 1~100자, 본문은 1~4,000자로 작성하고 공개 범위를 선택해 주세요."),400
@@ -248,7 +250,7 @@ def create_app(key, database, admins, send_code=deliver):
             item=find_post(pid,uid)
             if item["hidden"]:
                 abort(404)
-            body=request.form.get("body","").strip()
+            body=request.form.get("body","").replace("\r\n","\n").strip()
             if not (1<=len(body)<=1200):
                 abort(400,description="댓글은 1~1,200자로 작성해 주세요.")
             quota(uid)

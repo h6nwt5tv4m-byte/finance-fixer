@@ -84,7 +84,8 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(self.guest.post("/login/request",base_url=ORIGIN,data={"email":"new@example.com"}).status_code,403)
 
     def test_email_case_and_failed_delivery(self):
-        from mail_protocol import address
+        from mail_protocol import address, mailbox_limit
+        self.assertEqual(mailbox_limit("first.last+tag@googlemail.com"),mailbox_limit("firstlast@gmail.com"))
         self.assertEqual(address("Writer@iCloud.com"),"writer@icloud.com")
         self.assertNotEqual(address("Writer@example.test"),address("writer@example.test"))
         first=self.app.test_client()

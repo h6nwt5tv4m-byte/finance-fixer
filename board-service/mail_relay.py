@@ -11,7 +11,7 @@ import sqlite3
 import ssl
 import struct
 import time
-from mail_protocol import address
+from mail_protocol import address, mailbox_limit
 from storage import write
 
 def handle(sock):
@@ -27,7 +27,7 @@ def handle(sock):
     now = int(time.time())
     cfgdir = Path(os.environ["CREDENTIALS_DIRECTORY"])
     import hmac
-    dest = hmac.new((cfgdir/"mail-key").read_bytes(),recipient.lower().encode(),"sha256").hexdigest()
+    dest = hmac.new((cfgdir/"mail-key").read_bytes(),mailbox_limit(recipient).encode(),"sha256").hexdigest()
     try:
         db.execute("CREATE TABLE IF NOT EXISTS sent(dest TEXT, at INTEGER)")
         with write(db):
