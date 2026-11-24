@@ -21,27 +21,10 @@
   const bookPrefix = 'bookworm:oz:';
   const resume = document.querySelector('.resume-chapter');
 
-  function updateResumeLink() {
-    if (!resume) return;
-    const last = get('last-chapter', bookPrefix);
-    const destination = Array.from(document.querySelectorAll('.chapters a[data-chapter]'))
-      .find(link => link.dataset.chapter === last);
-    resume.hidden = !destination || last === chapter;
-    if (resume.hidden) return;
-    const scene = get('last-scene', `bookworm:oz:ch${last}:audio-v1:`);
-    const number = /^scene-([1-6])$/.exec(scene)?.[1] || '1';
-    resume.href = destination.href + '#scene-' + number;
-    resume.textContent = `${last}장 · 장면 ${number} 이어 읽기 →`;
-  }
   function rememberScene(scene) {
     set('last-scene', scene.id);
     set('last-chapter', chapter, bookPrefix);
-    updateResumeLink();
-  }
-  updateResumeLink();
-  if (resume) {
-    window.addEventListener('pageshow', updateResumeLink);
-    window.addEventListener('storage', updateResumeLink);
+    if (resume) resume.hidden = true;
   }
   function installNarration() {
     const template = document.querySelector('#narration-options');
@@ -50,8 +33,6 @@
     const speed = options.querySelector('select');
     const follow = options.querySelector('input');
     const header = document.querySelector('.top');
-    const savedFollow = get('follow', preferencePrefix);
-    follow.checked = savedFollow === null ? !matchMedia('(prefers-reduced-motion: reduce)').matches : savedFollow === 'on';
     let player;
     let toolbar;
     let words = [];
@@ -65,8 +46,20 @@
       }
       speed.value = String(rate);
     }
-    const storedRate = Number(get('rate', preferencePrefix));
-    reflectRate(storedRate >= .25 && storedRate <= 4 ? storedRate : 1);
+    function restorePreferences() {
+      const savedFollow = get('follow', preferencePrefix);
+      if (savedFollow !== null) follow.checked = savedFollow === 'on';
+      else if (!player) follow.checked = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const rate = Number(get('rate', preferencePrefix));
+      if (rate >= .25 && rate <= 4) {
+        reflectRate(rate);
+        if (player) {
+          if (player.defaultPlaybackRate !== rate) player.defaultPlaybackRate = rate;
+          if (player.playbackRate !== rate) player.playbackRate = rate;
+        }
+      }
+    }
+    restorePreferences();
 
     function setHeaderHeight() {
       document.documentElement.style.setProperty('--bookworm-header-height', header.offsetHeight + 'px');
@@ -148,8 +141,15 @@
       }
       audio.addEventListener('timeupdate', () => { if (audio === player && !frame) paint(); });
     }
+    window.addEventListener('storage', event => {
+      if (event.key === preferencePrefix + 'rate' || event.key === preferencePrefix + 'follow') restorePreferences();
+    });
     window.addEventListener('pagehide', stopFrame);
-    window.addEventListener('pageshow', refresh);
+    window.addEventListener('pageshow', () => {
+      // Browsers may restore form controls after navigating back to a chapter.
+      setTimeout(restorePreferences, 0);
+      refresh();
+    });
     document.addEventListener('visibilitychange', refresh);
     return scene => {
       stopFrame();
@@ -251,7 +251,7 @@
   const fromHash = () => sceneById(location.hash.slice(1));
   const initialScene = fromHash() || sceneById(get('last-scene')) || scenes[0];
   show(initialScene, false);
-  if (chapter !== '1') rememberScene(initialScene);
+  if (chapter !== '1' && (!fromHash() || !get('last-scene'))) rememberScene(initialScene);
   if (!location.hash) history.replaceState(null, '', '#' + initialScene.id);
   document.querySelector('.reading').addEventListener('click', event => {
     const link = event.target.closest('a[href^="#scene-"]');
