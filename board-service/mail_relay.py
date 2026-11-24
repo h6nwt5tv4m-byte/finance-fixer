@@ -41,17 +41,32 @@ def handle(sock):
     mail = json.loads((cfgdir/"smtp").read_text())
     if mail["security"] != "ssl":
         raise ValueError("SMTP transport")
+    sender=address(mail["from"])
     msg = EmailMessage()
-    msg["From"] = "재무해결사 자유게시판 <"+address(mail["from"])+">"
+    msg["From"] = "재무해결사 자유게시판 <"+sender+">"
     msg["To"] = recipient
     msg["Subject"] = "재무해결사 자유게시판 이메일 인증번호"
     msg.set_content(f"게시판 로그인 인증번호는 {code} 입니다. 최초 발급 후 10분 안에 요청한 화면에 입력하세요.\n직접 요청하지 않으셨다면 이 메일을 무시하세요.",cte="base64")
     smtp=smtplib.SMTP_SSL(mail["host"],int(mail["port"]),timeout=8,context=ssl.create_default_context())
     try:
         smtp.login(mail["user"],mail["password"])
-        submit(smtp,msg,mail["from"],recipient)
+        submit(smtp,msg,sender,recipient)
     finally:
         smtp.close()
+
+class ReplyLines:
+    """Keep smtplib's reply parser, but require complete CRLF lines after submission."""
+    def __init__(self,stream):
+        self.stream=stream
+
+    def readline(self,limit):
+        line=self.stream.readline(limit)
+        if not line.endswith(b"\r\n"):
+            raise DeliveryUncertain("incomplete SMTP reply line")
+        return line
+
+    def close(self):
+        self.stream.close()
 
 def submit(smtp,msg,sender,recipient):
     # A refusal or disconnect before the server invites the message body is definite.
@@ -66,7 +81,12 @@ def submit(smtp,msg,sender,recipient):
         payload+=b"\r\n"
     try:
         smtp.send(payload+b".\r\n")
-        status,note=smtp.getreply()
+        stream=smtp.file
+        smtp.file=ReplyLines(stream)
+        try:
+            status,note=smtp.getreply()
+        finally:
+            smtp.file=stream
     except OSError as exc:
         raise DeliveryUncertain("SMTP acknowledgement unavailable") from exc
     if 400<=status<600:

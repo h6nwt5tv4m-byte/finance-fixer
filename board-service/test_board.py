@@ -296,6 +296,34 @@ class BoardTest(unittest.TestCase):
         self.assertNotIn("운영자만 쓴 답변",self.get(former,"/account/hidden").get_data(as_text=True))
         self.assertEqual(self.send(former,"/account/hidden",{"kind":"comment","id":cid}).status_code,404)
 
+    def test_late_browser_state_cannot_overwrite_login_cookie(self):
+        c=self.app.test_client()
+        self.send(c,"/login/request",{"email":"two-tabs@example.test"})
+        code=self.sent["two-tabs@example.test"]
+        from app import AUTH_COOKIE
+        stale=c.get_cookie("__Host-board",domain="board.finance-fixer.net")
+        self.send(c,"/login/confirm",{"code":code})
+        self.assertIsNotNone(c.get_cookie(AUTH_COOKIE,domain="board.finance-fixer.net"))
+        c.set_cookie("__Host-board",stale.value,domain="board.finance-fixer.net",secure=True)
+        self.assertEqual(self.get(c,"/write").status_code,200)
+        self.send(c,"/logout",{})
+        self.assertEqual(self.get(c,"/write").status_code,303)
+
+    def test_uncertain_when_final_smtp_line_has_no_terminator(self):
+        import io,smtplib
+        from email.message import EmailMessage
+        from unittest.mock import Mock
+        from mail_relay import submit
+        from mail_protocol import DeliveryUncertain
+        for raw in (b"250 queued",b"550 rejected"):
+            smtp=smtplib.SMTP()
+            smtp.file=io.BytesIO(raw)
+            smtp.mail=Mock(return_value=(250,b"ok"));smtp.rcpt=Mock(return_value=(250,b"ok"))
+            smtp.docmd=Mock(return_value=(354,b"go"));smtp.send=Mock()
+            msg=EmailMessage();msg.set_content("test")
+            with self.assertRaises(DeliveryUncertain): submit(smtp,msg,"a@example.test","b@example.test")
+            smtp.close()
+
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
         second=self.get(self.guest,"/?page=2")

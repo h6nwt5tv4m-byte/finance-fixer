@@ -18,6 +18,7 @@ from storage import VISIBLE, connect, expire, reserve, write
 
 ORIGIN = "https://board.finance-fixer.net"
 PAGE_SIZE = 12
+AUTH_COOKIE = "__Host-board-auth"
 
 def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     if not key or identity_key == b"":
@@ -55,8 +56,11 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         if "db" in g:
             g.db.close()
 
+    def login_token():
+        return request.cookies.get(AUTH_COOKIE) or session.get("token","")
+
     def viewer():
-        token = session.get("token")
+        token = login_token()
         if not token:
             return ""
         row = db().execute("""SELECT owner FROM sessions WHERE id=? AND expires>?
@@ -228,22 +232,25 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                     db().execute("DELETE FROM challenges WHERE id=?",(challenge,))
                     owner=row["owner"]
                     if not db().execute("SELECT 1 FROM blocked WHERE owner=?",(owner,)).fetchone():
-                        db().execute("DELETE FROM sessions WHERE id=?",(digest("session",session.get("token","")),))
+                        db().execute("DELETE FROM sessions WHERE id=?",(digest("session",login_token()),))
                         db().execute("INSERT INTO sessions VALUES (?,?,?)",(digest("session",token),owner,now+(43200 if editor(owner) else 604800)))
                         success=True
         if not success:
             abort(400,description="인증번호가 만료되었거나 일치하지 않습니다. 번호를 확인하거나 다시 요청해 주세요.")
         session.clear()
-        session["token"]=token
         flash("이메일 인증이 완료되었습니다.")
-        return move("index")
+        response=move("index")
+        response.set_cookie(AUTH_COOKIE,token,secure=True,httponly=True,samesite="Lax",path="/")
+        return response
 
     @app.post("/logout")
     def logout():
-        db().execute("DELETE FROM sessions WHERE id=?",(digest("session",session.get("token","")),))
+        db().execute("DELETE FROM sessions WHERE id=?",(digest("session",login_token()),))
         db().execute("DELETE FROM challenges WHERE id=?",(session.get("challenge",""),))
         session.clear()
-        return move("index")
+        response=move("index")
+        response.delete_cookie(AUTH_COOKIE,secure=True,httponly=True,samesite="Lax",path="/")
+        return response
 
     @contextmanager
     def authenticated_write():
