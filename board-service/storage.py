@@ -46,6 +46,8 @@ def write(db):
         raise
 
 def initialize(path, identity_key=None):
+    if identity_key == b"":
+        raise ValueError("Missing board identity credential.")
     db = connect(path)
     try:
         db.execute("PRAGMA journal_mode=WAL")
@@ -54,9 +56,15 @@ def initialize(path, identity_key=None):
         with write(db):
             if identity_key is not None:
                 fingerprint=hashlib.sha256(identity_key).hexdigest()
-                db.execute("INSERT OR IGNORE INTO settings VALUES ('identity-key',?)",(fingerprint,))
-                stored=db.execute("SELECT value FROM settings WHERE name='identity-key'").fetchone()[0]
-                if stored!=fingerprint:
+                stored=db.execute("SELECT value FROM settings WHERE name='identity-key'").fetchone()
+                if stored is None:
+                    # The board launched with key fingerprints. Only initialize pristine/seed-only data.
+                    has_owners=db.execute("""SELECT EXISTS(SELECT 1 FROM posts WHERE owner!='editorial')
+                        OR EXISTS(SELECT 1 FROM comments) OR EXISTS(SELECT 1 FROM blocked)""").fetchone()[0]
+                    if has_owners:
+                        raise RuntimeError("Unversioned user data requires recovery from a verified source.")
+                    db.execute("INSERT INTO settings VALUES ('identity-key',?)",(fingerprint,))
+                elif stored[0]!=fingerprint:
                     raise RuntimeError("Restore the matching board identity key before starting.")
             for i, item in enumerate(items, start=1):
                 key = f"opening-{i:02}"

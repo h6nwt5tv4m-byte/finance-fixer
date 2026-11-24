@@ -88,9 +88,10 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(mailbox_limit("first.last+tag@googlemail.com"),mailbox_limit("firstlast@gmail.com"))
         self.assertEqual(address("Writer@iCloud.com"),"writer@icloud.com")
         self.assertNotEqual(address("Writer@example.test"),address("writer@example.test"))
+        self.assertNotEqual(mailbox_limit("team+one@example.test"),mailbox_limit("team+two@example.test"))
         first=self.app.test_client()
-        self.assertEqual(self.send(first,"/login/request",{"email":"Writer@example.test"}).status_code,303)
-        self.assertEqual(self.send(self.guest,"/login/request",{"email":"writer@example.test"}).status_code,429)
+        self.assertEqual(self.send(first,"/login/request",{"email":"Writer@icloud.com"}).status_code,303)
+        self.assertEqual(self.send(self.guest,"/login/request",{"email":"writer@icloud.com"}).status_code,429)
         def down(email, code):
             raise OSError("test relay failed")
         app=create_app(b"test-only",self.path,[],down)
@@ -187,6 +188,15 @@ class BoardTest(unittest.TestCase):
             release.set()
             t.join(3)
         self.assertEqual(results,[303])
+
+    def test_existing_owner_needs_matching_key_and_nonempty_credentials(self):
+        with self.assertRaises(ValueError): initialize(self.path,b"")
+        with self.assertRaises(ValueError): create_app(b"valid",self.path,[],identity_key=b"")
+        user=self.account("owner@example.com")
+        self.create(user,"private")
+        with self.assertRaises(RuntimeError): initialize(self.path,b"unverified")
+        with closing(connect(self.path)) as db:
+            self.assertIsNone(db.execute("SELECT value FROM settings WHERE name='identity-key'").fetchone())
 
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")

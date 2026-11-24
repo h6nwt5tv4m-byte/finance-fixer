@@ -20,6 +20,9 @@ ORIGIN = "https://board.finance-fixer.net"
 PAGE_SIZE = 12
 
 def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
+    if not key or identity_key == b"":
+        raise ValueError("Board credentials must be nonempty.")
+    identity_secret = key if identity_key is None else identity_key
     app = Flask(__name__)
     app.config.update(SECRET_KEY=key, MAX_CONTENT_LENGTH=48000, MAX_FORM_MEMORY_SIZE=48000,
                       SESSION_COOKIE_NAME="__Host-board",SESSION_COOKIE_SECURE=True,
@@ -35,7 +38,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         local,domain=email.split("@")
         if domain in {"gmail.com","googlemail.com"}:
             email=mailbox_limit(email)
-        return hmac.new(identity_key or key,("email\0"+email).encode(),"sha256").hexdigest()
+        return hmac.new(identity_secret,("email\0"+email).encode(),"sha256").hexdigest()
 
     admin_ids = {owner_id(address(x.strip())) for x in admins if x.strip()}
     def editor(uid):

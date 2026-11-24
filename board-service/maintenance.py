@@ -1,6 +1,7 @@
 """Initialize board data and take a private, consistent daily snapshot."""
 from datetime import date
 import os
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import sys
@@ -13,20 +14,22 @@ def backup(database, directory):
     directory.mkdir(mode=0o700,parents=True,exist_ok=True)
     today=date.today()
     target=directory/f"{today}.sqlite"
-    pending=directory/f".{today}.tmp"
+    pending=directory/".snapshot.pending"
+    pending.unlink(missing_ok=True)
     source=sqlite3.connect(f"file:{database}?mode=ro",uri=True)
     try:
-        dest=sqlite3.connect(pending)
-        try:
-            source.backup(dest)
-            dest.execute("PRAGMA secure_delete=ON")
-            with dest:
-                dest.execute("DELETE FROM sessions")
-                dest.execute("DELETE FROM challenges")
-            if dest.execute("PRAGMA integrity_check").fetchone()[0]!="ok":
-                raise RuntimeError("invalid snapshot")
-        finally:
-            dest.close()
+        # SQLite owns and unlinks this unnamed temporary database. Named backup files
+        # only ever receive the sanitized snapshot, including after an interrupted run.
+        with closing(sqlite3.connect("")) as clean:
+            source.backup(clean)
+            clean.execute("PRAGMA secure_delete=ON")
+            with clean:
+                clean.execute("DELETE FROM sessions")
+                clean.execute("DELETE FROM challenges")
+            with closing(sqlite3.connect(pending)) as dest:
+                clean.backup(dest)
+                if dest.execute("PRAGMA integrity_check").fetchone()[0]!="ok":
+                    raise RuntimeError("invalid snapshot")
         pending.chmod(0o600)
         pending.replace(target)
     finally:
