@@ -25,6 +25,6 @@ systemd는 앱에 세션 서명 키(board.key)와 작성자 식별 키(identity.
 
 공식 블로그 financefixer의 공개 RSS를 매일 한국시간 08:20, 12:20, 20:20에 확인한다. 관리비·생활정보 및 회계감사·외부감사에서 아파트 감사나 공동 관리비 주제가 확인된 글을 골라 공개 본문을 게시한다. 표는 행 단위로 옮기고 사진은 원문 링크로 연결한다. 긴 글은 4,000자 안에서 완결된 본문 단락까지 싣는다. 최초 설정 이후 글부터 게시하며 블로그 글번호를 보존해 재시도와 운영자 삭제 뒤에도 중복 게시를 방지한다.
 
-배포 시 시스템 Python의 requests와 bs4, /opt/finance-board/columns/column_feed.py, finance-board-columns.service 및 .timer가 필요하다. systemctl enable --now finance-board-columns.timer로 시작한다. 중단은 systemctl disable --now finance-board-columns.timer로 하고, 발행 대조 기록은 보존한다. 글별 대기 기록은 RSS에서 내려간 뒤에도 재시도에 사용한다.
+배포 시 시스템 Python의 requests와 bs4가 필요하다. /opt/finance-board/columns/에 column_feed.py와 column_source.py를 함께 설치한다. 웹 릴리스에도 app.py와 column_source.py를 함께 배포하고 finance-board-columns.service와 .timer를 설치한다. systemctl enable --now finance-board-columns.timer로 시작한다. 중단은 systemctl disable --now finance-board-columns.timer로 하고, 발행 대조 기록은 보존한다. 글별 대기 기록은 RSS에서 내려간 뒤에도 재시도에 사용한다.
 
 첫 연재글은 운영자 명의로 별도 게시한 [드라마 〈아파트〉의 178억, 회계사는 어디부터 볼까?](https://board.finance-fixer.net/p/50979288e2687104d1fceab5)이다. 게시물의 관련 자료는 [질문과 공사비 대조표가 있는 사진 칼럼](https://finance-fixer.net/columns/apartment-reserve/)으로 연결된다.
