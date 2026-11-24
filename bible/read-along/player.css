@@ -1,0 +1,25 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #faf8f1; color: #202d29; font-family: system-ui, sans-serif; }
+main { max-width: 43rem; margin: 0 auto; padding: 1.5rem clamp(.9rem,4vw,2rem) 4rem; }
+h1 { margin: .5rem 0 .3rem; font-family: Georgia, serif; font-size: clamp(1.65rem,5vw,2.5rem); line-height: 1.25; }
+header p { margin: 0 0 1.1rem; color: #55635a; }
+.controls { position: sticky; z-index: 1; top: 0; display: flex; gap: .85rem; align-items: center;
+  padding: .8rem 0; border-bottom: 1px solid #ccd3ca; background: #faf8f1; }
+button { flex: none; min-width: 6.25rem; min-height: 2.75rem; border: none; border-radius: 2rem;
+  background: #225e49; color: white; font: 650 .92rem system-ui, sans-serif; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid #956214; outline-offset: 3px; }
+input { flex: 1; min-width: 0; margin: 0; height: 2.75rem; accent-color: #225e49; }
+output { color: #384b41; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: .84rem; }
+#passage { font: clamp(1.2rem, 2vw, 1.44rem)/1.78 Georgia, 'Times New Roman', serif; }
+.verse { margin: .85rem 0; border-left: 3px solid transparent; padding: .08rem .2rem .08rem .75rem; }
+.verse.current { border-color: #3f785e; background: #edf3e9; }
+sup { margin-right: .42em; color: #516c59; font: 700 .62em system-ui, sans-serif; vertical-align: super; }
+.word { border-radius: .14em; }
+.word.current { color: #15362a; background: #ffdf71; box-shadow: 0 .085em #ad7617; }
+footer { padding-top: .9rem; border-top: 1px solid #ccd3ca; font-size: .85rem; }
+a { color: #225e49; }
+@media (forced-colors: active) { .word.current { text-decoration: underline double; } .verse.current { border-color: Highlight; } }
+@media (max-width: 370px) { .controls { gap: .45rem; } }
+
+.bible-tabs { display: flex; flex-wrap: wrap; gap: .45rem 1.1rem; margin: 0 0 1.45rem; font-size: .875rem; }
+.bible-tabs a[aria-current="page"] { color: #202d29; font-weight: 700; }
