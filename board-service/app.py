@@ -32,7 +32,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         return int(time.time())
 
     def digest(kind, value):
-        return hmac.new(key,(kind+"\0"+value).encode(),"sha256").hexdigest()
+        secret=identity_secret if kind in {"mail-limit","ip"} else key
+        return hmac.new(secret,(kind+"\0"+value).encode(),"sha256").hexdigest()
 
     def owner_id(email):
         local,domain=email.split("@")

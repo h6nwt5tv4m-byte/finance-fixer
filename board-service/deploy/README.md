@@ -11,6 +11,6 @@ systemd는 앱에 세션 서명 키(board.key)와 작성자 식별 키(identity.
 ## 복구
 
 1. 선택한 스냅샷을 별도 디렉터리로 복사하여 무결성, 글 수, 식별 키 지문을 확인한다. 백업 날짜 이후 글·삭제·차단 변경분의 복구 가능 여부를 확인한다.
-2. finance-board-web.socket, finance-board.service, 백업 타이머를 멈춘다. 현재 DB 및 같은 이름의 WAL·SHM 파일을 한꺼번에 별도 보호 경로에 보관한다.
+2. 백업 타이머와 finance-board-web.socket, finance-board.service를 멈춘다. 이미 실행 중인 finance-board-backup.service도 종료되었는지 확인한 뒤 복구를 시작한다. 복구에 쓸 사본은 이 과정 전에 별도 위치에 복사해 둔다. 현재 DB 및 같은 이름의 WAL·SHM 파일을 한꺼번에 별도 보호 경로에 보관한다.
 3. 확인한 DB 사본을 finance-board 사용자 소유, 0600 권한으로 설치한다. 스냅샷에 대응하는 identity.key를 복구한다. 이전 방식으로 만든 사본에는 로그인 세션과 OTP가 들어 있을 수 있으므로 서비스 기동 전에 sessions와 challenges를 비운다.
 4. 서비스·소켓·백업 타이머를 재개한다. 운영자와 작성자가 이메일을 새로 인증하고 권한별 목록·비밀글·차단이 맞는지 확인한다.

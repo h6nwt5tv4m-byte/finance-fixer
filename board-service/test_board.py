@@ -198,6 +198,13 @@ class BoardTest(unittest.TestCase):
         with closing(connect(self.path)) as db:
             self.assertIsNone(db.execute("SELECT value FROM settings WHERE name='identity-key'").fetchone())
 
+    def test_mail_quota_survives_session_key_rotation(self):
+        identity=b"stable key"
+        self.app=create_app(b"left",self.path,[],self.sent.__setitem__,identity_key=identity)
+        self.assertEqual(self.send(self.app.test_client(),"/login/request",{"email":"one@example.test"}).status_code,303)
+        self.app=create_app(b"right",self.path,[],self.sent.__setitem__,identity_key=identity)
+        self.assertEqual(self.send(self.app.test_client(),"/login/request",{"email":"one@example.test"}).status_code,429)
+
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
         second=self.get(self.guest,"/?page=2")
