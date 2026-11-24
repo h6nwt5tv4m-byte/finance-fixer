@@ -29,9 +29,10 @@ def matches_topic(category, title, tags):
     if category not in {"관리비·생활정보", "회계감사·외부감사"}:
         return False
     # A comparison can cover apartments and shops. A shop-only article is outside this series.
+    title = re.sub(r"\s+", "", title)
     if OTHER_BUILDINGS.search(title) and not HOUSING.search(title):
         return False
-    for phrase in [title, *tags.split(",")]:
+    for phrase in [title, *re.sub(r"\s+", "", tags).split(",")]:
         if HOUSING.search(phrase) and MANAGEMENT.search(phrase):
             return True
         if category == "관리비·생활정보" and SPECIFIC.search(phrase):
@@ -78,9 +79,14 @@ def board_body(html, title, url=None):
     main = doc.select_one(".se-main-container")
     if not meta or meta.get("content") != title or not main:
         raise ValueError("Public title or article body unavailable")
+    for br in main.select("br"):
+        br.replace_with("\n")
     sections = []
     for block in main.select(".se-component"):
         if "se-table" in block.get("class", []):
+            if block.select_one('[rowspan]:not([rowspan="1"]), [colspan]:not([colspan="1"])'):
+                sections.append("이 표는 셀이 병합되어 있습니다. 아래 ‘관련 자료 보기’에서 원본 표를 확인해 주세요.")
+                continue
             lines = [" | ".join(" ".join(cell.stripped_strings) for cell in row.find_all(["th", "td"], recursive=False))
                      for row in block.select("tr")]
         else:
@@ -89,6 +95,8 @@ def board_body(html, title, url=None):
             lines = ["\n".join(lines)]
         sections.extend(line for line in lines if line.strip())
     if not sections:
+        if main.select_one(".se-image img, .se-image-resource"):
+            return "사진으로 구성한 칼럼입니다. 아래 ‘관련 자료 보기’에서 사진과 함께 읽어 보세요."
         raise ValueError("No public article paragraphs")
     body = "\n\n".join(sections)
     if len(body) > 4000:
@@ -105,16 +113,33 @@ def board_body(html, title, url=None):
     return body
 
 
+def manual_duplicate(db, url, title):
+    # Only the board itself can label a signed-in contributor as an operator.
+    candidates = db.execute("""SELECT id, owner, body FROM posts WHERE title=? AND private=0 AND hidden=0
+                               AND (source_url=? OR instr(body,?)>0)""", (title, url, url)).fetchall()
+    for pid, owner, body in candidates:
+        if url in body and not re.search(re.escape(url) + r"(?![0-9])", body):
+            continue
+        if owner == "editorial":
+            return True
+        page = BeautifulSoup(fetch("https://board.finance-fixer.net/p/" + pid).decode("utf-8"), "html.parser")
+        author = page.select_one("article .byline span")
+        if author and author.get_text(strip=True) == "재무해결사 운영자":
+            return True
+    return False
+
+
 def publish(db, log_no, title, body, source_day, now):
     if not 0 < len(title) <= 100:
         raise ValueError("Title exceeds board limits")
     url = BLOG + log_no
     key = "public-blog:" + log_no
     pid = hashlib.sha256(key.encode()).hexdigest()[:24]
+    existing = manual_duplicate(db, url, title)
     with write(db):
         if not db.execute("INSERT OR IGNORE INTO seeded(key) VALUES(?)", (key,)).rowcount:
             return False
-        if db.execute("SELECT 1 FROM posts WHERE owner='editorial' AND source_url=?", (url,)).fetchone():
+        if existing or db.execute("SELECT 1 FROM posts WHERE owner='editorial' AND source_url=?", (url,)).fetchone():
             return False
         if not reserve(db, "write", [("editorial", 30, 1), ("editorial", 86400, 20), ("*", 86400, 1000)], now):
             raise ValueError("Board rate limit; retry on next run")
