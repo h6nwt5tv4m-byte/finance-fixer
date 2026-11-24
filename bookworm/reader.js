@@ -16,7 +16,8 @@
   const sceneLinks = Array.from(toc.querySelectorAll('a'));
   const narrow = matchMedia('(max-width: 760px)');
   const chapter = document.documentElement.dataset.chapter || '1';
-  const progressPrefix = `bookworm:oz:ch${chapter}:audio-v1:`;
+  const book = document.documentElement.dataset.book || 'oz';
+  const progressPrefix = `bookworm:${book}:ch${chapter}:audio-v1:`;
   // Retain chapter one's existing speed and follow preferences across the book.
   const preferencePrefix = 'bookworm:oz:ch1:audio-v1:';
   let active;
@@ -36,7 +37,7 @@
       else progress.set(prefix + key, value);
     } catch { /* Reading works without storage. */ }
   }
-  const bookPrefix = 'bookworm:oz:';
+  const bookPrefix = `bookworm:${book}:`;
   const resume = document.querySelector('.resume-chapter');
 
   function readingTime(scene) {
@@ -316,7 +317,7 @@
   const entry = new URL(location.href);
   const chosen = entry.searchParams.get('read') === '1';
   if (chosen) entry.searchParams.delete('read');
-  if (!get('last-chapter', bookPrefix) && get('last-scene', preferencePrefix)) {
+  if (book === 'oz' && !get('last-chapter', bookPrefix) && get('last-scene', preferencePrefix)) {
     set('last-chapter', '1', bookPrefix);
   }
   const explicit = !!earlyPlayer || chosen || history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix);

@@ -5,7 +5,7 @@
   const english = document.documentElement.lang === 'en';
   function accountUrl() {
     const current = new URL(location.href);
-    const chapter = /^\/bookworm\/\d+\/$/.test(current.pathname);
+    const chapter = /^\/bookworm\/(?:holmes\/)?\d+\/$/.test(current.pathname);
     const home = ['finance-fixer.net','www.finance-fixer.net'].includes(current.hostname);
     const safe = new URLSearchParams();
     if (home && chapter && current.searchParams.get('read') === '1') safe.set('read','1');

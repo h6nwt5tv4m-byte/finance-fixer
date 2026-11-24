@@ -96,6 +96,27 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(bad.status_code,400)
         self.assertEqual(state(a).json["bookmark"]["revision"],1)
 
+    def test_book_positions_remain_separate(self):
+        reader = self.account("reader@example.com")
+        origin = {"Origin": "https://finance-fixer.net"}
+        def position(book):
+            return reader.get("/site/bookworm/" + book, base_url=ORIGIN, headers=origin)
+        token = position("oz").json["csrf"]
+        def save(book, chapter, scene, ms, revision=0):
+            return reader.put("/site/bookworm/" + book, base_url=ORIGIN,
+                              headers={**origin, "X-Bookworm-CSRF": token},
+                              json=dict(chapter=chapter, scene=scene, ms=ms, revision=revision))
+        self.assertEqual(save("oz", 24, 1, 1000).status_code, 200)
+        self.assertIsNone(position("holmes").json["bookmark"])
+        self.assertEqual(save("holmes", 12, 29, 7200).status_code, 200)
+        self.assertEqual(position("oz").json["bookmark"]["ms"], 1000)
+        self.assertEqual(save("holmes", 12, 30, 7200, 1).status_code, 400)
+        self.assertEqual(save("holmes", 13, 1, 0, 1).status_code, 400)
+        self.assertEqual(save("oz", 12, 29, 0, 1).status_code, 400)
+        self.assertEqual(save("holmes", 1, 1, 0).status_code, 409)
+        self.assertEqual(position("holmes").json["bookmark"]["revision"], 1)
+        self.assertEqual(position("unknown").status_code, 404)
+
     def test_public_narration_ranges(self):
         media = Path(self.tmp.name)/"audio"
         media.mkdir()

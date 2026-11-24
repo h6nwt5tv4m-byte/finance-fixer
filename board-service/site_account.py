@@ -13,7 +13,7 @@ TOOLS = {f"https://{name}.finance-fixer.net" for name in
          ("aptfee", "bench", "econ", "gamsain", "jiwon", "jobs", "sangkwon")}
 SITE = HOME | TOOLS
 OZ_SCENES = (6, 6, 6, 5, 7, 5, 6, 7, 5, 7, 13, 13, 4, 7, 10, 3, 4, 4, 4, 5, 3, 3, 4, 1)
-
+BOOK_SCENES = {"oz": OZ_SCENES, "holmes": (25, 26, 20, 28, 21, 27, 23, 28, 24, 23, 28, 29)}
 
 
 def return_page(value):
@@ -67,12 +67,15 @@ def install(app, db, viewer, label, digest, token):
         uid = viewer()
         return jsonify(label=label(uid) if uid else None)
 
-    @app.route("/site/bookworm/oz", methods=["GET", "PUT"])
-    def book_position():
+    @app.route("/site/bookworm/<book>", methods=["GET", "PUT"])
+    def book_position(book):
+        if book not in BOOK_SCENES:
+            abort(404)
+        scenes = BOOK_SCENES[book]
         if request.headers.get("Origin") not in HOME:
             abort(403)
         def result(uid):
-            row = db().execute("SELECT chapter,scene,ms,revision FROM reading_bookmarks WHERE owner=? AND book='oz'", (uid,)).fetchone()
+            row = db().execute("SELECT chapter,scene,ms,revision FROM reading_bookmarks WHERE owner=? AND book=?", (uid, book)).fetchone()
             return {"scope": digest("book-cache", uid)[:24], "csrf": token(),
                     "bookmark": dict(row) if row else None}
 
@@ -91,7 +94,7 @@ def install(app, db, viewer, label, digest, token):
             if not isinstance(data, dict) or not all(type(data.get(k)) is int for k in ("chapter", "scene", "ms", "revision")):
                 abort(400)
             ch, scene, ms, rev = (data[k] for k in ("chapter", "scene", "ms", "revision"))
-            if not (1 <= ch <= len(OZ_SCENES) and 1 <= scene <= OZ_SCENES[ch-1] and 0 <= ms <= 86400000 and 0 <= rev < 2**53):
+            if not (1 <= ch <= len(scenes) and 1 <= scene <= scenes[ch-1] and 0 <= ms <= 86400000 and 0 <= rev < 2**53):
                 abort(400)
             state = result(uid)
             old = state["bookmark"]
@@ -100,13 +103,13 @@ def install(app, db, viewer, label, digest, token):
             if (old["revision"] if old else 0) != rev:
                 return jsonify(state), 409
             db().execute("""INSERT INTO reading_bookmarks(owner,book,chapter,scene,ms,revision)
-                            VALUES (?,'oz',?,?,?,?) ON CONFLICT(owner,book) DO UPDATE SET
+                            VALUES (?,?,?,?,?,?) ON CONFLICT(owner,book) DO UPDATE SET
                             chapter=excluded.chapter,scene=excluded.scene,ms=excluded.ms,revision=excluded.revision""",
-                         (uid, ch, scene, ms, rev+1))
+                         (uid, book, ch, scene, ms, rev+1))
             return jsonify(result(uid))
 
     @app.get("/bookworm-audio/<name>")
     def book_audio(name):
-        if not re.fullmatch(r"oz-[0-9]{2}-[0-9]{2}-[0-9a-f]{12}\.mp3", name):
+        if not re.fullmatch(r"(?:oz|holmes)-[0-9]{2}-[0-9]{2}-[0-9a-f]{12}\.mp3", name):
             abort(404)
         return send_from_directory(Path(app.config["BOOKWORM_MEDIA"]), name, mimetype="audio/mpeg", conditional=True)
