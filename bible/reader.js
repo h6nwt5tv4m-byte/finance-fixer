@@ -1,11 +1,15 @@
+import {attachReadAlong, detachReadAlong, readAlongChapter} from './read-along/paired-player.js?v=20261124-paired-v3';
 const $ = id => document.getElementById(id);
 const local = ['127.0.0.1', 'localhost'].includes(location.hostname);
 const api = local ? '/bible/api' : 'https://bible-api.finance-fixer.net';
 const locationKey = 'finance-fixer:bible:reader:location';
-let books = [], current, generation = 0, controller, timer;
-let koreanState='loading', englishState='loading';
-const koreanCache=new Map();
-function refreshRetry(){ $('retry').hidden=!(koreanState==='error'||englishState==='error'); }
+const study = $('study');
+const audioPanel = $('chapter-audio');
+const passage = $('passage');
+const staticCache = new Map();
+let books = [], current, request, fetchTimer, playerTimer;
+let englishReady = false, koreanVerses;
+let englishError = false, koreanError = false;
 
 // Unexpected markup fails as a whole, before anything enters the live document.
 export function bibleFragment(html) {
@@ -34,58 +38,6 @@ export function bibleFragment(html) {
 function option(value, text) {
   const item = document.createElement('option'); item.value = value; item.textContent = text; return item;
 }
-function setChapters(book, chapter) {
-  $('chapter').replaceChildren(...Array.from({length:book.chapters}, (_,i) => option(String(i+1), `${i+1}장`)));
-  $('chapter').value = String(chapter);
-}
-function validSelection(book, chapter) {
-  const selected = books.find(b => b.id === book);
-  return selected && Number.isInteger(chapter) && chapter >= 1 && chapter <= selected.chapters ? {book:selected,chapter} : null;
-}
-function fromURL() {
-  const params = new URLSearchParams(location.search);
-  return validSelection(params.get('book'), Number(params.get('chapter')));
-}
-function remember(book, chapter) {
-  try { localStorage.setItem(locationKey, JSON.stringify({book:book.id,chapter})); } catch {}
-}
-const audioPanel = $('chapter-audio');
-const playerHost = $('audio-player');
-let audioTimer;
-
-function clearAudio() {
-  clearTimeout(audioTimer);
-  playerHost?.replaceChildren();
-}
-
-function updateAudio() {
-  if (!audioPanel || !playerHost || !current) return;
-  if (!audioPanel.open) {
-    clearAudio();
-    return;
-  }
-  const {book, chapter} = current;
-  const url = `https://www.bible.com/audio-bible/111/${encodeURIComponent(book.id)}.${chapter}.NIV`;
-  if (playerHost.firstElementChild?.getAttribute('src') === url) return;
-  clearAudio();
-  // Detach the old player now and load only the last chapter chosen in a quick series.
-  audioTimer = setTimeout(() => {
-    if (!audioPanel.open) return;
-    const frame = document.createElement('iframe');
-    frame.title = `YouVersion NIV 낭독 · ${book.name} ${chapter}장에서 시작`;
-    frame.loading = 'lazy';
-    frame.referrerPolicy = 'no-referrer';
-    frame.src = url;
-    playerHost.replaceChildren(frame);
-  }, 200);
-}
-
-function links(book, chapter) {
-  $('audio-link').href = `https://www.biblegateway.com/audio/mclean/niv/${encodeURIComponent(book.osis)}.${chapter}`;
-  $('krv-original').href = `https://www.bskorea.or.kr/bible/korbibReadpage.php?version=HAN&book=${book.bsk}&chap=${chapter}&sec=0`;
-  $('context-link').href = book.id === 'MRK' ? 'https://bibleproject.com/guides/book-of-mark/' : 'https://bibleproject.com/explore/book-overviews/';
-  $('context-link').textContent = book.id === 'MRK' ? 'BibleProject 마가복음 개요 · 영어 ↗' : 'BibleProject 성경 개요 ↗';
-}
 async function getJSON(url, signal) {
   const response = await fetch(url, {signal,cache:url.startsWith(api)?'no-store':'default',credentials:'omit',referrerPolicy:'no-referrer'});
   if (!response.ok) {
@@ -95,165 +47,336 @@ async function getJSON(url, signal) {
   }
   return response.json();
 }
-function renderKorean(data, book, chapter) {
-  if (data.id !== book.id || !Array.isArray(data.chapters)) throw new Error('invalid_krv');
-  const selected = data.chapters.find(c => c.chapter === chapter);
-  if (!selected || !Array.isArray(selected.verses) || selected.verses.length !== book.verses[chapter-1]) throw new Error('invalid_krv');
-  const fragment = document.createDocumentFragment();
-  for (const [index, verse] of selected.verses.entries()) {
-    if (verse.verse !== index+1 || typeof verse.text !== 'string' || !verse.text.trim()) throw new Error('invalid_krv');
-    const p = document.createElement('p'); p.className = 'korean-verse'; p.id = `krv-${verse.verse}`;
-    const number = document.createElement('span'); number.className = 'verse-number'; number.textContent = verse.verse;
-    const text = document.createElement('span'); text.textContent = verse.text;
-    p.append(number,text); fragment.append(p);
-  }
-  return fragment;
-}
-function errorText(error) {
-  if(error.message==='suspended')return 'NIV 읽기를 잠시 쉬고 있습니다. 한글 본문이나 Bible Gateway 원문을 이용해 주세요.';
-  if(['invalid_niv','unsupported_markup','unsupported_attribute','invalid_class','text_mismatch'].includes(error.message))return '현재 이 장의 영어 본문을 표시할 수 없습니다. Bible Gateway 원문을 이용해 주세요.';
-  return error.message === 'rate_limit' ? '이용량 제한에 도달했습니다. 나중에 다시 시도하거나 Bible Gateway 원문을 이용해 주세요.' : 'NIV 본문을 불러오지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.';
-}
-async function loadKorean(book,chapter,seq,signal){
-  try{
-    let data=koreanCache.get(book.id);
-    if(!data)data=await getJSON(`./krv/${book.id}.json`,signal);
-    if(seq!==generation)return;
-    const fragment=renderKorean(data,book,chapter);
-    koreanCache.delete(book.id);koreanCache.set(book.id,data);
-    if(koreanCache.size>3)koreanCache.delete(koreanCache.keys().next().value);
-    $('krv-content').replaceChildren(fragment);$('krv-status').textContent='';koreanState='ready';
-    if($('verse').value)jumpVerse({scroll:false});
-  }catch(error){
-    if(seq!==generation||error.name==='AbortError')return;
-    koreanState='error';$('krv-status').textContent='한글 본문을 불러오지 못했습니다. 다시 시도하거나 아래 대한성서공회 원문 링크를 이용해 주세요.';
-  }
-  refreshRetry();
-}
-async function loadEnglish(book, chapter, seq, signal) {
-  try {
-    const data = await getJSON(`${api}/chapter?book=${book.id}&chapter=${chapter}`,signal);
-    if (seq !== generation) return;
-    if (data.id !== `${book.id}.${chapter}` || typeof data.html !== 'string' || typeof data.copyright !== 'string' || !data.copyright.trim()) throw new Error('invalid_niv');
-    const fragment = bibleFragment(data.html);
-    $('niv-content').replaceChildren(fragment);
-    $('niv-copyright').textContent = data.copyright;
-    $('niv-status').textContent = '';
-    englishState='ready';
-    const selected=$('verse').value;
-    const numbers=new Set(Array.from({length:book.verses[chapter-1]},(_,i)=>i+1));
-    for(const marker of $('niv-content').querySelectorAll('.yv-v[v]')){
-      const match=/^(\d+)(?:-(\d+))?$/.exec(marker.getAttribute('v'));
-      if(match)for(let n=Number(match[1]);n<=Math.min(Number(match[2]||match[1]),200);n++)numbers.add(n);
+
+async function localChapter(edition, book, chapter, signal) {
+  const key = edition + '/' + book.id;
+  let data = staticCache.get(key);
+  if (!data) {
+    data = await getJSON('./' + key + '.json', signal);
+    if (!signal.aborted) {
+      if (staticCache.size >= 6) staticCache.delete(staticCache.keys().next().value);
+      staticCache.set(key, data);
     }
-    $('verse').replaceChildren(option('','절 선택'),...[...numbers].sort((a,b)=>a-b).map(n=>option(String(n),`${n}절`)));
-    $('verse').value=selected;if(selected)jumpVerse({scroll:false});
-    refreshRetry();
-  } catch (error) {
-    if (seq !== generation || error.name === 'AbortError') return;
-    $('niv-content').replaceChildren(); $('niv-copyright').textContent = '';
-    $('niv-status').textContent = errorText(error);
-    englishState=['invalid_niv','unsupported_markup','unsupported_attribute','invalid_class','text_mismatch','suspended'].includes(error.message)?'unavailable':'error';
-    refreshRetry();
+  }
+  if (edition === 'bsb') {
+    const selected = data[chapter - 1];
+    if (!Array.isArray(selected) || !selected.every(v => typeof v === 'string')) throw new Error('invalid_bsb');
+    return selected;
+  }
+  const selected = data.chapters?.[chapter - 1];
+  if (data.id !== book.id || selected?.chapter !== chapter || selected.verses?.length !== book.verses[chapter - 1] ||
+    !selected.verses.every((v, i) => v.verse === i + 1 && typeof v.text === 'string')) throw new Error('invalid_krv');
+  return selected.verses.map(v => v.text);
+}
+
+// Keep the provider's headings, paragraphs, poetry, table structure and notes.
+// A table stays together so that column labels retain their meaning.
+function nivBlocks(html, chapterLength) {
+  const root = document.createElement('div');
+  root.append(bibleFragment(html));
+  const starts = [];
+  let heading = null;
+  const verseNumber = el => /^(\d+)(?:-(\d+))?$/.exec(el.getAttribute('v') || '');
+  for (const node of root.querySelectorAll('.yv-h,table,.yv-v[v]')) {
+    if (node.closest('.yv-n') || node.parentElement.closest('table')) continue;
+    if (node.matches('.yv-h')) { heading ||= node; continue; }
+    const markers = node.matches('table') ? [...node.querySelectorAll('.yv-v[v]')] : [node];
+    const numbers = markers.map(verseNumber).filter(Boolean);
+    if (!numbers.length) continue;
+    const first = Number(numbers[0][1]), last = Number(numbers.at(-1)[2] || numbers.at(-1)[1]);
+    if (first < 1 || last > 200 || last < first || (starts.length && first <= starts.at(-1).end)) continue;
+    starts.push({start:first, end:last, node:heading || node});
+    heading = null;
+  }
+  if (!starts.length) return [{start:1, end:chapterLength, content:root.firstChild ? root : null}];
+  const items = starts.map((item, i) => {
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    if (i) range.setStartBefore(item.node);
+    if (starts[i + 1]) range.setEndBefore(starts[i + 1].node);
+    let content = range.cloneContents();
+    for (let parent = range.commonAncestorContainer; parent && parent !== root; parent = parent.parentNode) {
+      if (parent.nodeType !== Node.ELEMENT_NODE) continue;
+      const wrap = parent.cloneNode(false);
+      wrap.append(content); content = wrap;
+    }
+    return {...item, content};
+  });
+  if (items.map(item => item.content.textContent).join('') !== root.textContent) throw new Error('text_mismatch');
+  return items;
+}
+function clearOfficial() {
+  clearTimeout(playerTimer);
+  $('audio-player').replaceChildren();
+}
+function updateOfficial() {
+  clearOfficial();
+  if (!current || current.version !== 'NIV' || !audioPanel.open) return;
+  document.dispatchEvent(new Event('stop-study-audio'));
+  const {book, chapter} = current;
+  playerTimer = setTimeout(() => {
+    const frame = document.createElement('iframe');
+    frame.title = 'YouVersion NIV 낭독 · ' + book.name + ' ' + chapter + '장';
+    frame.referrerPolicy = 'no-referrer';
+    frame.src = 'https://www.bible.com/audio-bible/111/' + book.id + '.' + chapter + '.NIV';
+    $('audio-player').replaceChildren(frame);
+  }, 150);
+}
+function koreanNumbers(englishNumber, last) {
+  const {book, chapter} = current;
+  const id = book.id + '.' + chapter;
+  if (id === '1SA.30' && last === 31 && englishNumber === 31) return [];
+  if (id === '2CO.13' && last === 14 && englishNumber >= 12) return englishNumber === 12 ? [] : [englishNumber - 1];
+  if (id === 'SNG.6' && last === 13 && englishNumber === 13) return [13,14];
+  if (id === '3JN.1' && last === 14 && englishNumber === 14) return [14,15];
+  return [englishNumber];
+}
+function joinPrevious(verse, last) {
+  return (current.book.id === '1SA' && current.chapter === 30 && last === 31 && verse === 31) ||
+    (current.book.id === '2CO' && current.chapter === 13 && last === 14 && verse === 12);
+}
+function rowFor(verse) {
+  return passage.querySelector('.verse-row[data-start="' + verse + '"]') ||
+    [...passage.querySelectorAll('.verse-row')].find(row => +row.dataset.start <= verse && verse <= +row.dataset.end);
+}
+function fillKorean() {
+  if (!koreanVerses) return;
+  for (const cell of passage.querySelectorAll('.ko-text')) {
+    cell.replaceChildren();
+    const numbers = cell.dataset.verses.split(',').map(Number);
+    const row = cell.parentElement;
+    for (const n of numbers) {
+      if (!n || !koreanVerses[n-1]) continue;
+      const p = document.createElement('p');
+      if (numbers.length > 1 || n !== Number(row.dataset.start) || row.dataset.start !== row.dataset.end) {
+        const num = document.createElement('sup'); num.textContent = n; p.append(num);
+      }
+      p.append(koreanVerses[n-1]); cell.append(p);
+    }
   }
 }
-function load(book, chapter, {historyMode='push',debounce=true}={}) {
-  controller?.abort(); clearTimeout(timer);
-  controller = new AbortController(); const signal = controller.signal; const seq = ++generation;
-  current = {book,chapter}; koreanState='loading';englishState='loading';
-  $('book').value = book.id; setChapters(book,chapter);
-  $('chapter-title').textContent = `${book.name} ${chapter}장`;
-  $('chapter-english').textContent = `${book.english.toUpperCase()} ${chapter}`;
-  document.title = `${book.name} ${chapter}장 · NIV와 개역한글 | 성경으로 영어 공부`;
-  $('reader-status').textContent = '책이나 장을 바꾸어 이어서 읽을 수 있습니다.';
-  $('niv-content').replaceChildren(); $('krv-content').replaceChildren(); $('niv-copyright').textContent = '';
-  $('niv-status').textContent = '영어 본문을 불러오고 있습니다.';
-  $('krv-status').textContent = '한글 본문을 불러오고 있습니다.';
-  $('verse-status').textContent = ''; $('retry').hidden = true;
-  $('verse').replaceChildren(option('','절 선택'),...Array.from({length:book.verses[chapter-1]},(_,i)=>option(String(i+1),`${i+1}절`)));
-  $('previous').disabled = book.id === books[0].id && chapter === 1;
-  $('next').disabled = book.id === books.at(-1).id && chapter === book.chapters;
-  links(book,chapter); remember(book,chapter);
-  updateAudio();
-  if (historyMode !== 'none') {
-    const url = new URL(location.href); url.searchParams.set('book',book.id); url.searchParams.set('chapter',chapter);
-    if (historyMode === 'push') url.hash='';
-    try{history[historyMode === 'replace' ? 'replaceState' : 'pushState'](null,'',url);}catch{}
+function renderPassage(items) {
+  const fragment = document.createDocumentFragment();
+  const kCount = current.book.verses[current.chapter-1];
+  const last = items.at(-1)?.end || kCount;
+  const entries = new Map(items.map(item => [item.start,item]));
+  const covered = new Set(items.flatMap(item => Array.from({length:item.end-item.start},(_,i) => item.start+i+1)));
+  let previous, cell;
+  for (let n = 1; n <= last; n++) {
+    if (covered.has(n)) continue;
+    const item = entries.get(n);
+    const end = item?.end || n;
+    let row = previous;
+    if (!row || !joinPrevious(n,last)) {
+      row = document.createElement('div'); row.className = 'verse-row'; row.id = 'v' + n;
+      row.dataset.start = n;
+      const number = document.createElement('span'); number.className = 'number'; number.textContent = n;
+      cell = document.createElement('div'); cell.className = 'en-text'; cell.lang = 'en';
+      if (current.version === 'NIV') { cell.dataset.yvSdk=''; cell.dataset.slot='yv-bible-renderer'; }
+      const ko = document.createElement('div'); ko.className = 'ko-text'; ko.lang = 'ko'; ko.dataset.verses = '';
+      row.append(number, cell, ko); fragment.append(row); previous = row;
+    }
+    row.dataset.end = end;
+    if (n !== +row.dataset.start || end > n) row.firstChild.textContent = row.dataset.start + '–' + end;
+    if (item?.content) {
+      if (cell.childNodes.length) cell.append(' ');
+      cell.append(item.content);
+    } else if (englishReady) {
+      const missing=document.createElement('small'); missing.lang='ko'; missing.textContent='이 판본에 해당 절 본문 없음'; cell.append(missing);
+    }
+    const ko = row.lastElementChild;
+    const numbers = [];
+    for (let i=n; i<=end; i++) numbers.push(...koreanNumbers(i,last));
+    ko.dataset.verses = [ko.dataset.verses, ...numbers.filter(v=>v <= kCount)].filter(Boolean).join(',');
   }
-  loadKorean(book,chapter,seq,signal);
-  timer = setTimeout(()=>loadEnglish(book,chapter,seq,signal),debounce?250:0);
+  // If English has fewer numbered verses with no known equivalence, retain the Korean text.
+  const mapped = new Set([...fragment.querySelectorAll('.ko-text')].flatMap(c => c.dataset.verses.split(',').map(Number)));
+  for (let n=1; n<=kCount; n++) {
+    if (mapped.has(n)) continue;
+    const row=document.createElement('div'); row.className='verse-row';
+    row.dataset.start=n; row.dataset.end=n;
+    const en=document.createElement('div'); en.className='en-text';
+    const ko=document.createElement('div'); ko.className='ko-text'; ko.dataset.verses=String(n);
+    row.append(en,ko); fragment.append(row);
+  }
+  if (passage.contains(study)) passage.after(study);
+  passage.replaceChildren(fragment);
+  fillKorean();
+  if (isLesson()) rowFor(8)?.after(study);
+  const selected=$('verse').value;
+  $('verse').replaceChildren(option('','절 선택'), ...Array.from({length:Math.max(last,kCount)},(_,i)=>option(String(i+1),(i+1)+'절')));
+  $('verse').value=selected;
+  if (selected) jump(false);
 }
-function retryCurrent(){
-  controller?.abort();clearTimeout(timer);controller=new AbortController();const signal=controller.signal;const seq=++generation;
-  if(koreanState!=='ready'){
-    koreanState='loading';$('krv-status').textContent='한글 본문을 불러오고 있습니다.';
-    loadKorean(current.book,current.chapter,seq,signal);
+function isLesson() {return current.book.id==='MRK' && current.chapter===1;}
+function jump(scroll) {
+  passage.querySelector('.selected')?.classList.remove('selected');
+  const n=Number($('verse').value);
+  if (!n) return;
+  const row=rowFor(n) || [...passage.querySelectorAll('.ko-text')].find(c=>c.dataset.verses.split(',').includes(String(n)))?.parentElement;
+  row?.classList.add('selected');
+  if (scroll) row?.scrollIntoView({block:'center',behavior:'instant'});
+}
+function anchor() {
+  const hash=location.hash.slice(1);
+  if (['study','english','review','context'].includes(hash) && isLesson()) {
+    study.open=true; $(hash)?.scrollIntoView({block:'start',behavior:'instant'});
+  } else if (hash==='chapter-audio' && current.version==='NIV') {
+    audioPanel.open=true; audioPanel.scrollIntoView({block:'start',behavior:'instant'});
+  } else if (hash==='readalong' && !$('readalong').hidden) {
+    $('readalong').scrollIntoView({block:'start',behavior:'instant'});
+  } else if (/^v\d+$/.test(hash)) {
+    $('verse').value=hash.slice(1); jump(true);
   }
-  if(englishState==='error'||englishState==='loading'){
-    englishState='loading';$('niv-status').textContent='영어 본문을 불러오고 있습니다.';
-    loadEnglish(current.book,current.chapter,seq,signal);
+}
+function englishFailure(err) {
+  if (current.version==='BSB') return 'BSB 본문을 불러오지 못했습니다.';
+  if (err.message==='rate_limit') return 'NIV 조회 한도에 도달했습니다. 같은 장을 BSB로 계속 읽을 수 있습니다.';
+  if (err.message==='suspended') return 'NIV 제공이 일시 중단되었습니다. 같은 장을 BSB로 읽을 수 있습니다.';
+  return 'NIV 본문을 불러오지 못했습니다. 다시 시도하거나 같은 장을 BSB로 읽어 보세요.';
+}
+function bsbBlocks(verses) {
+  return verses.map((text,i) => ({start:i+1,end:i+1,content:text}));
+}
+function displayEnglish(items, copyright, version) {
+  englishReady=true; $('english-status').textContent='';
+  $('niv-copyright').textContent=copyright;
+  renderPassage(items);
+  if (version==='BSB' && isLesson()) attachReadAlong();
+  anchor();
+}
+async function english(book,chapter,version,signal) {
+  let items, copyright='';
+  if (version==='BSB') {
+    const verses=await localChapter('bsb',book,chapter,signal);
+    items=bsbBlocks(verses);
+  } else {
+    const data=await getJSON(api+'/chapter?book='+book.id+'&chapter='+chapter,signal);
+    if (signal.aborted) return;
+    if (data.id!==book.id+'.'+chapter || typeof data.html!=='string' || typeof data.copyright!=='string' || !data.copyright.trim()) throw new Error('invalid_niv');
+    items=nivBlocks(data.html, book.verses[chapter-1]); copyright=data.copyright;
   }
-  refreshRetry();
+  if (!signal.aborted) displayEnglish(items, copyright, version);
+}
+function retryVisibility() { $('retry').hidden=!(englishError||koreanError); }
+async function loadKorean(book, chapter, signal) {
+  koreanError=false; retryVisibility();
+  try {
+    const data=await localChapter('krv',book,chapter,signal);
+    if(signal.aborted)return;
+    koreanVerses=data; fillKorean(); $('krv-status').textContent='';
+  } catch {
+    if(signal.aborted)return;
+    koreanError=true; $('krv-status').textContent='한글 본문을 불러오지 못했습니다.'; retryVisibility();
+  }
+}
+async function loadEnglish(book, chapter, version, signal) {
+  englishError=false; retryVisibility(); $('use-bsb').hidden=true;
+  try { await english(book,chapter,version,signal); }
+  catch(err) {
+    if(signal.aborted)return;
+    englishError=true; $('english-status').textContent=englishFailure(err);
+    retryVisibility(); $('use-bsb').hidden=version!=='NIV'; anchor();
+  }
+}
+function select(book,chapter,version,historyMode='push',hash='') {
+  const keepOfficial = audioPanel.open && current?.version === 'NIV' && version === 'NIV';
+  request?.abort(); clearTimeout(fetchTimer); clearOfficial();
+  detachReadAlong(); document.dispatchEvent(new Event('stop-study-audio'));
+  request=new AbortController(); const signal=request.signal;
+  current={book,chapter,version}; englishReady=false; koreanVerses=null; englishError=false; koreanError=false;
+  const url=new URL(location.href);
+  url.searchParams.set('book',book.id); url.searchParams.set('chapter',String(chapter)); url.searchParams.set('version',version); url.hash=hash;
+  if (historyMode!=='none') history[historyMode+'State'](null,'',url);
+  try {localStorage.setItem(locationKey,JSON.stringify({book:book.id,chapter,version}));} catch {}
+  $('book').value=book.id; $('chapter').replaceChildren(...Array.from({length:book.chapters},(_,i)=>option(String(i+1),i+1+'장')));
+  $('chapter').value=String(chapter); $('version').value=version; $('verse').value='';
+  $('chapter-title').textContent=book.name+' '+chapter+'장'; $('chapter-english').textContent=book.english+' '+chapter;
+  document.title=$('chapter-title').textContent+' · '+version+' 한영 성경 읽기';
+  $('edition-title').textContent=version==='BSB'?'Berean Standard Bible · BSB':'New International Version · NIV';
+  $('bsb-credit').hidden=version!=='BSB'; $('voice-credit').hidden=!isLesson(); $('niv-credit').hidden=version!=='NIV';
+  $('niv-copyright').textContent=''; $('english-status').textContent=version+' 본문을 불러오는 중…'; $('krv-status').textContent='';
+  $('retry').hidden=true; $('use-bsb').hidden=true;
+  $('audio-link').href='https://www.biblegateway.com/audio/mclean/niv/'+book.osis+'.'+chapter;
+  $('krv-original').href='https://www.bskorea.or.kr/bible/korbibReadpage.php?version=HAN&book='+book.bsk+'&chap='+chapter+'&sec=0';
+  $('context-link').href=book.id==='MRK'?'https://bibleproject.com/guides/book-of-mark/':'https://bibleproject.com/explore/book-overviews/';
+  audioPanel.open=version==='NIV' && (hash==='#chapter-audio' || keepOfficial); audioPanel.hidden=version!=='NIV';
+  $('word-mode').hidden = version !== 'NIV' || !isLesson();
+  if (audioPanel.open) updateOfficial();
+  study.open=false; study.hidden=!isLesson();
+  $('lesson-entry').textContent=isLesson()?'1–8절 단어·배경·복습':'마가복음 첫 학습 구절';
+  $('lesson-entry').href='?book=MRK&chapter=1&version='+version+'#study';
+  $('previous').disabled=book===books[0]&&chapter===1; $('next').disabled=book===books.at(-1)&&chapter===book.chapters;
+  renderPassage([]);
+  loadKorean(book,chapter,signal);
+  if (version === 'BSB' && isLesson()) displayEnglish(bsbBlocks(readAlongChapter()), '', version);
+  else fetchTimer=setTimeout(()=>loadEnglish(book,chapter,version,signal), historyMode==='push' && version==='NIV'?180:0);
+  if (hash==='#study' || hash==='#context' || hash==='#review' || hash==='#english') anchor();
 }
 function move(delta) {
-  let {book,chapter}=current; const index=books.indexOf(book); chapter+=delta;
-  if(chapter<1){if(index===0)return;book=books[index-1];chapter=book.chapters;}
-  if(chapter>book.chapters){if(index===books.length-1)return;book=books[index+1];chapter=1;}
-  load(book,chapter);
+  let {book, chapter,version}=current; const i=books.indexOf(book); chapter+=delta;
+  if (chapter<1) {book=books[i-1];chapter=book.chapters;}
+  if (chapter>book.chapters) {book=books[i+1];chapter=1;}
+  select(book,chapter,version); $('reading').scrollIntoView({block:'start',behavior:'instant'});
 }
-function jumpVerse({scroll=true}={}) {
-  document.querySelectorAll('.selected-verse').forEach(n=>n.classList.remove('selected-verse'));
-  const verse=$('verse').value; if(!verse)return;
-  const korean=$(`krv-${verse}`);
-  const english=[...$('niv-content').querySelectorAll('.yv-v[v]')].find(n=>{
-    const match=/^(\d+)(?:-(\d+))?$/.exec(n.getAttribute('v'));
-    return match&&Number(verse)>=Number(match[1])&&Number(verse)<=Number(match[2]||match[1]);
-  });
-  korean?.classList.add('selected-verse'); english?.classList.add('selected-verse');
-  let hasText=false;
-  if(english){
-    const markers=[...$('niv-content').querySelectorAll('.yv-v')];
-    const next=markers[markers.indexOf(english)+1];
-    const range=document.createRange();range.setStartAfter(english);
-    if(next)range.setEndBefore(next);else range.setEnd($('niv-content'),$('niv-content').childNodes.length);
-    const fragment=range.cloneContents();fragment.querySelectorAll('.yv-n,.yv-vlbl,.yv-h').forEach(n=>n.remove());
-    hasText=!!fragment.textContent.trim();
+function openLocation(mode) {
+  const params=new URLSearchParams(location.search);
+  let saved={};
+  try {saved=JSON.parse(localStorage.getItem(locationKey))||{};} catch {}
+  const hasRef=params.has('book')||params.has('chapter');
+  let book=books.find(b=>b.id===(hasRef?params.get('book'):saved.book));
+  let chapter=Number(hasRef?params.get('chapter'):saved.chapter);
+  if (!book||!Number.isInteger(chapter)||chapter<1||chapter>book.chapters) {book=books.find(b=>b.id==='MRK');chapter=1;}
+  const requested = params.get('version') || (hasRef || location.hash==='#chapter-audio'?'NIV':saved.version);
+  const version = requested === 'BSB' ? 'BSB' : 'NIV';
+  if (mode === 'none' && current?.book === book && current.chapter === chapter && current.version === version) {
+    if (!['#study','#english','#review','#context'].includes(location.hash)) study.open = false;
+    anchor();
+    return;
   }
-  $('verse-status').textContent=hasText?'같은 절 번호에 표시했습니다.':$('niv-content').textContent?'NIV에는 이 절의 본문이 없습니다. 번역본의 절 구분이나 각주를 확인해 주세요.':'영어 본문을 불러온 뒤 절을 다시 선택해 주세요.';
-  if(scroll)(english||korean)?.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  select(book,chapter,version,mode,location.hash);
 }
 async function start() {
-  try {
-    books=await getJSON('./books.json?v=20261121-audio');
-    if(!Array.isArray(books)||books.length!==66||new Set(books.map(b=>b.id)).size!==66
-      ||books.some(b=>typeof b.osis!=='string'||!/^([1-3])?[A-Za-z]+$/.test(b.osis)))throw new Error('books');
-    for(const [value,label]of[['old','구약'],['new','신약']]){
-      const group=document.createElement('optgroup');group.label=label;
-      for(const book of books.filter(b=>b.testament===value))group.append(option(book.id,book.name));
-      $('book').append(group);
-    }
-    document.querySelector('.toolbar').hidden=false;document.querySelector('.reading-tools').hidden=false;
-    $('book').addEventListener('change',()=>load(books.find(b=>b.id===$('book').value),1));
-    $('chapter').addEventListener('change',()=>load(current.book,Number($('chapter').value)));
-    $('previous').addEventListener('click',()=>move(-1));$('next').addEventListener('click',()=>move(1));
-    $('verse').addEventListener('change',jumpVerse);
-    $('retry').addEventListener('click',retryCurrent);
-    if (audioPanel) {
-      audioPanel.hidden = false;
-      audioPanel.addEventListener('toggle', updateAudio);
-      window.addEventListener('pagehide', clearAudio);
-      window.addEventListener('pageshow', event => { if (event.persisted) updateAudio(); });
-    }
-    window.addEventListener('popstate',()=>{const chosen=fromURL()||{book:books.find(b=>b.id==='MRK'),chapter:1};load(chosen.book,chosen.chapter,{historyMode:'none'});});
-    let chosen=fromURL();
-    if(!chosen&&!new URLSearchParams(location.search).has('book'))try{const saved=JSON.parse(localStorage.getItem(locationKey));chosen=validSelection(saved?.book,saved?.chapter);}catch{}
-    chosen ||= {book:books.find(b=>b.id==='MRK'),chapter:1};
-    const font=document.createElement('link');font.rel='stylesheet';font.crossOrigin='anonymous';font.href=`${api}/fonts.css`;document.head.append(font);
-    load(chosen.book,chosen.chapter,{historyMode:'replace',debounce:false});
-    if (location.hash === '#chapter-audio') audioPanel?.scrollIntoView({block:'start',behavior:'instant'});
-  } catch {
-    $('reader-status').textContent='책 목록을 불러오지 못했습니다. 새로고침하거나 첫 학습 단원을 이용해 주세요.';
-    $('niv-status').textContent='';$('krv-status').textContent='';
+  books=await getJSON('./books.json?v=20261121-audio');
+  if (books.length!==66) throw new Error('books');
+  for (const [value,label] of [['old','구약'],['new','신약']]) {
+    const group=document.createElement('optgroup'); group.label=label;
+    for (const book of books.filter(b=>b.testament===value)) group.append(option(book.id,book.name));
+    $('book').append(group);
   }
+  $('selectors').hidden=false; $('reading-tools').hidden=false;
+  $('book').onchange=()=>select(books.find(b=>b.id===$('book').value),1,current.version);
+  $('chapter').onchange=()=>select(current.book,Number($('chapter').value),current.version);
+  $('version').onchange=()=>select(current.book,current.chapter,$('version').value);
+  $('word-mode').onclick = () => {
+    select(current.book,current.chapter,'BSB','push','#readalong');
+    $('toggle').click();
+  };
+  $('use-bsb').onclick=()=>select(current.book,current.chapter,'BSB');
+  $('previous').onclick=()=>move(-1); $('next').onclick=()=>move(1);
+  $('verse').onchange=()=>jump(true);
+  $('show-korean').onchange=()=>document.querySelector('main').classList.toggle('no-korean',!$('show-korean').checked);
+  $('retry').onclick=()=>{
+    const {book,chapter,version}=current;
+    if(koreanError)loadKorean(book,chapter,request.signal);
+    if(englishError)loadEnglish(book,chapter,version,request.signal);
+  };
+  $('lesson-entry').onclick=event=>{
+    if(event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+    event.preventDefault();
+    if(!isLesson()) {select(books.find(b=>b.id==='MRK'),1,current.version,'push','#study'); return;}
+    if(location.hash!=='#study') history.pushState(null,'','#study');
+    anchor();
+  };
+  audioPanel.addEventListener('toggle',updateOfficial);
+  document.addEventListener('stop-passage-audio',()=>{audioPanel.open=false;clearOfficial();});
+  window.addEventListener('pagehide',clearOfficial);
+  window.addEventListener('pageshow',e=>{if(e.persisted)updateOfficial();});
+  window.addEventListener('popstate',()=>openLocation('none'));
+  const header=document.querySelector('.top');
+  function measure(){document.documentElement.style.setProperty('--site-header',header.offsetHeight+'px');}
+  measure(); if(window.ResizeObserver)new ResizeObserver(measure).observe(header);
+  const font=document.createElement('link');font.rel='stylesheet';font.crossOrigin='anonymous';font.href=api+'/fonts.css';document.head.append(font);
+  openLocation('replace');
 }
-start();
+start().catch(()=>{$('reader-status').textContent='책 목록을 불러오지 못했습니다. 새로고침해 주세요.';});

@@ -127,6 +127,7 @@
       if (message) setState(next, message);
     }
     function playClip(button) {
+      document.dispatchEvent(new Event('stop-passage-audio'));
       stop();
       const text = button.dataset.say;
       const cue = cues.get(button);
@@ -200,6 +201,8 @@
       button.addEventListener('click', () => playClip(button));
       button.hidden = false;
     });
+    document.addEventListener('stop-study-audio', () => { if (busy()) stop('읽기를 멈췄습니다.'); });
+    $('study')?.addEventListener('toggle', () => { if (!$('study').open && busy()) stop('읽기를 멈췄습니다.'); });
     $('stop').addEventListener('click', () => { if (busy()) stop('읽기를 멈췄습니다.'); });
     ['rate', 'repeat'].forEach((id) => $(id).addEventListener('change', () => {
       if (busy()) stop('설정을 바꿨습니다. 듣기 버튼을 눌러 다시 시작해 주세요.');
