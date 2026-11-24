@@ -11,6 +11,9 @@
   let restored = false;
   let interacted = false;
   let lastWrite = 0;
+  let lastSavedTime = null;
+  let expectedTime = null;
+  const restoreTargets = new WeakMap();
 
   function get(key, prefix = progressPrefix) {
     try { return localStorage.getItem(prefix + key); } catch { return null; }
@@ -47,16 +50,21 @@
       speed.value = String(rate);
     }
     function restorePreferences() {
-      const savedFollow = get('follow', preferencePrefix);
-      if (savedFollow !== null) follow.checked = savedFollow === 'on';
-      else if (!player) follow.checked = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const rate = Number(get('rate', preferencePrefix));
-      if (rate >= .25 && rate <= 4) {
-        reflectRate(rate);
-        if (player) {
-          if (player.defaultPlaybackRate !== rate) player.defaultPlaybackRate = rate;
-          if (player.playbackRate !== rate) player.playbackRate = rate;
-        }
+      let savedFollow;
+      let savedRate;
+      try {
+        savedFollow = localStorage.getItem(preferencePrefix + 'follow');
+        savedRate = localStorage.getItem(preferencePrefix + 'rate');
+      } catch {
+        if (player) return;
+      }
+      follow.checked = savedFollow == null ? !matchMedia('(prefers-reduced-motion: reduce)').matches : savedFollow === 'on';
+      const storedRate = Number(savedRate);
+      const rate = storedRate >= .25 && storedRate <= 4 ? storedRate : 1;
+      reflectRate(rate);
+      if (player) {
+        if (player.defaultPlaybackRate !== rate) player.defaultPlaybackRate = rate;
+        if (player.playbackRate !== rate) player.playbackRate = rate;
       }
     }
     restorePreferences();
@@ -142,7 +150,7 @@
       audio.addEventListener('timeupdate', () => { if (audio === player && !frame) paint(); });
     }
     window.addEventListener('storage', event => {
-      if (event.key === preferencePrefix + 'rate' || event.key === preferencePrefix + 'follow') restorePreferences();
+      if (event.key === null || event.key === preferencePrefix + 'rate' || event.key === preferencePrefix + 'follow') restorePreferences();
     });
     window.addEventListener('pagehide', stopFrame);
     window.addEventListener('pageshow', () => {
@@ -173,12 +181,23 @@
   function sceneById(id) {
     return scenes.find(scene => scene.id === id);
   }
+  function claimPosition(scene) {
+    interacted = true;
+    lastSavedTime = null;
+    expectedTime = get(scene.id + ':time');
+    rememberScene(scene);
+  }
   function saveTime() {
     if (!interacted || !restored) return;
     const audio = active.querySelector('audio');
     if (!Number.isFinite(audio.duration)) return;
     const time = audio.ended || audio.duration - audio.currentTime < 2 ? 0 : audio.currentTime;
-    set(active.id + ':time', String(time));
+    const key = active.id + ':time';
+    // A late pause or pagehide must not replace a newer seek in another tab.
+    if (lastSavedTime === time || get(key) !== expectedTime) return;
+    expectedTime = String(time);
+    set(key, expectedTime);
+    lastSavedTime = time;
     lastWrite = Date.now();
   }
   function restoreTime() {
@@ -188,7 +207,8 @@
     const time = Number(get(active.id + ':time'));
     const target = time > 0 && time < audio.duration - 2 ? time : 0;
     if (Math.abs(audio.currentTime - target) > .25) {
-      try { audio.currentTime = target; } catch { return; }
+      restoreTargets.set(audio, target);
+      try { audio.currentTime = target; } catch { restoreTargets.delete(audio); return; }
     }
     restored = true;
   }
@@ -204,6 +224,7 @@
       restored = false;
       interacted = false;
       lastWrite = 0;
+      lastSavedTime = null;
       for (const item of scenes) item.hidden = item !== scene;
       for (const link of sceneLinks) {
         if (link.hash === '#' + scene.id) link.setAttribute('aria-current', 'location');
@@ -214,7 +235,6 @@
       restoreTime();
     }
     if (selected) {
-      rememberScene(scene);
       if (narrow.matches) toc.open = false;
       const title = scene.querySelector('h2');
       title.focus({preventScroll: true});
@@ -228,20 +248,24 @@
     audio.addEventListener('play', () => {
       if (scene !== active) { audio.pause(); return; }
       restoreTime();
-      interacted = true;
-      rememberScene(scene);
+      claimPosition(scene);
     });
     audio.addEventListener('seeked', () => {
+      const target = restoreTargets.get(audio);
+      if (target !== undefined && Math.abs(audio.currentTime - target) < .3) return;
+      restoreTargets.delete(audio);
       if (scene !== active || !restored) return;
-      // A metadata-only resume can seek before the user starts the player.
+      // A seek made by the reader can take ownership of a previously paused position.
       if (interacted || Math.abs(audio.currentTime - Number(get(scene.id + ':time'))) > .3) {
-        interacted = true;
-        rememberScene(scene);
+        claimPosition(scene);
         saveTime();
       }
     });
     audio.addEventListener('timeupdate', () => {
-      if (scene === active && !audio.paused && Date.now() - lastWrite > 2000) saveTime();
+      if (scene !== active || audio.paused) return;
+      const target = restoreTargets.get(audio);
+      if (target !== undefined && Math.abs(audio.currentTime - target) >= .3) restoreTargets.delete(audio);
+      if (Date.now() - lastWrite > 2000) saveTime();
     });
     for (const event of ['pause', 'ended']) {
       audio.addEventListener(event, () => { if (scene === active) saveTime(); });
@@ -251,8 +275,20 @@
   const fromHash = () => sceneById(location.hash.slice(1));
   const initialScene = fromHash() || sceneById(get('last-scene')) || scenes[0];
   show(initialScene, false);
-  if (chapter !== '1' && (!fromHash() || !get('last-scene'))) rememberScene(initialScene);
-  if (!location.hash) history.replaceState(null, '', '#' + initialScene.id);
+  // Chapter-choice links signal intent even when opened in a new tab.
+  const entry = new URL(location.href);
+  const chosen = entry.searchParams.get('read') === '1';
+  if (chosen) entry.searchParams.delete('read');
+  if (!get('last-chapter', bookPrefix) && get('last-scene', preferencePrefix)) {
+    set('last-chapter', '1', bookPrefix);
+  }
+  const explicit = chosen || history.state?.bookwormScene === initialScene.id || !get('last-chapter', bookPrefix);
+  if (explicit) rememberScene(initialScene);
+  if (!entry.hash) entry.hash = initialScene.id;
+  if (chosen || !location.hash || explicit) {
+    const state = explicit ? {...history.state, bookwormScene: initialScene.id} : history.state;
+    history.replaceState(state, '', entry);
+  }
   document.querySelector('.reading').addEventListener('click', event => {
     const link = event.target.closest('a[href^="#scene-"]');
     if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -261,13 +297,18 @@
     event.preventDefault();
     if (location.hash !== link.hash) {
       if (!fromHash()) history.replaceState(null, '', '#' + active.id);
-      history.pushState(null, '', link.hash);
+      history.pushState({bookwormScene: scene.id}, '', link.hash);
+    } else {
+      history.replaceState({...history.state, bookwormScene: scene.id}, '', link.hash);
     }
     show(scene, true);
+    rememberScene(scene);
   });
   window.addEventListener('hashchange', () => {
     const scene = fromHash();
-    if (scene) show(scene, true);
+    if (!scene) return;
+    show(scene, true);
+    if (history.state?.bookwormScene === scene.id) rememberScene(scene);
   });
   window.addEventListener('pagehide', saveTime);
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveTime(); });
