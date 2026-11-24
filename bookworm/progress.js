@@ -23,6 +23,7 @@
     let session = null;
     let pending = null;
     let selecting = false;
+    let checkingChoice;
     let writing = false;
     let writable = true;
     let generation = 0;
@@ -165,7 +166,7 @@
       storePending(null);
     }
     async function flush() {
-      if (invalidated || verifyingReturn || writing || !pending || !session?.csrf || !writable) return;
+      if (invalidated || verifyingReturn || writing || (checkingChoice && checkingChoice === choiceId) || !pending || !session?.csrf || !writable) return;
       if (choiceSuperseded() || (chosenAt && session.bookmark?.chosen_at > chosenAt)) { relinquish(); return; }
       if (offlineWrite) {
         // Check whether the lost request arrived before issuing a new write.
@@ -274,8 +275,8 @@
 
     function save(chapter, scene, seconds, action, immediate, mark) {
       if (invalidated || !session?.csrf) return;
+      const fresh = action && !mark;
       if (action) {
-        const fresh = !mark;
         mark ??= captureChoice();
         if (!stillCurrent(mark)) { relinquish(); return; }
         if (mark.id !== choiceId) {
@@ -307,6 +308,21 @@
         writable = false;
         pending = null;
         return;
+      }
+      if (fresh && session.server_us && samePosition(session.bookmark, pending)) {
+        // A coarsely timed device may deliberately reclaim the same position just
+        // after another device. Only a choice observed at this gesture may break that tie.
+        const id = choiceId;
+        checkingChoice = id;
+        void fetchState().then(next => {
+          if (!acceptScope(next) || id !== choiceId || !pending || choiceSuperseded()) return;
+          if (next.bookmark?.chosen_at === chosenAt && next.bookmark.choice_id && next.bookmark.choice_id !== id) {
+            chosenAt++;
+            storePending(pending);
+          }
+        }).finally(() => {
+          if (checkingChoice === id) { checkingChoice = null; void flush(); }
+        });
       }
       if (action || immediate || Date.now() - lastPush > 10000) {
         lastPush = Date.now();
