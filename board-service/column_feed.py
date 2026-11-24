@@ -19,7 +19,7 @@ from storage import connect, reserve, write
 FEED = "https://rss.blog.naver.com/financefixer.xml"
 BLOG = "https://blog.naver.com/financefixer/"
 HOUSING = re.compile(r"아파트|공동주택|입주자대표|입대의|관리사무소|우리\s?단지|K-?apt", re.I)
-MANAGEMENT = re.compile(r"관리비|관리수수료|장기수선|장충금|수선유지비|승강기유지비|시설유지비|공동전기료|회계감사|감사인|감사의견|감사보고서|감사보수")
+MANAGEMENT = re.compile(r"관리비|관리수수료|장기수선|장충금|수선유지비|승강기유지비|시설유지비|공동전기료|외부감사|회계감사|감사인|감사의견|감사보고서|감사보수")
 SPECIFIC = re.compile(r"장기수선충당금|장충금|승강기유지비|수선유지비|공용관리비|개별사용료|위탁관리수수료|시설유지비|관리비[ ]?(고지서|회계감사비|잡비)")
 OTHER_BUILDINGS = re.compile(r"상가|상업용|오피스텔|사무실|매장|기숙사")
 KST = timezone(timedelta(hours=9))
@@ -29,18 +29,15 @@ def matches_topic(category, title, tags):
     if category not in {"관리비·생활정보", "회계감사·외부감사"}:
         return False
     # A comparison can cover apartments and shops. A shop-only article is outside this series.
-    title = re.sub(r"\s+", "", title)
-    if OTHER_BUILDINGS.search(title) and not HOUSING.search(title):
+    terms = re.sub(r"\s+", "", title + " " + tags)
+    if OTHER_BUILDINGS.search(title) and not re.search(r"아파트|공동주택", terms):
         return False
-    for phrase in [title, *re.sub(r"\s+", "", tags).split(",")]:
-        if HOUSING.search(phrase) and MANAGEMENT.search(phrase):
-            return True
-        if category == "관리비·생활정보" and SPECIFIC.search(phrase):
-            return True
-    return False
+    if HOUSING.search(terms) and MANAGEMENT.search(terms):
+        return True
+    return category == "관리비·생활정보" and bool(SPECIFIC.search(terms))
 
 
-def public_items(xml, since, now):
+def public_items(xml, since, now, excluded=None):
     root = ElementTree.fromstring(xml)
     channel = root.find("channel")
     if channel is None:
@@ -49,10 +46,12 @@ def public_items(xml, since, now):
     for item in channel.findall("item"):
         title = (item.findtext("title") or "").strip()
         category = item.findtext("category")
-        if not matches_topic(category, title, item.findtext("tag", "")):
-            continue
         match = re.fullmatch(re.escape(BLOG) + r"([0-9]+)(?:\?[^#]*)?", item.findtext("link", ""))
         if not match or item.findtext("author") != "financefixer":
+            continue
+        if not matches_topic(category, title, item.findtext("tag", "")):
+            if excluded is not None:
+                excluded.add(match[1])
             continue
         try:
             published = parsedate_to_datetime(item.findtext("pubDate", ""))
@@ -161,14 +160,17 @@ def main():
     if since.tzinfo is None:
         parser.error("--since requires an explicit UTC offset")
     failed = []
+    excluded = set()
     try:
-        items = public_items(fetch(FEED), since, datetime.now(timezone.utc))
+        items = public_items(fetch(FEED), since, datetime.now(timezone.utc), excluded)
     except (requests.RequestException, ElementTree.ParseError, ValueError) as exc:
         # Already observed posts can still be completed while RSS is unavailable.
         print("RSS unavailable:", type(exc).__name__, flush=True)
         items, failed = [], ["RSS"]
     with closing(connect(DATABASE)) as db:
         with write(db):
+            db.executemany("DELETE FROM settings WHERE name=?",
+                           [("column-pending:" + log_no,) for log_no in excluded])
             for published, log_no, title in items:
                 if not db.execute("SELECT 1 FROM seeded WHERE key=?", ("public-blog:" + log_no,)).fetchone():
                     db.execute("""INSERT INTO settings(name,value) VALUES(?,?)
