@@ -1,0 +1,21 @@
+[Unit]
+Description=Publish new apartment columns from the FinanceFixer blog
+After=network-online.target finance-board.service
+Wants=network-online.target
+Requisite=finance-board.service
+PartOf=finance-board.service
+
+[Service]
+Type=oneshot
+User=finance-board
+Group=finance-board
+WorkingDirectory=/opt/finance-board/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONPATH=/opt/finance-board/current
+ExecStart=/usr/bin/python3 /opt/finance-board/columns/column_feed.py --since 2026-11-24T18:45:00+09:00
+UMask=0077
+ProtectSystem=strict
+ReadWritePaths=/var/lib/finance-board
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
