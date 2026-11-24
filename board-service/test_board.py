@@ -337,6 +337,17 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(r.status_code,403)
         self.assertNotEqual(old,form_token())
 
+    def test_expired_cookie_does_not_bind_anonymous_login_form(self):
+        c=self.account("expired@example.test")
+        with closing(connect(self.path)) as db:
+            db.execute("UPDATE sessions SET expires=0")
+        form=self.get(c,"/login").get_data(as_text=True)
+        token=re.search(r'name="csrf" value="([^"]+)"',form)[1]
+        c.delete_cookie("__Host-board-auth",domain="board.finance-fixer.net")
+        reply=c.post("/login/request",base_url=ORIGIN,headers={"Origin":ORIGIN,"CF-Connecting-IP":"192.0.2.1"},
+                     data={"email":"other@example.test","csrf":token})
+        self.assertEqual(reply.status_code,303)
+
     def test_seed_idempotence_and_restore(self):
         first=self.get(self.guest,"/")
         second=self.get(self.guest,"/?page=2")
