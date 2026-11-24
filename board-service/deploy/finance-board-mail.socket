@@ -1,0 +1,10 @@
+[Unit]
+Description=Verification mail socket
+[Socket]
+ListenStream=/run/finance-board-mail.sock
+SocketUser=finance-board
+SocketMode=0600
+Accept=yes
+MaxConnections=8
+[Install]
+WantedBy=sockets.target

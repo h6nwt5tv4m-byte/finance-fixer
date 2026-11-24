@@ -8,6 +8,16 @@ try {
   }
 } catch (e) { /* 통계 실패는 메뉴에 영향 없음 */ }
 (() => {
+  const navigation = document.querySelector('header.top nav');
+  if (navigation && !navigation.querySelector('a[href="https://board.finance-fixer.net/"]')) {
+    const contact = Array.from(navigation.children).find(link => link.matches('a') && link.href.endsWith('/#contact'));
+    if (contact) {
+      const board = document.createElement('a');
+      board.href = 'https://board.finance-fixer.net/';
+      board.textContent = document.documentElement.lang === 'en' ? 'Community' : '자유게시판';
+      contact.before(board);
+    }
+  }
   // 도구 메뉴: '도구'를 누르면 홈의 도구 섹션으로 이동하고, 마우스를 올리면 목록 패널이 열린다.
   // 키보드로 '도구'에 들어오면 패널을 열어 Tab으로 항목을 고를 수 있게 한다.
   const wrap = document.querySelector('.nav-drop');

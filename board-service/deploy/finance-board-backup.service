@@ -1,0 +1,16 @@
+[Unit]
+Description=Take a consistent private snapshot of the discussion board
+After=finance-board.service
+[Service]
+Type=oneshot
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStartPre=/usr/sbin/runuser -u finance-board -- /usr/bin/python3 /opt/finance-board/current/maintenance.py expire
+ExecStart=/usr/bin/python3 /opt/finance-board/current/maintenance.py backup
+StateDirectory=finance-board-backup
+StateDirectoryMode=0700
+UMask=0077
+ProtectSystem=strict
+ReadWritePaths=/var/lib/finance-board
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true

@@ -1,0 +1,9 @@
+[Unit]
+Description=Private Cloudflare connector socket for the public discussion board
+[Socket]
+ListenStream=/run/finance-board-web.sock
+SocketUser=copay
+SocketMode=0600
+Service=finance-board.service
+[Install]
+WantedBy=sockets.target

@@ -1,0 +1,20 @@
+[Unit]
+Description=Send one board verification email
+[Service]
+User=finance-board-mail
+Group=finance-board-mail
+WorkingDirectory=/opt/finance-board/current
+LoadCredential=smtp:/etc/finance-board/smtp.json
+LoadCredential=mail-key:/etc/finance-board/mail.key
+StateDirectory=finance-board-mail
+StateDirectoryMode=0700
+Environment=PYTHONDONTWRITEBYTECODE=1
+StandardInput=socket
+StandardOutput=socket
+ExecStart=/usr/bin/python3 mail_relay.py
+RuntimeMaxSec=20
+UMask=0077
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true

@@ -1,0 +1,27 @@
+[Unit]
+Description=Finance Fixer discussion board
+Requires=finance-board-web.socket finance-board-mail.socket
+After=finance-board-web.socket finance-board-mail.socket
+[Service]
+Type=notify
+Sockets=finance-board-web.socket
+User=finance-board
+Group=finance-board
+WorkingDirectory=/opt/finance-board/current
+Environment=BOARD_ADMINS=hyungjun@finance-fixer.net
+Environment=PYTHONDONTWRITEBYTECODE=1
+LoadCredential=identity-key:/etc/finance-board/identity.key
+LoadCredential=board-key:/etc/finance-board/board.key
+StateDirectory=finance-board
+StateDirectoryMode=0700
+ExecStartPre=/opt/finance-board/venv/bin/python maintenance.py initialize
+ExecStart=/opt/finance-board/venv/bin/gunicorn --workers 2 --threads 4 --timeout 35 'app:production()'
+Restart=on-failure
+UMask=0077
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+RestrictAddressFamilies=AF_UNIX
+[Install]
+WantedBy=multi-user.target
