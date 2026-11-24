@@ -62,6 +62,17 @@ body:has(main :focus-visible, footer :focus-visible) .top:has(.nav-drop[open]) {
   .top { position: relative; }
   .nav-drop[open] .drop { position: static; width: min(16rem, 70vw); }
 }
+/* When zoom leaves little vertical space, scroll the document through the links. */
+@media (max-height: 38em) {
+  :root { scroll-padding-top: 0; }
+  .top { position: relative; }
+  .top:has(.nav-drop[open]) { margin-bottom: 0; }
+  .nav-drop[open] .drop {
+    position: static; width: min(22rem, 72vw); height: auto; max-height: none;
+    padding: .5rem 0; box-shadow: none;
+  }
+  .nav-drop[open] .drop-inner { grid-template-columns: 1fr; }
+}
 .nav-drop[open] .drop-btn { border-bottom-color: var(--brass); }
 .drop .all-tools { width: fit-content; margin: .8rem auto 0; }
 
