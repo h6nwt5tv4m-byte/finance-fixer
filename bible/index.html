@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://cdn.youversion.com https://bible-api.finance-fixer.net https://fonts.googleapis.com; font-src https://cdn.youversion.com https://fonts.gstatic.com; connect-src 'self' https://board.finance-fixer.net https://bible-api.finance-fixer.net; img-src 'self' data:; frame-src https://bible-api.finance-fixer.net https://www.bible.com; media-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://cdn.youversion.com https://bible-api.finance-fixer.net https://fonts.googleapis.com; font-src https://cdn.youversion.com https://fonts.gstatic.com; connect-src 'self' https://board.finance-fixer.net https://bible-api.finance-fixer.net; img-src 'self' data:; frame-src https://bible-api.finance-fixer.net https://www.bible.com; media-src 'self' https://openbible.com; base-uri 'none'; form-action 'none'">
 <title>한영 성경 읽기 · 성경으로 영어 공부 | 재무해결사</title>
 <link rel="stylesheet" href="./study.css?v=20261121-recordings">
 <template id="niv-styles"><link rel="stylesheet" href="https://cdn.youversion.com/platform/1/bible.css"><link rel="stylesheet" crossorigin="anonymous" data-fonts></template>
 <script defer src="./study.js?v=20261124-paired-v3"></script>
-<script type="module" src="./reader.js?v=20261124-bsb-study"></script>
+<script type="module" src="./reader.js?v=20261124-all-bsb"></script>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&amp;family=IBM+Plex+Sans+KR:wght@300;400;500&amp;display=swap" rel="stylesheet">
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="./theme.css?v=20261121">
 <link rel="stylesheet" href="/nav.css">
 <script src="/nav.js?v=20261121-bible-theme" defer></script>
-<link rel="stylesheet" href="./reader.css?v=20261124-lumo-3">
+<link rel="stylesheet" href="./reader.css?v=20261124-all-bsb">
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
@@ -65,10 +65,12 @@
   <a id="lesson-entry" href="?book=MRK&amp;chapter=1#study">1–8절 단어·배경·복습</a>
 </div>
 <div id="readalong" hidden>
-  <div class="controls"><button id="toggle" disabled type="button">▶ 재생</button><span class="clip-label">1–8절 낭독</span>
-    <input id="seek" disabled type="range" min="0" max="65.52" step="0.01" value="0" aria-label="재생 위치"><output id="clock" aria-hidden="true">0:00 / 1:05</output>
+  <div class="controls"><button id="toggle" disabled type="button">▶ 재생</button><span id="chapter-label" class="clip-label">이 장 낭독</span>
+    <select id="read-scope" aria-label="낭독 범위" hidden><option value="chapter">이 장 전체</option><option value="lesson">1–8절 연습</option></select>
+    <input id="seek" disabled type="range" min="0" max="1" step="0.01" value="0" aria-label="재생 위치"><output id="clock" aria-hidden="true">0:00</output>
   </div>
   <p id="error" role="alert" hidden></p>
+  <p id="timing-status" role="status" hidden>단어 강조를 불러오지 못했습니다. 낭독은 들을 수 있습니다. <button id="retry-timing" type="button">강조 다시 불러오기</button></p>
 </div>
 <audio id="audio" preload="none"></audio>
 <section id="lumo" aria-label="마가복음 1장 NIV 영상" hidden>
@@ -93,7 +95,7 @@
 <p id="v7"><sup>7</sup> <span lang="en">And he proclaimed: “After me will come One more powerful than I, the straps of whose sandals I am not worthy to stoop down and untie.</span><br>그가 전파하여 가로되 나보다 능력 많으신 이가 내 뒤에 오시나니 나는 굽혀 그의 신들메를 풀기도 감당치 못하겠노라</p>
 <p id="v8"><sup>8</sup> <span lang="en">I baptize you with water, but He will baptize you with the Holy Spirit.”</span><br>나는 너희에게 물로 세례를 주었거니와 그는 성령으로 너희에게 세례를 주시리라</p>
 <p>성경전서 개역한글판 · 대한성서공회. 1절 각주에 따르면 일부 사본에는 ‘하나님의 아들’이 없습니다.</p>
-<p><a href="./read-along/mark-1.m4a">BSB 1–8절 낭독 듣기</a></p>
+<p><a href="./read-along/mark-1.m4a">BSB 1–8절 낭독 듣기</a> · <a href="https://openbible.com/audio/hays/">성경 전체 장별 낭독 ↗</a></p>
 <details><summary>이전 번역 자료</summary><p><a href="https://www.biblegateway.com/passage/?search=Mark%201%3A1-8&amp;version=NIV">NIV 1–8절 읽기 ↗</a> · <a href="https://www.youtube.com/watch?v=BU4dy36OFEA">LUMO 마가복음 1장 영상 보기 ↗</a></p></details>
 <p>다른 책과 장을 고르거나 낭독에 맞춰 단어를 따라 읽으려면 자바스크립트를 켜 주세요.</p>
 </section></noscript>

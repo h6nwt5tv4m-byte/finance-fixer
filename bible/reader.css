@@ -25,6 +25,7 @@ select { background: #fbf9f3; font: inherit; min-width: 3.6rem; }
 .controls { flex-wrap:nowrap; padding:.45rem 0; border-block:1px solid var(--line); }
 #toggle { min-width:6.25rem; background:var(--green); color:white; border-radius:2rem; font-weight:600; }
 #toggle:enabled:hover { background:#305241; }
+#read-scope { max-width:7rem; min-width:0; font:inherit; font-size:.83rem; }
 .clip-label, #clock { color:var(--ink-soft); white-space:nowrap; font-size:.83rem; }
 #seek { flex:1; min-width:2rem; height:2.75rem; }
 #clock { font-variant-numeric:tabular-nums; }

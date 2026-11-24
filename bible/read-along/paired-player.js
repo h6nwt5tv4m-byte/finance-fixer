@@ -58,72 +58,190 @@ const seek = document.querySelector('#seek');
 const clock = document.querySelector('#clock');
 const passage = document.querySelector('#passage');
 const error = document.querySelector('#error');
+const panel = document.querySelector('#readalong');
+const scope = document.querySelector('#read-scope');
+const timingStatus = document.querySelector('#timing-status');
 const cues = [];
 const rows = [];
+let context, track, cachedBook;
 let activeWord = null;
 let activeRow = null;
 let frame = 0;
-export function detachReadAlong() {
+
+function clearTrack() {
+  track?.controller.abort();
+  track = null;
   cancelAnimationFrame(frame);
   audio.pause();
   if (audio.hasAttribute('src')) {
     audio.removeAttribute('src');
     audio.load();
   }
+  activeRow?.classList.remove('current');
+  activeRow?.removeAttribute('aria-current');
+  if (cues.length) {
+    for (const cell of passage.querySelectorAll('[data-bsb-verse]')) cell.textContent = cell.textContent;
+  }
   cues.length = 0;
   rows.length = 0;
-  activeWord = null;
-  activeRow = null;
+  activeWord = activeRow = null;
+  seek.disabled = true;
   toggle.disabled = true;
   error.hidden = true;
-  document.querySelector('#readalong').hidden = true;
+  timingStatus.hidden = true;
 }
-export function attachReadAlong() {
-  for (const [index, words] of verses.entries()) {
-    const row = passage.querySelector('#v' + (index + 1));
-    const cell = row?.querySelector('.en-text');
-    if (!cell || cell.textContent !== words.map(item => item[0]).join(' ')) return;
-  }
-  for (const [index, words] of verses.entries()) {
-    const row = passage.querySelector('#v' + (index + 1));
-    const cell = row.querySelector('.en-text');
-    cell.replaceChildren();
-    rows.push({start: words[0][1], row});
-    for (const [i, [word, start, end]] of words.entries()) {
+
+export function detachReadAlong() {
+  clearTrack();
+  context = null;
+  panel.hidden = true;
+}
+
+// Keep punctuation and spacing exactly as rendered, including in rows that contain two English verses.
+function bindWords(verseTimes, lesson) {
+  const cells = new Map([...passage.querySelectorAll('[data-bsb-verse]')].map(el => [Number(el.dataset.bsbVerse),el]));
+  const prepared = [];
+  let lastEnd = 0;
+  for (const [index,times] of verseTimes.entries()) {
+    const cell = cells.get(index + 1);
+    if (!Array.isArray(times)) throw new Error('invalid verse');
+    if (!cell && !times.length) continue;
+    if (!cell) throw new Error('missing verse');
+    const text = cell.textContent;
+    const pattern = lesson ? /\S+/gu : /\d+(?:,\d{3})*(?:st|nd|rd|th)?|\p{L}+(?:[’'‐‑-]\p{L}+)*/gu;
+    const matches = [...text.matchAll(pattern)];
+    if (matches.length * 2 !== times.length) throw new Error('word count mismatch');
+    const fragment = document.createDocumentFragment();
+    const words = [];
+    let cursor = 0;
+    for (const [i,match] of matches.entries()) {
+      const start = times[2*i], end = times[2*i+1];
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < lastEnd || end <= start) throw new Error('invalid word time');
       const span = document.createElement('span');
-      span.className = 'word';
-      span.textContent = word;
-      if (i) cell.append(' ');
-      cell.append(span);
-      cues.push({start, end, span});
+      span.className = 'word'; span.textContent = match[0];
+      fragment.append(text.slice(cursor,match.index),span);
+      cursor = match.index + match[0].length;
+      words.push({start:start/100, end:end/100, span});
+      lastEnd = end;
+    }
+    fragment.append(text.slice(cursor));
+    prepared.push({cell, fragment, words});
+  }
+  for (const {cell,fragment,words} of prepared) {
+    cell.replaceChildren(fragment);
+    if (words.length) rows.push({start:words[0].start,row:cell.closest('.verse-row')});
+    cues.push(...words);
+  }
+  update();
+}
+
+async function loadTimings(current) {
+  timingStatus.hidden = true;
+  try {
+    const {book,chapter,verseCount} = context;
+    let data = cachedBook?.id === book.id ? cachedBook.data : null;
+    if (!data) {
+      const response = await fetch('./read-along/timings/' + book.id + '.json?v=1',{signal:current.controller.signal});
+      if (!response.ok) throw new Error('unavailable');
+      data = (await response.json()).chapters;
+      if (track !== current) return;
+      if (!Array.isArray(data) || data.length !== book.chapters) throw new Error('invalid book');
+    }
+    const record = data[chapter - 1];
+    if (!(record.duration > 0) || record.verses.length !== verseCount) throw new Error('invalid chapter');
+    current.duration = record.duration;
+    bindWords(record.verses,false);
+    cachedBook = {id:book.id, data};
+  } catch {
+    if (current === track) {
+      cachedBook = null;
+      timingStatus.hidden = false;
     }
   }
-  rows.reverse();
-  audio.preload = 'metadata';
-  audio.src = './read-along/mark-1.m4a';
+}
+
+function openTrack() {
+  clearTrack();
+  const {book,chapter} = context;
+  const lesson = scope.value === 'lesson' && !scope.hidden;
+  const src = lesson ? './read-along/mark-1.m4a' :
+    'https://openbible.com/audio/hays/' + book.haysPrefix + String(chapter).padStart(3,'0') + '_H.mp3';
+  track = {src, duration:lesson ? 65.52 : 0, controller:new AbortController()};
+  panel.hidden = false;
   toggle.disabled = false;
-  document.querySelector('#readalong').hidden = false;
+  if (lesson) {
+    audio.preload = 'metadata';
+    audio.src = src;
+    bindWords(verses.map(words => words.flatMap(([,a,b]) => [a*100,b*100])),true);
+  } else {
+    // Set the remote media URL on the user's click so browsing chapters only loads text and timing data.
+    audio.preload = 'none';
+    loadTimings(track);
+  }
   update();
+}
+function scopeFromURL() {
+  const range = new URLSearchParams(location.search).get('range');
+  const practice = range === 'practice' || (range === null && location.hash === '#readalong');
+  return !scope.hidden && practice ? 'lesson' : 'chapter';
+}
+export function restoreReadAlongScope() {
+  if (!context) return;
+  const desired = scopeFromURL();
+  if (scope.value === desired) return;
+  scope.value = desired;
+  openTrack();
+}
+export function attachReadAlong(book,chapter,verseCount) {
+  context = {book, chapter, verseCount};
+  scope.hidden = !(book.id === 'MRK' && chapter === 1);
+  document.querySelector('#chapter-label').hidden = !scope.hidden;
+  scope.value = scopeFromURL();
+  openTrack();
+}
+scope.addEventListener('change',() => {
+  const url = new URL(location.href);
+  if (scope.value === 'lesson') url.searchParams.set('range','practice');
+  else if (url.hash === '#readalong') url.searchParams.set('range','chapter');
+  else url.searchParams.delete('range');
+  history.replaceState(null,'',url);
+  openTrack();
+});
+document.querySelector('#retry-timing').addEventListener('click',() => {
+  if (track) loadTimings(track);
+});
+
+// Return the last cue whose start is at or before the playback clock (including after a backwards seek).
+function atTime(items,time) {
+  let lo = 0, hi = items.length;
+  while (lo < hi) {
+    const mid = Math.floor((lo+hi)/2);
+    if (items[mid].start <= time) lo = mid+1;
+    else hi = mid;
+  }
+  return items[lo-1];
 }
 function timestamp(seconds) {
   const whole = Math.floor(seconds);
   return Math.floor(whole / 60) + ':' + String(whole % 60).padStart(2, '0');
 }
 function update(event) {
+  if (!track) return;
   const time = audio.currentTime;
-  const duration = Number.isFinite(audio.duration) ? audio.duration : 65.52;
+  const duration = Number.isFinite(audio.duration) ? audio.duration : track.duration;
   seek.disabled = audio.readyState < HTMLMediaElement.HAVE_METADATA || Boolean(audio.error);
-  seek.max = duration;
+  seek.max = duration || 1;
   seek.value = time;
-  const display = timestamp(time) + ' / ' + timestamp(duration);
+  const display = duration ? timestamp(time) + ' / ' + timestamp(duration) : timestamp(time);
   if (clock.textContent !== display) {
     clock.textContent = display;
   }
   seek.setAttribute('aria-valuetext', display);
   const label = audio.ended ? '↻ 다시 듣기' : audio.paused ? '▶ 재생' : 'Ⅱ 일시정지';
   if (toggle.textContent !== label) toggle.textContent = label;
-  const word = !audio.ended && cues.find(cue => time >= cue.start && time < cue.end);
-  const row = !audio.ended && rows.find(item => time >= item.start);
+  const candidate = atTime(cues,time);
+  const word = !audio.ended && candidate && time < candidate.end ? candidate : null;
+  const row = !audio.ended && atTime(rows,time);
   const wordChanged = activeWord !== (word?.span || null);
   if (wordChanged) {
     activeWord?.classList.remove('current');
@@ -163,24 +281,34 @@ function updatePlayback(event) {
 }
 function showError() {
   update();
-  if (!audio.hasAttribute('src')) return;
+  if (!track || !audio.hasAttribute('src')) return;
   error.hidden = false;
   error.textContent = '음원을 열 수 없습니다. 인터넷 연결을 확인한 뒤 재생 버튼을 다시 눌러 주세요.';
 }
 toggle.addEventListener('click', async () => {
-  if (!audio.paused && !audio.ended) {
+  const current = track;
+  if (!current) return;
+  if (!audio.error && !audio.paused && !audio.ended) {
     audio.pause();
     return;
   }
   document.dispatchEvent(new Event('stop-study-audio'));
   error.hidden = true;
-  if (audio.error) audio.load();
+  if (audio.error) {
+    // WebKit retains a failed media resource even when load() is called again on the same URL.
+    const retryURL = new URL(current.src,document.baseURI);
+    retryURL.searchParams.set('retry',String(Date.now()));
+    audio.src = retryURL.href;
+    audio.load();
+  } else if (!audio.hasAttribute('src')) {
+    audio.src = current.src;
+  }
   if (audio.ended) {
     audio.pause();
     audio.currentTime = 0;
   }
   try { await audio.play(); }
-  catch (reason) { if (reason.name !== 'AbortError') showError(); }
+  catch (reason) { if (current === track && reason.name !== 'AbortError') showError(); }
 });
 seek.addEventListener('keydown', event => {
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -195,6 +323,6 @@ seek.addEventListener('input', () => {
 });
 for (const name of ['play', 'pause', 'ended']) audio.addEventListener(name, updatePlayback);
 for (const name of ['loadedmetadata', 'timeupdate', 'seeked']) audio.addEventListener(name, update);
-audio.addEventListener('error', showError);
+audio.addEventListener('error', () => { if (audio.error) showError(); });
 window.addEventListener('pagehide', () => audio.pause());
 document.addEventListener('stop-passage-audio', () => audio.pause());

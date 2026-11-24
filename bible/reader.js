@@ -1,5 +1,5 @@
 import {attachFilmWords, clearFilmWords, followFilm} from './read-along/film-words.js?v=1';
-import {attachReadAlong, detachReadAlong, readAlongChapter} from './read-along/paired-player.js?v=20261124-paired-v3';
+import {attachReadAlong, detachReadAlong, readAlongChapter, restoreReadAlongScope} from './read-along/paired-player.js?v=20261124-all-bsb';
 const $ = id => document.getElementById(id);
 const local = ['127.0.0.1', 'localhost'].includes(location.hostname);
 const api = local ? '/bible/api' : 'https://bible-api.finance-fixer.net';
@@ -302,13 +302,21 @@ function englishFailure(err) {
   return 'NIV 본문을 불러오지 못했습니다. 다시 시도하거나 같은 장을 BSB로 읽어 보세요.';
 }
 function bsbBlocks(verses) {
-  return verses.map((text,i) => ({start:i+1,end:i+1,content:text}));
+  return verses.map((text,i) => {
+    let content = null;
+    if (text) {
+      content = document.createElement('span');
+      content.dataset.bsbVerse = String(i + 1);
+      content.textContent = text;
+    }
+    return {start:i+1, end:i+1, content};
+  });
 }
 function displayEnglish(items, copyright, version) {
   englishReady=true; $('english-status').textContent='';
   $('niv-copyright').textContent=copyright;
   renderPassage(items);
-  if (version==='BSB' && isLesson()) attachReadAlong();
+  if (version === 'BSB') attachReadAlong(current.book, current.chapter, items.length);
   if (filmChapter()) attachFilmWords(passage);
   anchor();
 }
@@ -354,6 +362,10 @@ function select(book,chapter,version,historyMode='push',hash='') {
   current={book,chapter,version}; englishReady=false; koreanVerses=null; englishError=false; koreanError=false;
   const url=new URL(location.href);
   url.searchParams.set('book',book.id); url.searchParams.set('chapter',String(chapter)); url.searchParams.set('version',version); url.hash=hash;
+  if (historyMode === 'push' || version !== 'BSB' || !isLesson()) url.searchParams.delete('range');
+  if (version === 'BSB' && isLesson() && hash === '#readalong' && !url.searchParams.has('range')) {
+    url.searchParams.set('range','practice');
+  }
   if (historyMode!=='none') history[historyMode+'State'](null,'',url);
   try {localStorage.setItem(locationKey,JSON.stringify({book:book.id,chapter,version}));} catch {}
   $('book').value=book.id; $('chapter').replaceChildren(...Array.from({length:book.chapters},(_,i)=>option(String(i+1),i+1+'장')));
@@ -370,7 +382,7 @@ function select(book,chapter,version,historyMode='push',hash='') {
   $('chapter-title').textContent=book.name+' '+chapter+'장'; $('chapter-english').textContent=book.english+' '+chapter;
   document.title=$('chapter-title').textContent+' · '+version+' 한영 성경 읽기';
   $('edition-title').textContent=version==='BSB'?'Berean Standard Bible · BSB':'New International Version · NIV';
-  $('bsb-credit').hidden=version!=='BSB'; $('voice-credit').hidden=!isLesson(); $('niv-credit').hidden=version!=='NIV';
+  $('bsb-credit').hidden=version!=='BSB'; $('niv-credit').hidden=version!=='NIV';
   $('niv-copyright').textContent=''; $('english-status').textContent=version+' 본문을 불러오는 중…'; $('krv-status').textContent='';
   $('retry').hidden=true; $('use-bsb').hidden=true;
   $('audio-link').href='https://www.biblegateway.com/audio/mclean/niv/'+book.osis+'.'+chapter;
@@ -407,11 +419,15 @@ function openLocation(mode) {
   const requested = params.get('version');
   const legacyAudio = ['#chapter-audio','#lumo'].includes(location.hash);
   const version = requested === 'NIV' || (requested === null && legacyAudio) ? 'NIV' : 'BSB';
-  const filmBookmark = !hasRef && version === 'NIV' && location.hash === '#lumo';
-  if (filmBookmark || !book || !Number.isInteger(chapter) || chapter < 1 || chapter > book.chapters) {
+  const markBookmark = !hasRef && (
+    (version === 'NIV' && location.hash === '#lumo') ||
+    (version === 'BSB' && location.hash === '#readalong' && params.get('range') !== 'chapter')
+  );
+  if (markBookmark || !book || !Number.isInteger(chapter) || chapter < 1 || chapter > book.chapters) {
     book=books.find(b=>b.id==='MRK'); chapter=1;
   }
   if (mode === 'none' && current?.book === book && current.chapter === chapter && current.version === version) {
+    restoreReadAlongScope();
     if (!['#study','#english','#review','#context'].includes(location.hash)) study.open = false;
     anchor();
     return;
@@ -419,7 +435,7 @@ function openLocation(mode) {
   select(book,chapter,version,mode,location.hash);
 }
 async function start() {
-  books=await getJSON('./books.json?v=20261121-audio');
+  books=await getJSON('./books.json?v=20261124-all-bsb');
   if (books.length!==66) throw new Error('books');
   for (const [value,label] of [['old','구약'],['new','신약']]) {
     const group=document.createElement('optgroup'); group.label=label;
