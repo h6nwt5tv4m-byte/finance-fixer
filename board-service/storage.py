@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS consultation_updates(
 CREATE TABLE IF NOT EXISTS erased_consultations(id TEXT PRIMARY KEY, erased INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS consultations_created ON consultations(created,id);
 CREATE TABLE IF NOT EXISTS blocked(owner TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS public_view_counts(
+ day TEXT NOT NULL, source TEXT NOT NULL, views INTEGER NOT NULL, PRIMARY KEY(day,source));
 CREATE TABLE IF NOT EXISTS settings(name TEXT PRIMARY KEY,value TEXT NOT NULL);
 """
 

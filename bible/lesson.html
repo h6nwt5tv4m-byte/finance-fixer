@@ -2,7 +2,12 @@
 <html lang="ko" data-analytics="off">
 <head>
   <!-- Keep the original lesson and its bookmarks readable without JavaScript. -->
-  <script src="./lesson-link.js"></script>
+  <script>
+    var anchor = location.hash.slice(1);
+    var section = /^(english|context|review|reading)$/.test(anchor) ? anchor
+      : /^verse-[1-8]$/.test(anchor) ? 'v' + anchor.slice(6) : 'study';
+    location.replace('./?book=MRK&chapter=1#' + section);
+  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
@@ -16,6 +21,7 @@
 <script src="/nav.js?v=20261121-bible-theme" defer></script>
 </head>
 <body>
+<noscript><img hidden width="1" height="1" alt="" crossorigin="anonymous" referrerpolicy="no-referrer" src="https://board.finance-fixer.net/metrics/view/bible.gif"></noscript>
 <div class="grain" aria-hidden="true"></div>
   <a class="skip" href="#reading">본문으로 건너뛰기</a>
   <header class="top">

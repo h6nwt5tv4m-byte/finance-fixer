@@ -41,6 +41,56 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(result.status_code,303)
         return result.location
 
+    def test_public_view_scope_and_daily_report(self):
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        from unittest.mock import patch
+        from public_views import HOME, report
+        fixed = datetime(2026,11,24,23,59,59,tzinfo=ZoneInfo("Asia/Seoul"))
+        mock_clock = patch("public_views.datetime")
+        clock = mock_clock.start()
+        self.addCleanup(mock_clock.stop)
+        clock.now.return_value = fixed
+        date = fixed.date()
+        owner = self.account("reader@example.com")
+        private = self.create(owner,"private")
+        public = re.search(r'href="(/p/[0-9a-f]+)"', self.get(self.guest,"/").get_data(as_text=True))[1]
+        browser = {"Accept":"text/html"}
+        self.assertTrue(all(row["today"] is None for row in report(self.path,date)["rows"]))
+        for path in ("/?view=mine",private,"/consultation","/account","/login"):
+            owner.get(path,base_url=ORIGIN,headers=browser)
+        self.guest.head("/",base_url=ORIGIN,headers=browser)
+        self.guest.get("/",base_url=ORIGIN,headers=dict(browser,Purpose="prefetch"))
+        self.assertIsNone(report(self.path,date)["rows"][1]["today"])
+        for path in ("/",public):
+            response = self.guest.get(path,base_url=ORIGIN,headers=browser)
+            self.assertNotIn(b"/metrics/view/board.gif",response.data)
+        self.assertEqual(report(self.path,date)["rows"][1]["today"],2)
+        for source in ("bible","columns"):
+            path = "/metrics/view/"+source+".gif"
+            headers = {"Origin":HOME}
+            self.assertEqual(self.guest.head(path,base_url=ORIGIN,headers=headers).status_code,200)
+            self.assertEqual(self.get(self.guest,path).status_code,403)
+            self.assertEqual(self.guest.get(path,base_url=ORIGIN,headers={"Origin":"https://example.org"}).status_code,403)
+            response = self.guest.get(path,base_url=ORIGIN,headers=headers)
+            self.assertEqual(response.mimetype,"image/gif")
+            self.assertNotIn("Set-Cookie",response.headers)
+            self.assertIn("no-store",response.headers["Cache-Control"])
+            if source != "board":
+                www = "https://www.finance-fixer.net"
+                pre = self.guest.head(path,base_url=ORIGIN,headers={"Origin":www})
+                self.assertEqual(pre.headers["Access-Control-Allow-Origin"],www)
+            self.assertEqual(self.guest.get(path+"?q=test",base_url=ORIGIN,headers=headers).status_code,404)
+        r = report(self.path,date)
+        expected = {"bible":1, "board":2, "columns":1}
+        self.assertEqual(r["rows"],[{"source":s,"start":date.isoformat(),"today":n,"yesterday":None} for s,n in expected.items()])
+        self.assertTrue(all(row["today"]==0 and row["yesterday"]==expected[row["source"]]
+                            for row in report(self.path,date+timedelta(days=1))["rows"]))
+        clock.now.return_value = fixed + timedelta(seconds=1)
+        self.guest.get("/",base_url=ORIGIN,headers=browser)
+        next_day = report(self.path,date+timedelta(days=1))["rows"][1]
+        self.assertEqual((next_day["today"], next_day["yesterday"]), (1,2))
+
     def test_homepage_login_return_and_remember(self):
         back = "https://finance-fixer.net/bookworm/4/?read=1#scene-2"
         c = self.guest

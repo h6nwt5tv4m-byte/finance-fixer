@@ -16,6 +16,7 @@ from werkzeug.exceptions import HTTPException
 from column_source import remember as remember_public_column
 from consultation import install as install_consultation
 from mail_protocol import DeliveryUncertain, address, deliver, mailbox_limit
+from public_views import install as install_public_views
 from site_account import install as install_site_account, return_page
 from storage import VISIBLE, connect, expire, reserve, write
 
@@ -110,6 +111,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                     return app.view_functions["consultation_form"](renew_csrf=True)
                 abort(403,description="화면을 새로 열고 다시 시도해 주세요.")
 
+    install_public_views(app, db)
     install_site_account(app, db, viewer, lambda uid: label(uid), digest, lambda: digest("bookmark-form", login_token()))
 
     @app.after_request
@@ -185,6 +187,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                             AND (c.hidden=0 OR :admin)) AS replies FROM posts p WHERE {filters}
                             ORDER BY p.created DESC,p.source_date DESC,p.id DESC LIMIT :limit OFFSET :offset""",
                             dict(params,limit=PAGE_SIZE,offset=(page-1)*PAGE_SIZE)).fetchall()
+        g.public_board_page = not mine
         return render_template("index.html",posts=rows,count=count,mine=mine,page=page,last=last)
 
     @app.get("/login")
@@ -350,6 +353,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         replies=db().execute("""SELECT * FROM comments WHERE post=? AND (hidden=0 OR ?)
                               ORDER BY created,rowid""",(pid,editor(uid))).fetchall()
         blocked={r[0] for r in db().execute("SELECT owner FROM blocked")} if editor(uid) else set()
+        g.public_board_page = not (item["private"] or item["hidden"])
         return render_template("post.html",p=item,replies=replies,blocked=blocked)
 
     @app.post("/p/<pid>/reply")
