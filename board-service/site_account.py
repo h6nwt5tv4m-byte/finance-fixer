@@ -15,8 +15,6 @@ SITE = HOME | TOOLS
 OZ_SCENES = (6, 6, 6, 5, 7, 5, 6, 7, 5, 7, 13, 13, 4, 7, 10, 3, 4, 4, 4, 5, 3, 3, 4, 1)
 
 
-PUBLISHED_OZ_CHAPTERS = 4
-
 
 def return_page(value):
     if not value or len(value) > 2048 or "\\" in value or any(ord(c) < 32 for c in value):
@@ -93,7 +91,7 @@ def install(app, db, viewer, label, digest, token):
             if not isinstance(data, dict) or not all(type(data.get(k)) is int for k in ("chapter", "scene", "ms", "revision")):
                 abort(400)
             ch, scene, ms, rev = (data[k] for k in ("chapter", "scene", "ms", "revision"))
-            if not (1 <= ch <= PUBLISHED_OZ_CHAPTERS and 1 <= scene <= OZ_SCENES[ch-1] and 0 <= ms <= 86400000 and 0 <= rev < 2**53):
+            if not (1 <= ch <= len(OZ_SCENES) and 1 <= scene <= OZ_SCENES[ch-1] and 0 <= ms <= 86400000 and 0 <= rev < 2**53):
                 abort(400)
             state = result(uid)
             old = state["bookmark"]

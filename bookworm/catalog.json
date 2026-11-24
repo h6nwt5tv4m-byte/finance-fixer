@@ -26,6 +26,106 @@
         "path": "/bookworm/4/",
         "title": "숲을 지나는 길",
         "scenes": 5
+      },
+      {
+        "path": "/bookworm/5/",
+        "title": "양철 나무꾼을 구하다",
+        "scenes": 7
+      },
+      {
+        "path": "/bookworm/6/",
+        "title": "겁쟁이 사자",
+        "scenes": 5
+      },
+      {
+        "path": "/bookworm/7/",
+        "title": "위대한 오즈를 찾아가는 길",
+        "scenes": 6
+      },
+      {
+        "path": "/bookworm/8/",
+        "title": "죽음의 양귀비꽃밭",
+        "scenes": 7
+      },
+      {
+        "path": "/bookworm/9/",
+        "title": "들쥐의 여왕",
+        "scenes": 5
+      },
+      {
+        "path": "/bookworm/10/",
+        "title": "성문지기",
+        "scenes": 7
+      },
+      {
+        "path": "/bookworm/11/",
+        "title": "오즈의 신기한 도시",
+        "scenes": 13
+      },
+      {
+        "path": "/bookworm/12/",
+        "title": "서쪽의 못된 마녀를 찾아서",
+        "scenes": 13
+      },
+      {
+        "path": "/bookworm/13/",
+        "title": "친구들을 구하다",
+        "scenes": 4
+      },
+      {
+        "path": "/bookworm/14/",
+        "title": "날개 달린 원숭이들",
+        "scenes": 7
+      },
+      {
+        "path": "/bookworm/15/",
+        "title": "무시무시한 오즈의 정체",
+        "scenes": 10
+      },
+      {
+        "path": "/bookworm/16/",
+        "title": "오즈의 마술",
+        "scenes": 3
+      },
+      {
+        "path": "/bookworm/17/",
+        "title": "기구를 띄우다",
+        "scenes": 4
+      },
+      {
+        "path": "/bookworm/18/",
+        "title": "남쪽으로",
+        "scenes": 4
+      },
+      {
+        "path": "/bookworm/19/",
+        "title": "싸우는 나무들의 습격",
+        "scenes": 4
+      },
+      {
+        "path": "/bookworm/20/",
+        "title": "작고 고운 도자기 나라",
+        "scenes": 5
+      },
+      {
+        "path": "/bookworm/21/",
+        "title": "사자, 숲의 왕이 되다",
+        "scenes": 3
+      },
+      {
+        "path": "/bookworm/22/",
+        "title": "쿼들링의 나라",
+        "scenes": 3
+      },
+      {
+        "path": "/bookworm/23/",
+        "title": "착한 마녀 글린다가 도로시의 소원을 들어주다",
+        "scenes": 4
+      },
+      {
+        "path": "/bookworm/24/",
+        "title": "다시 집으로",
+        "scenes": 1
       }
     ]
   }
