@@ -18,7 +18,7 @@ def address(value):
 
 def mailbox_limit(email):
     """Group obvious delivery aliases only for throttling, never for access to posts."""
-    local, domain = email.split("@")
+    local, domain = email.lower().split("@")
     if domain in {"gmail.com", "googlemail.com"}:
         local = local.lower().partition("+")[0].replace(".", "")
         domain = "gmail.com"

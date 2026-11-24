@@ -60,7 +60,8 @@ def initialize(path, identity_key=None):
                 if stored is None:
                     # The board launched with key fingerprints. Only initialize pristine/seed-only data.
                     has_owners=db.execute("""SELECT EXISTS(SELECT 1 FROM posts WHERE owner!='editorial')
-                        OR EXISTS(SELECT 1 FROM comments) OR EXISTS(SELECT 1 FROM blocked)""").fetchone()[0]
+                        OR EXISTS(SELECT 1 FROM comments) OR EXISTS(SELECT 1 FROM blocked)
+                        OR EXISTS(SELECT 1 FROM sessions) OR EXISTS(SELECT 1 FROM challenges)""").fetchone()[0]
                     if has_owners:
                         raise RuntimeError("Unversioned user data requires recovery from a verified source.")
                     db.execute("INSERT INTO settings VALUES ('identity-key',?)",(fingerprint,))
@@ -79,6 +80,10 @@ def initialize(path, identity_key=None):
                 db.execute("""UPDATE posts SET body=?,source_url=? WHERE owner='editorial'
                               AND title=? AND source_url='https://finance-fixer.net/#videos'""",
                            (video["body"],video["source_url"],video["title"]))
+            if db.execute("INSERT OR IGNORE INTO settings VALUES ('correction-audit-example','done')").rowcount:
+                audit=items[0]
+                db.execute("""UPDATE posts SET body=? WHERE id=? AND owner='editorial' AND title=?""",
+                           (audit["body"],hashlib.sha256(b"opening-01").hexdigest()[:24],audit["title"]))
     finally:
         db.close()
 

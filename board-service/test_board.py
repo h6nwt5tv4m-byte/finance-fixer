@@ -89,6 +89,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(address("Writer@iCloud.com"),"writer@icloud.com")
         self.assertNotEqual(address("Writer@example.test"),address("writer@example.test"))
         self.assertNotEqual(mailbox_limit("team+one@example.test"),mailbox_limit("team+two@example.test"))
+        self.assertEqual(mailbox_limit("Writer@example.test"),mailbox_limit("writer@example.test"))
         first=self.app.test_client()
         self.assertEqual(self.send(first,"/login/request",{"email":"Writer@icloud.com"}).status_code,303)
         self.assertEqual(self.send(self.guest,"/login/request",{"email":"writer@icloud.com"}).status_code,429)
@@ -193,6 +194,7 @@ class BoardTest(unittest.TestCase):
         with self.assertRaises(ValueError): initialize(self.path,b"")
         with self.assertRaises(ValueError): create_app(b"valid",self.path,[],identity_key=b"")
         user=self.account("owner@example.com")
+        with self.assertRaises(RuntimeError): initialize(self.path,b"unverified")
         self.create(user,"private")
         with self.assertRaises(RuntimeError): initialize(self.path,b"unverified")
         with closing(connect(self.path)) as db:
