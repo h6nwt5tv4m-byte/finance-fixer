@@ -96,9 +96,12 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         response.headers.update({
             "Cache-Control":"private, no-store, max-age=0, no-transform",
             "CDN-Cache-Control":"no-store", "Cloudflare-CDN-Cache-Control":"no-store",
-            "Content-Security-Policy":"default-src 'none'; style-src 'self'; img-src 'self'; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'",
+            "Content-Security-Policy":"default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'",
             "X-Content-Type-Options":"nosniff","Referrer-Policy":"same-origin",
             "X-Robots-Tag":"noindex, nofollow","X-Frame-Options":"DENY"})
+        # Only a successful static font may be reused by the same browser.
+        if request.endpoint == "static" and response.status_code in (200, 206, 304) and response.mimetype == "font/woff2":
+            response.headers["Cache-Control"] = "private, max-age=86400, no-transform"
         return response
 
     def network():
