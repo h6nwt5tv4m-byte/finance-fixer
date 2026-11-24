@@ -100,13 +100,16 @@ function showError() {
   error.textContent = '음원을 열 수 없습니다. 인터넷 연결을 확인한 뒤 재생 버튼을 다시 눌러 주세요.';
 }
 toggle.addEventListener('click', async () => {
-  if (!audio.paused) {
+  if (!audio.paused && !audio.ended) {
     audio.pause();
     return;
   }
   error.hidden = true;
   if (audio.error) audio.load();
-  if (audio.ended) audio.currentTime = 0;
+  if (audio.ended) {
+    audio.pause();
+    audio.currentTime = 0;
+  }
   try { await audio.play(); }
   catch (reason) { if (reason.name !== 'AbortError') showError(); }
 });
