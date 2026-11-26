@@ -10,12 +10,13 @@ import time
 from threading import BoundedSemaphore
 from zoneinfo import ZoneInfo
 
-from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
+from flask import Flask, Response, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import HTTPException
 
 from column_source import remember as remember_public_column
 from consultation import install as install_consultation
 from mail_protocol import DeliveryUncertain, address, deliver, mailbox_limit
+from photos import FORM_MEMORY, MAX_FILES, REQUEST_LIMIT, Rejected, chosen, convert
 from public_views import install as install_public_views
 from site_account import install as install_site_account, return_page
 from storage import VISIBLE, connect, expire, reserve, write
@@ -23,6 +24,15 @@ from storage import VISIBLE, connect, expire, reserve, write
 ORIGIN = "https://board.finance-fixer.net"
 PAGE_SIZE = 12
 AUTH_COOKIE = "__Host-board-auth"
+PHOTO_ACCOUNT_DAY = 15
+PHOTO_TOTAL_DAY = 300
+PHOTO_STORAGE = 1024**3
+
+class FormProblem(Exception):
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
+        self.message = message
 
 def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     if not key or identity_key == b"":
@@ -101,6 +111,15 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
 
     @app.before_request
     def check_request():
+        if request.method=="POST" and request.endpoint=="compose":
+            # Only the post form accepts photos, and only from a signed-in writer on this site:
+            # these checks read headers and cookies, never the request body.
+            if request.headers.get("Origin") != ORIGIN:
+                abort(403,description="화면을 새로 열고 다시 시도해 주세요.")
+            if not viewer():
+                abort(403,description="이메일 인증을 먼저 해 주세요.")
+            request.max_content_length=REQUEST_LIMIT
+            request.max_form_memory_size=FORM_MEMORY
         if request.method=="POST":
             supplied=request.form.get("csrf","")
             expected = session.get("consultation_csrf","") if request.endpoint=="consultation_form" else current_form_token()
@@ -157,6 +176,8 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                   404:"글이 없거나 열람할 수 없습니다.",413:"입력한 글이 너무 깁니다.",
                   429:"등록 한도에 도달했습니다. 잠시 뒤 다시 시도해 주세요."}
         detail=error.description if error.description and not error.description.isascii() else messages.get(error.code,"다시 시도해 주세요.")
+        if error.code == 413 and request.endpoint == "compose":
+            detail="사진 용량이 너무 큽니다. 사진은 한 장에 5MB, 3장까지 올릴 수 있습니다."
         if request.endpoint == "book_audio" and error.code == 416:
             return error.get_response()
         back = return_page(request.form.get("return_to")) if error.code != 413 and request.endpoint in {"confirm", "request_code"} else None
@@ -164,6 +185,11 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
 
     def move(name,**kwargs):
         return redirect(url_for(name,**kwargs),code=303)
+
+    def pinned_post():
+        # Deleting the post by any path removes the notice row (ON DELETE CASCADE).
+        row=db().execute("SELECT post FROM pinned WHERE slot=1").fetchone()
+        return row[0] if row else ""
 
     def find_post(pid,uid):
         row=db().execute(f"SELECT p.* FROM posts p WHERE p.id=:id AND {VISIBLE}",dict(id=pid,**args(uid))).fetchone()
@@ -178,17 +204,25 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         if mine and not uid:
             return move("login")
         page=request.args.get("page",1,type=int)
-        filters=VISIBLE+(" AND p.owner=:uid" if mine else "")
-        params=args(uid)
+        params=dict(args(uid),pinned=pinned_post())
+        columns="""p.*, (SELECT COUNT(*) FROM comments c WHERE c.post=p.id AND (c.hidden=0 OR :admin)) AS replies,
+                   (SELECT COUNT(*) FROM images i WHERE i.post=p.id) AS photos"""
+        pinned=None
+        if not mine:
+            # A hidden notice leaves the slot empty for everyone, editors included.
+            pinned=db().execute(f"SELECT {columns} FROM posts p WHERE p.id=:pinned AND p.private=0 AND p.hidden=0 AND {VISIBLE}",params).fetchone()
+        params["shown"]=pinned["id"] if pinned else ""
+        # The notice is listed once, above page 1, instead of in its chronological place.
+        filters=VISIBLE+(" AND p.owner=:uid" if mine else " AND p.id!=:shown")
         count=db().execute("SELECT COUNT(*) FROM posts p WHERE "+filters,params).fetchone()[0]
         last=max(1,(count+PAGE_SIZE-1)//PAGE_SIZE)
         page=min(max(page,1),last)
-        rows=db().execute(f"""SELECT p.*, (SELECT COUNT(*) FROM comments c WHERE c.post=p.id
-                            AND (c.hidden=0 OR :admin)) AS replies FROM posts p WHERE {filters}
+        rows=db().execute(f"""SELECT {columns} FROM posts p WHERE {filters}
                             ORDER BY p.created DESC,p.source_date DESC,p.id DESC LIMIT :limit OFFSET :offset""",
                             dict(params,limit=PAGE_SIZE,offset=(page-1)*PAGE_SIZE)).fetchall()
         g.public_board_page = not mine
-        return render_template("index.html",posts=rows,count=count,mine=mine,page=page,last=last)
+        return render_template("index.html",posts=rows,count=count+bool(pinned),mine=mine,page=page,last=last,
+                               pinned=pinned if page==1 else None)
 
     @app.get("/login")
     def login():
@@ -328,23 +362,83 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         if not reserve(db(),"write",[(uid,30,1),(uid,86400,20),(ip,600,18),(ip,86400,90),("*",86400,1000)],stamp()):
             abort(429,description="글과 댓글은 30초에 한 번, 계정마다 24시간에 20개까지 쓸 수 있습니다. 접속망의 한도도 적용됩니다.")
 
+    # Decoding photos is CPU and memory heavy; one at a time per worker.
+    photo_slot=BoundedSemaphore(1)
+
+    def reserve_photos(uid, photos, now):
+        """Called under the post write lock so the photo budget and the post commit together."""
+        if not photos:
+            return
+        used=lambda bucket: db().execute("SELECT COUNT(*) FROM events WHERE kind='photo' AND bucket=? AND at>?",
+                                         (bucket,now-86400)).fetchone()[0]
+        if used(uid)+len(photos)>PHOTO_ACCOUNT_DAY or used("*")+len(photos)>PHOTO_TOTAL_DAY:
+            raise FormProblem(429,"오늘 올릴 수 있는 사진 수를 넘었습니다. 사진을 빼고 등록하거나 내일 다시 올려 주세요.")
+        stored=db().execute("SELECT COALESCE(SUM(size),0) FROM images").fetchone()[0]
+        if stored+sum(len(data) for data,_,_ in photos)>PHOTO_STORAGE:
+            raise FormProblem(503,"사진 저장 공간이 부족합니다. 사진을 빼고 등록해 주세요.")
+        db().executemany("INSERT INTO events VALUES ('photo',?,?)",[(bucket,now) for bucket in (uid,"*") for _ in photos])
+
     @app.route("/write",methods=["GET","POST"])
     def compose():
-        if request.method=="GET":
+        if request.method!="POST":
+            # GET and Flask's automatic HEAD only show the form; nothing below runs without the POST checks.
             return render_template("write.html") if viewer() else move("login")
+        files=chosen(request.files.getlist("images"))
+        def form_error(status,message):
+            if files:
+                message+=" 사진은 다시 골라 주세요."
+            return render_template("write.html",error=message),status
+        if files:
+            # Every submission that carried photos counts, including ones rejected below.
+            with authenticated_write() as uid:
+                allowed=reserve(db(),"photo-try",[(uid,600,20),(network(),600,60)],stamp())
+            if not allowed:
+                return form_error(429,"사진 올리기를 너무 자주 시도했습니다. 10분 뒤 다시 시도해 주세요.")
         title=request.form.get("title","").strip()
         body=request.form.get("body","").replace("\r\n","\n").strip()
         visibility=request.form.get("visibility","")
         if not (1<=len(title)<=100 and 1<=len(body)<=4000 and visibility in ("public","private")):
-            return render_template("write.html",error="제목은 1~100자, 본문은 1~4,000자로 작성하고 공개 범위를 선택해 주세요."),400
+            return form_error(400,"제목은 1~100자, 본문은 1~4,000자로 작성하고 공개 범위를 선택해 주세요.")
+        if len(files)>MAX_FILES:
+            return form_error(400,f"사진은 {MAX_FILES}장까지 올릴 수 있습니다.")
+        photos=[]
+        if files:
+            # A short wait only: waiting requests hold a server thread that page views also need.
+            if not photo_slot.acquire(timeout=5):
+                return form_error(503,"다른 사진을 처리하고 있습니다. 잠시 후 다시 등록해 주세요.")
+            try:
+                for item in files:
+                    photos.append(convert(item.stream))
+            except Rejected as problem:
+                return form_error(400,str(problem))
+            finally:
+                photo_slot.release()
         pid=secrets.token_hex(12)
-        with authenticated_write() as uid:
-            quota(uid)
-            db().execute("INSERT INTO posts(id,owner,title,body,private,created) VALUES (?,?,?,?,?,?)",
-                         (pid,uid,title,body,int(visibility=="private"),stamp()))
-            if visibility == "public" and editor(uid):
-                remember_public_column(db(), title, body)
+        try:
+            with authenticated_write() as uid:
+                quota(uid)
+                now=stamp()
+                reserve_photos(uid,photos,now)
+                db().execute("INSERT INTO posts(id,owner,title,body,private,created) VALUES (?,?,?,?,?,?)",
+                             (pid,uid,title,body,int(visibility=="private"),now))
+                db().executemany("INSERT INTO images(id,post,seq,width,height,size,created,data) VALUES (?,?,?,?,?,?,?,?)",
+                                 [(secrets.token_hex(16),pid,seq,width,height,len(data),now,data)
+                                  for seq,(data,width,height) in enumerate(photos,1)])
+                if visibility == "public" and editor(uid):
+                    remember_public_column(db(), title, body)
+        except FormProblem as problem:
+            return form_error(problem.status,problem.message)
         return move("post",pid=pid)
+
+    @app.get("/i/<iid>")
+    def photo(iid):
+        uid=viewer()
+        # The same visibility rule as the post: private posts for the writer and editors, hidden ones for editors.
+        row=db().execute(f"SELECT i.data FROM images i JOIN posts p ON p.id=i.post WHERE i.id=:iid AND {VISIBLE}",
+                         dict(iid=iid,**args(uid))).fetchone()
+        if not row:
+            abort(404)
+        return Response(row["data"],mimetype="image/jpeg",headers={"Content-Disposition":"inline"})
 
     @app.get("/p/<pid>")
     def post(pid):
@@ -353,8 +447,10 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         replies=db().execute("""SELECT * FROM comments WHERE post=? AND (hidden=0 OR ?)
                               ORDER BY created,rowid""",(pid,editor(uid))).fetchall()
         blocked={r[0] for r in db().execute("SELECT owner FROM blocked")} if editor(uid) else set()
+        photos=db().execute("SELECT id,width,height FROM images WHERE post=? ORDER BY seq",(pid,)).fetchall()
         g.public_board_page = not (item["private"] or item["hidden"])
-        return render_template("post.html",p=item,replies=replies,blocked=blocked)
+        return render_template("post.html",p=item,replies=replies,blocked=blocked,photos=photos,
+                               pinned=pinned_post()==pid)
 
     @app.post("/p/<pid>/reply")
     def reply(pid):
@@ -391,7 +487,16 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
                 return move("post",pid=pid) if cid else move("index")
             if not editor(uid):
                 abort(403)
-            if action in ("hide","show"):
+            if action=="pin" and not cid:
+                if item["private"] or item["hidden"]:
+                    # Readers could not see it, and the current notice would disappear for them.
+                    abort(400,description="비밀글이나 숨긴 글은 공지로 고정할 수 없습니다.")
+                # One notice at a time: pinning another post replaces the previous one.
+                db().execute("INSERT OR REPLACE INTO pinned VALUES (1,?)",(pid,))
+            elif action=="unpin" and not cid:
+                # Only this post: an old page must not release a notice pinned since.
+                db().execute("DELETE FROM pinned WHERE post=?",(pid,))
+            elif action in ("hide","show"):
                 db().execute(f"UPDATE {table} SET hidden=? WHERE id=?",(action=="hide",target))
             elif action in ("block","unblock") and item["owner"]!="editorial" and not editor(item["owner"]):
                 if action=="block":

@@ -108,6 +108,11 @@ h2 { font-size: 1.5rem; }
 .meta, .byline, .hint, .back, .reply-count, .flags, .empty { font-size: .875rem; color: var(--ink-faint); }
 .meta { margin-left: auto; gap: 1.2rem; font-variant-numeric: tabular-nums; }
 .private { font-weight: 500; color: var(--green); }
+.notice-tag { font-weight: 500; color: var(--paper); background: var(--green); padding: .05rem .45rem; border-radius: 2px; }
+.posts li.pinned { background: var(--paper-deep); }
+.photos { display: grid; gap: .75rem; margin: 0 0 1.25rem; }
+.photos a { display: block; }
+.photos img { display: block; max-width: 100%; max-height: 75vh; width: auto; height: auto; border: 1px solid var(--line); background: var(--paper-deep); }
 .pages { justify-content: center; margin: 1.6rem 0; font-size: .875rem; }
 .pages a, .back, .source, .hint a { text-decoration: underline; text-underline-offset: .22em; }
 .reading, .narrow { max-width: 41rem; margin-inline: auto; }

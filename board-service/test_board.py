@@ -675,6 +675,369 @@ class BoardTest(unittest.TestCase):
         response=guest.post("/consultation",base_url=ORIGIN,headers={"Origin":ORIGIN,"CF-Connecting-IP":"192.0.2.1"},data=data)
         self.assertEqual(response.status_code,303)
 
+    # --- photo attachments and pinned notice (2026-11-26) ---
+    def photo_bytes(self, fmt="JPEG", size=(400, 300), metadata=False, noise=False, orientation=None):
+        import io, os
+        from PIL import Image, ImageCms
+        mode = "RGBA" if fmt in ("PNG", "WEBP") else "RGB"
+        image = Image.frombytes(mode, size, os.urandom(size[0]*size[1]*len(mode))) if noise else Image.new(mode, size, (200, 30, 30) + ((128,) if mode == "RGBA" else ()))
+        options = {}
+        exif = Image.Exif()
+        if metadata:
+            exif[0x010F] = "SecretMaker"
+            exif[0x0110] = "SecretModel"
+            exif[0x8825] = {1: "N", 2: (37.0, 33.0, 1.0), 3: "E", 4: (127.0, 0.0, 1.0)}
+            options.update(comment=b"secret-comment-location", icc_profile=ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes())
+            if fmt == "JPEG":
+                options["xmp"] = b'<x:xmpmeta xmlns:x="adobe:ns:meta/">secret-xmp</x:xmpmeta>'
+        if orientation:
+            exif[0x0112] = orientation
+        if len(exif):
+            options["exif"] = exif
+        out = io.BytesIO()
+        image.save(out, fmt, **options)
+        return out.getvalue()
+
+    def upload(self, c, files, title="사진 글", visibility="public", **extra):
+        import io
+        return self.send(c, "/write", dict(title=title, body="사진 본문", visibility=visibility,
+                                           images=[(io.BytesIO(data), name) for name, data in files], **extra))
+
+    def fresh_quota(self):
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("DELETE FROM events WHERE kind IN ('write','photo-try')")
+
+    def photo_ids(self, html):
+        return re.findall(r'<img src="/i/([0-9a-f]+)"', html)
+
+    def test_photo_upload_shows_and_reencodes(self):
+        from PIL import Image
+        import io
+        a = self.account("a@example.com")
+        noisy = self.photo_bytes("PNG", size=(600, 500), noise=True)
+        self.assertGreater(len(noisy), 600_000)
+        response = self.upload(a, [("a.jpg", self.photo_bytes(size=(4032, 3024))), ("b.png", noisy), ("c.webp", self.photo_bytes("WEBP"))])
+        self.assertEqual(response.status_code, 303)
+        html = self.get(self.guest, response.location).get_data(as_text=True)
+        ids = self.photo_ids(html)
+        self.assertEqual(len(ids), 3)
+        self.assertIn(f'<a href="/i/{ids[0]}">', html)
+        self.assertIn("사진 3", self.get(a, "/?view=mine").get_data(as_text=True))
+        first = self.get(self.guest, "/i/" + ids[0])
+        self.assertEqual((first.status_code, first.mimetype), (200, "image/jpeg"))
+        self.assertIn("no-store", first.headers["Cache-Control"])
+        self.assertEqual(first.headers["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(max(Image.open(io.BytesIO(first.data)).size), 2000)
+        for iid in ids[1:]:
+            self.assertEqual(Image.open(io.BytesIO(self.get(self.guest, "/i/" + iid).data)).format, "JPEG")
+        # The photo is not a counted page view.
+        from datetime import date
+        from public_views import report
+        before = report(self.path, date.today())["rows"][1]["today"]
+        self.get(self.guest, "/i/" + ids[0])
+        self.assertEqual(report(self.path, date.today())["rows"][1]["today"], before)
+
+    def test_photo_metadata_and_orientation(self):
+        from PIL import Image
+        import io
+        a = self.account("a@example.com")
+        response = self.upload(a, [("gps.jpg", self.photo_bytes(metadata=True)), ("png.png", self.photo_bytes("PNG", metadata=True)),
+                                   ("turn.jpg", self.photo_bytes(size=(300, 100), orientation=6))])
+        self.assertEqual(response.status_code, 303)
+        ids = self.photo_ids(self.get(a, response.location).get_data(as_text=True))
+        for iid in ids:
+            data = self.get(a, "/i/" + iid).data
+            image = Image.open(io.BytesIO(data))
+            self.assertEqual(len(image.getexif()), 0)
+            for key in ("exif", "icc_profile", "comment", "xmp", "XML:com.adobe.xmp"):
+                self.assertNotIn(key, image.info)
+            for marker in (b"Exif", b"secret", b"SecretMaker", b"adobe:ns:meta", b"ICC_PROFILE"):
+                self.assertNotIn(marker, data)
+        self.assertEqual(Image.open(io.BytesIO(self.get(a, "/i/" + ids[2]).data)).size, (100, 300))
+
+    def test_photo_rejections_keep_text_and_store_nothing(self):
+        a = self.account("a@example.com")
+        jpg = self.photo_bytes()
+        cases = [
+            ([("1.jpg", jpg)] * 4, "3장까지"),
+            ([("big.jpg", jpg + b"\0" * (5 * 1024 * 1024))], "5MB"),
+            ([("fake.jpg", b"not an image at all")], "JPG·PNG·WebP"),
+            ([("photo.heic", b"\0\0\0\x18ftypheic\0\0\0\0mif1heic")], "HEIC"),
+            ([("anim.gif", __import__("base64").b64decode("R0lGODlhAQABAAAAACw="))], "JPG·PNG·WebP"),
+        ]
+        for files, reason in cases:
+            response = self.upload(a, files, title="보존될 제목")
+            html = response.get_data(as_text=True)
+            self.assertEqual(response.status_code, 400, reason)
+            self.assertIn(reason, html)
+            self.assertIn("사진은 다시 골라 주세요", html)
+            self.assertIn('value="보존될 제목"', html)
+            self.assertIn("사진 본문", html)
+        too_large = self.upload(a, [("x.jpg", jpg + b"\0" * (25 * 1024 * 1024))])
+        self.assertEqual(too_large.status_code, 413)
+        self.assertIn("5MB, 3장까지", too_large.get_data(as_text=True))
+        with closing(sqlite3.connect(self.path)) as db, db:
+            self.assertEqual(db.execute("SELECT count(*) FROM images").fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT count(*) FROM posts WHERE title='보존될 제목'").fetchone()[0], 0)
+        # Rejections do not use up the writing quota.
+        self.assertEqual(self.upload(a, [("ok.jpg", jpg)]).status_code, 303)
+        # Text-only posts and other forms keep their old behavior and limits.
+        self.fresh_quota()
+        self.assertEqual(self.create(a, "public")[:3], "/p/")
+        self.assertEqual(self.send(a, "/login/request", {"email": "x" * 60000}).status_code, 413)
+
+    def test_upload_body_not_read_without_login_or_origin(self):
+        import io
+        from unittest.mock import patch
+        a = self.account("a@example.com")
+        form = self.get(self.guest, "/login").get_data(as_text=True)
+        csrf = re.search(r'name="csrf" value="([^"]+)"', form)[1]
+        with patch("app.convert") as convert:
+            guest = self.guest.post("/write", base_url=ORIGIN, headers={"Origin": ORIGIN, "CF-Connecting-IP": "192.0.2.1"},
+                                    data=dict(csrf=csrf, title="t", body="b", visibility="public", images=[(io.BytesIO(self.photo_bytes()), "a.jpg")]))
+            self.assertEqual(guest.status_code, 403)
+            foreign = a.post("/write", base_url=ORIGIN, headers={"Origin": "https://example.org", "CF-Connecting-IP": "192.0.2.1"},
+                             data=dict(title="t", body="b", visibility="public", images=[(io.BytesIO(self.photo_bytes()), "a.jpg")]))
+            self.assertEqual(foreign.status_code, 403)
+            convert.assert_not_called()
+
+    def test_private_hidden_and_deleted_photos(self):
+        a = self.account("a@example.com")
+        b = self.account("b@example.com")
+        op = self.account("admin@example.com")
+        private = self.upload(a, [("p.jpg", self.photo_bytes())], visibility="private").location
+        [secret] = self.photo_ids(self.get(a, private).get_data(as_text=True))
+        for reader, status in ((a, 200), (op, 200), (b, 404), (self.guest, 404)):
+            self.assertEqual(self.get(reader, "/i/" + secret).status_code, status)
+        self.fresh_quota()
+        public = self.upload(a, [("q.jpg", self.photo_bytes())]).location
+        [shown] = self.photo_ids(self.get(self.guest, public).get_data(as_text=True))
+        self.assertEqual(self.send(op, public + "/manage", {"action": "hide"}).status_code, 303)
+        self.assertEqual(self.get(self.guest, "/i/" + shown).status_code, 404)
+        self.assertEqual(self.get(a, "/i/" + shown).status_code, 404)
+        self.assertEqual(self.get(op, "/i/" + shown).status_code, 200)
+        self.assertEqual(self.send(op, public + "/manage", {"action": "delete"}).status_code, 303)
+        self.assertEqual(self.send(a, private + "/manage", {"action": "delete"}).status_code, 303)
+        for iid in (secret, shown):
+            self.assertEqual(self.get(op, "/i/" + iid).status_code, 404)
+        with closing(sqlite3.connect(self.path)) as db, db:
+            self.assertEqual(db.execute("SELECT count(*) FROM images").fetchone()[0], 0)
+            # Deleting posts does not hand back the daily photo allowance.
+            self.assertEqual(db.execute("SELECT count(*) FROM events WHERE kind='photo' AND bucket!='*'").fetchone()[0], 2)
+
+    def test_photo_daily_limits_roll_back_the_post(self):
+        import time
+        from unittest.mock import patch
+        a = self.account("a@example.com")
+        owner = None
+        with closing(sqlite3.connect(self.path)) as db, db:
+            owner = db.execute("SELECT owner FROM sessions").fetchone()[0]
+            db.executemany("INSERT INTO events VALUES ('photo',?,?)", [(owner, int(time.time()))] * 14)
+        over = self.upload(a, [("1.jpg", self.photo_bytes()), ("2.jpg", self.photo_bytes())], title="한도 초과")
+        self.assertEqual(over.status_code, 429)
+        self.assertIn("사진 수를 넘었습니다", over.get_data(as_text=True))
+        self.assertEqual(self.upload(a, [("1.jpg", self.photo_bytes())]).status_code, 303)
+        self.fresh_quota()
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("DELETE FROM events WHERE kind='photo'")
+        with patch("app.PHOTO_STORAGE", 10):
+            full = self.upload(a, [("1.jpg", self.photo_bytes())], title="공간 부족")
+        self.assertEqual(full.status_code, 503)
+        with closing(sqlite3.connect(self.path)) as db, db:
+            self.assertEqual(db.execute("SELECT count(*) FROM posts WHERE title IN ('한도 초과','공간 부족')").fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT count(*) FROM images").fetchone()[0], 1)
+
+    def test_pinned_notice(self):
+        with closing(sqlite3.connect(self.path)) as db, db:
+            # Opening posts are stamped at setup; move them back so new posts sort first.
+            db.execute("UPDATE posts SET created=created-86400")
+        a = self.account("a@example.com")
+        op = self.account("admin@example.com")
+        first = self.create(op, "public")
+        self.fresh_quota()
+        second = self.send(op, "/write", dict(title="두 번째 공지", body="본문", visibility="public")).location
+        self.fresh_quota()
+        private = self.create(a, "private")
+        self.assertEqual(self.send(a, first + "/manage", {"action": "pin"}).status_code, 403)
+        self.assertNotIn("맨 위 공지로 고정", self.get(a, first).get_data(as_text=True))
+        self.assertEqual(self.send(op, private + "/manage", {"action": "pin"}).status_code, 400)
+        self.assertNotIn("맨 위 공지로 고정", self.get(op, private).get_data(as_text=True))
+        self.assertEqual(self.send(op, first + "/manage", {"action": "pin"}).status_code, 303)
+        listing = self.get(self.guest, "/").get_data(as_text=True)
+        self.assertEqual(listing.count(f'href="{first}"'), 1)
+        self.assertLess(listing.index("공지"), listing.index(f'href="{second}"'))
+        self.assertLess(listing.index(f'href="{first}"'), listing.index(f'href="{second}"'))
+        self.assertIn("공지 고정 해제", self.get(op, first).get_data(as_text=True))
+        # One notice at a time; a stale unpin of the old notice keeps the new one.
+        self.assertEqual(self.send(op, second + "/manage", {"action": "pin"}).status_code, 303)
+        self.assertEqual(self.send(op, first + "/manage", {"action": "unpin"}).status_code, 303)
+        listing = self.get(self.guest, "/").get_data(as_text=True)
+        self.assertLess(listing.index(f'href="{second}"'), listing.index(f'href="{first}"'))
+        self.assertIn("notice-tag", listing)
+        self.assertNotIn("notice-tag", self.get(a, "/?view=mine").get_data(as_text=True))
+        # Hidden notice: readers see an empty slot, the post is not listed elsewhere either.
+        self.send(op, second + "/manage", {"action": "hide"})
+        self.assertNotIn(f'href="{second}"', self.get(self.guest, "/").get_data(as_text=True))
+        editor_list = self.get(op, "/").get_data(as_text=True)
+        self.assertIn(f'href="{second}"', editor_list)
+        self.assertNotIn("notice-tag", editor_list)
+        self.send(op, second + "/manage", {"action": "delete"})
+        with closing(sqlite3.connect(self.path)) as db, db:
+            self.assertEqual(db.execute("SELECT count(*) FROM pinned").fetchone()[0], 0)
+        self.assertNotIn("notice-tag", self.get(self.guest, "/").get_data(as_text=True))
+        # The notice is not repeated on later pages.
+        self.send(op, first + "/manage", {"action": "pin"})
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.executemany("INSERT INTO posts(id,owner,title,body,private,created) VALUES (?,?,?,?,0,?)",
+                           [(f"{i:024x}", "editorial", f"채움 {i}", "본문", i) for i in range(30)])
+        self.assertNotIn("notice-tag", self.get(self.guest, "/?page=2").get_data(as_text=True))
+
+    def converted(self, data):
+        import io
+        from PIL import Image
+        from photos import convert
+        out, width, height = convert(io.BytesIO(data))
+        return Image.open(io.BytesIO(out)), out
+
+    def test_phone_and_unusual_image_formats(self):
+        import io
+        from PIL import Image, ImageCms
+        from photos import Rejected
+        # HEIC straight from a phone, with location and camera tags.
+        exif = Image.Exif(); exif[0x010F] = "SecretMaker"; exif[0x8825] = {1: "N", 2: (37.0, 33.0, 1.0)}
+        buffer = io.BytesIO(); Image.new("RGB", (640, 480), (200, 30, 30)).save(buffer, "HEIF", exif=exif, quality=80)
+        image, raw = self.converted(buffer.getvalue())
+        self.assertEqual((image.format, image.size), ("JPEG", (640, 480)))
+        self.assertNotIn(b"SecretMaker", raw); self.assertEqual(len(image.getexif()), 0)
+        # 16-bit grayscale keeps its shades instead of turning white.
+        gray = Image.new("I;16", (30, 10)); [gray.paste(Image.new("I;16", (10, 10), v), (i * 10, 0)) for i, v in enumerate((8192, 32768, 57344))]
+        buffer = io.BytesIO(); gray.save(buffer, "PNG")
+        image, _ = self.converted(buffer.getvalue())
+        shades = [image.getpixel((i * 10 + 5, 5))[0] for i in range(3)]
+        self.assertTrue(shades[0] < shades[1] < shades[2] < 250, shades)
+        # A color-keyed transparent RGB PNG shows white where it was transparent.
+        keyed = Image.new("RGB", (20, 20), (16, 148, 80)); buffer = io.BytesIO(); keyed.save(buffer, "PNG", transparency=(16, 148, 80))
+        image, _ = self.converted(buffer.getvalue())
+        self.assertGreater(min(image.getpixel((10, 10))), 245)
+        # Multi-picture JPEG (MPO) is a JPEG for limits and decoding.
+        first = Image.new("RGB", (4800, 3600), (90, 120, 150)); buffer = io.BytesIO()
+        first.save(buffer, "MPO", save_all=True, append_images=[Image.new("RGB", (320, 240))])
+        self.assertEqual(Image.open(io.BytesIO(buffer.getvalue())).format, "MPO")
+        self.assertEqual(self.converted(buffer.getvalue())[0].size, (2000, 1500))
+        # Wide panoramas are reduced while decoding and come out with a 2000px long edge.
+        buffer = io.BytesIO(); Image.new("RGB", (8000, 3000), (90, 120, 150)).save(buffer, "JPEG")
+        self.assertEqual(self.converted(buffer.getvalue())[0].size, (2000, 750))
+        # Over 50MP: the message is about resolution, not file type.
+        buffer = io.BytesIO(); Image.new("RGB", (7200, 7000)).save(buffer, "JPEG")
+        with self.assertRaisesRegex(Rejected, "해상도"):
+            self.converted(buffer.getvalue())
+        # A palette PNG with a color profile is converted like the same RGB picture.
+        linear = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+        rgb = Image.new("RGB", (8, 8), (128, 64, 32))
+        outputs = []
+        from unittest.mock import patch
+        for picture in (rgb, rgb.convert("P", palette=Image.Palette.ADAPTIVE)):
+            buffer = io.BytesIO(); picture.save(buffer, "PNG", icc_profile=linear)
+            with patch("photos.ImageCms.profileToProfile", wraps=ImageCms.profileToProfile) as transform:
+                outputs.append(self.converted(buffer.getvalue())[0].getpixel((4, 4)))
+            self.assertEqual(transform.call_count, 1, picture.mode)
+        self.assertTrue(all(abs(a - b) <= 6 for a, b in zip(*outputs)), outputs)
+
+    def test_photo_attempts_rejected_posts_and_head(self):
+        import io
+        a = self.account("a@example.com")
+        op = self.account("admin@example.com")
+        self.upload(a, [("1.jpg", self.photo_bytes())] * 4)
+        self.upload(a, [("1.jpg", self.photo_bytes())], title="")
+        with closing(sqlite3.connect(self.path)) as db, db:
+            tries = db.execute("SELECT count(*) FROM events WHERE kind='photo-try'").fetchone()[0]
+        self.assertEqual(tries, 4)  # two submissions, account and network buckets
+        with closing(sqlite3.connect(self.path)) as db, db:
+            owner = db.execute("SELECT owner FROM sessions").fetchall()
+            db.executemany("INSERT INTO events VALUES ('photo-try',?,strftime('%s','now'))", [(o[0],) for o in owner for _ in range(20)])
+        limited = self.upload(a, [("1.jpg", self.photo_bytes())], title="이어 쓸 제목")
+        self.assertEqual(limited.status_code, 429)
+        self.assertIn('value="이어 쓸 제목"', limited.get_data(as_text=True))
+        head = a.open("/write", method="HEAD", base_url=ORIGIN, headers={"Origin": ORIGIN, "CF-Connecting-IP": "192.0.2.1"},
+                      data=dict(title="t", body="b", visibility="public", images=[(io.BytesIO(self.photo_bytes()), "a.jpg")]))
+        self.assertEqual(head.status_code, 200)
+        with closing(sqlite3.connect(self.path)) as db, db:
+            self.assertEqual(db.execute("SELECT count(*) FROM posts WHERE owner!='editorial'").fetchone()[0], 0)
+        # A hidden post cannot replace the notice readers see.
+        notice = self.create(op, "public")
+        self.fresh_quota()
+        hidden = self.send(op, "/write", dict(title="숨길 글", body="본문", visibility="public")).location
+        self.send(op, notice + "/manage", {"action": "pin"})
+        self.send(op, hidden + "/manage", {"action": "hide"})
+        self.assertNotIn("맨 위 공지로 고정", self.get(op, hidden).get_data(as_text=True))
+        self.assertEqual(self.send(op, hidden + "/manage", {"action": "pin"}).status_code, 400)
+        with closing(sqlite3.connect(self.path)) as db, db:
+            self.assertEqual(db.execute("SELECT post FROM pinned").fetchone()[0], notice.rsplit("/", 1)[1])
+
+    @staticmethod
+    def gray_icc(gamma=1.0):
+        """A minimal ICC v2 gray profile (linear when gamma is 1.0) for color-conversion tests."""
+        import struct
+        def fixed(v): return struct.pack(">i", round(v * 65536))
+        def pad(b): return b + b"\0" * (-len(b) % 4)
+        text = b"Linear gray test"
+        tags = [(b"desc", pad(b"desc\0\0\0\0" + struct.pack(">I", len(text) + 1) + text + b"\0" + b"\0" * 8 + b"\0" * 3 + b"\0" * 67)),
+                (b"wtpt", b"XYZ \0\0\0\0" + fixed(0.9642) + fixed(1.0) + fixed(0.8249)),
+                (b"kTRC", pad(b"curv\0\0\0\0" + struct.pack(">IH", 1, round(gamma * 256)))),
+                (b"cprt", pad(b"text\0\0\0\0" + b"test\0"))]
+        offset = 128 + 4 + 12 * len(tags); table = b""; body = b""
+        for sig, data in tags:
+            table += sig + struct.pack(">II", offset + len(body), len(data)); body += data
+        size = offset + len(body)
+        header = (struct.pack(">I", size) + b"\0" * 4 + struct.pack(">I", 0x02100000) + b"mntrGRAYXYZ " + b"\0" * 12 + b"acsp"
+                  + b"\0" * 24 + struct.pack(">I", 0) + fixed(0.9642) + fixed(1.0) + fixed(0.8249) + b"\0" * 48)
+        assert len(header) == 128
+        return header + struct.pack(">I", len(tags)) + table + body
+
+    def test_png_color_edge_cases(self):
+        import io
+        from PIL import Image, ImageCms
+        icc = self.gray_icc()
+        self.assertEqual(ImageCms.ImageCmsProfile(io.BytesIO(icc)).profile.xcolor_space.strip(), "GRAY")
+        # Gray with and without an opaque alpha channel convert the same way through the gray profile.
+        outputs = []
+        for picture in (Image.new("L", (8, 8), 128), Image.new("LA", (8, 8), (128, 255))):
+            buffer = io.BytesIO(); picture.save(buffer, "PNG", icc_profile=icc)
+            outputs.append(self.converted(buffer.getvalue())[0].getpixel((4, 4))[0])
+        self.assertTrue(outputs[0] > 170 and abs(outputs[0] - outputs[1]) <= 3, outputs)
+        # PNG gamma 1.0 without ICC is shown gamma-corrected, as browsers do.
+        raw = io.BytesIO(); Image.new("RGB", (8, 8), (128, 128, 128)).save(raw, "PNG")
+        data = raw.getvalue(); import struct, zlib
+        chunk = b"gAMA" + struct.pack(">I", 100000)
+        data = data[:33] + struct.pack(">I", 4) + chunk + struct.pack(">I", zlib.crc32(chunk)) + data[33:]
+        self.assertAlmostEqual(Image.open(io.BytesIO(data)).info["gamma"], 1.0)
+        self.assertGreater(self.converted(data)[0].getpixel((4, 4))[0], 175)
+        # A 16-bit gray PNG whose transparent key is an original 16-bit value shows white there.
+        gray = Image.new("I;16", (20, 10)); gray.paste(Image.new("I;16", (10, 10), 32768), (0, 0)); gray.paste(Image.new("I;16", (10, 10), 8192), (10, 0))
+        buffer = io.BytesIO(); gray.save(buffer, "PNG", transparency=32768)
+        image = self.converted(buffer.getvalue())[0]
+        self.assertGreater(min(image.getpixel((4, 5))), 245)
+        self.assertLess(image.getpixel((15, 5))[0], 60)
+
+    def test_heic_primary_image_and_linear_png_shadows(self):
+        import io, struct, zlib
+        import pillow_heif
+        from PIL import Image
+        heif = pillow_heif.HeifFile()
+        heif.add_from_pillow(Image.new("RGB", (64, 32), (220, 20, 20)))
+        heif.add_from_pillow(Image.new("RGB", (32, 64), (20, 20, 220)))
+        buffer = io.BytesIO(); heif.save(buffer, primary_index=1, quality=90)
+        image = self.converted(buffer.getvalue())[0]
+        self.assertEqual(image.size, (32, 64))
+        red, green, blue = image.getpixel((16, 32))
+        self.assertGreater(blue, red + 100)
+        def linear_png(level):
+            raw = io.BytesIO(); Image.new("L", (16, 16), level).save(raw, "PNG"); data = raw.getvalue()
+            chunk = b"gAMA" + struct.pack(">I", 100000)
+            return data[:33] + struct.pack(">I", 4) + chunk + struct.pack(">I", zlib.crc32(chunk)) + data[33:]
+        for level, expected in ((1, 13), (2, 22), (4, 34), (128, 188)):
+            self.assertLessEqual(abs(self.converted(linear_png(level))[0].getpixel((8, 8))[0] - expected), 2, level)
+
 
 if __name__=="__main__":
     unittest.main()
