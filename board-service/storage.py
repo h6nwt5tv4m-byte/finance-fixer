@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS consultation_updates(
  inquiry TEXT NOT NULL REFERENCES consultations(id) ON DELETE CASCADE, revision INTEGER NOT NULL,
  state TEXT NOT NULL, changed INTEGER NOT NULL, PRIMARY KEY(inquiry,revision));
 CREATE TABLE IF NOT EXISTS erased_consultations(id TEXT PRIMARY KEY, erased INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS consultation_sources(week TEXT NOT NULL, source TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY(week,source));
 CREATE INDEX IF NOT EXISTS consultations_created ON consultations(created,id);
 CREATE TABLE IF NOT EXISTS blocked(owner TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS public_view_counts(

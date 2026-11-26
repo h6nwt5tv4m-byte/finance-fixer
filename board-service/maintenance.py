@@ -115,6 +115,14 @@ def reconcile_consultations(candidate, latest):
         target.execute("DELETE FROM settings WHERE name='consultation-restore-pending'")
 
 
+def count_consultations(database, since, until):
+    """Read-only weekly inflow counts for the blog report. Weeks are Monday dates (KST), inclusive."""
+    with closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as db:
+        rows=db.execute("SELECT source,SUM(n) FROM consultation_sources WHERE week BETWEEN ? AND ? GROUP BY source",
+                        (date.fromisoformat(since).isoformat(), date.fromisoformat(until).isoformat())).fetchall()
+    return {source:total for source,total in rows}
+
+
 if __name__=="__main__":
     os.umask(0o077)
     if sys.argv[1]=="initialize":
@@ -129,6 +137,9 @@ if __name__=="__main__":
             db.close()
     elif sys.argv[1]=="restore-consultations" and len(sys.argv)==4:
         reconcile_consultations(sys.argv[2], None if sys.argv[3]=="--discard" else sys.argv[3])
+    elif sys.argv[1]=="count-consultations" and len(sys.argv)==4:
+        import json
+        print(json.dumps(count_consultations(DATABASE,sys.argv[2],sys.argv[3])))
     elif sys.argv[1]=="prune-backups":
         prune_backups(Path("/var/lib/finance-board-backup"))
     elif sys.argv[1]=="backup":

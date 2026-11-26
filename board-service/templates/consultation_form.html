@@ -9,6 +9,7 @@
   <form class="stack" method="post" action="{{ url_for('consultation_form') }}">
     <input type="hidden" name="csrf" value="{{ consultation_csrf() }}">
     <input type="hidden" name="ticket" value="{{ token }}">
+    {% if values.get('src') == 'naver_blog' %}<input type="hidden" name="src" value="naver_blog">{% endif %}
     <label>회신 이메일<input type="email" name="email" required maxlength="254" autocomplete="email" value="{{ values.get('email', '') }}"></label>
     <label>상담 주제
       <select name="topic" required>

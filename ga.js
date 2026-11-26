@@ -17,5 +17,25 @@
     s.async = true;
     s.src = 'https://www.googletagmanager.com/gtag/js?id=' + ID;
     document.head.appendChild(s);
+    // 문의 버튼 누름(블로그→홈페이지 집결 측정, 2026-11-26). 이벤트 이름만 보내고 번호·주소·링크는 보내지 않는다.
+    const kinds = [[/^tel:/i, 'contact_tel'], [/^mailto:/i, 'contact_mail'], [/^https?:\/\/pf\.kakao\.com\//i, 'contact_kakao'],
+      [/^https:\/\/board\.finance-fixer\.net\/consultation(?:[?#]|$)/, 'contact_consult']];
+    // 블로그 안내 링크로 들어온 방문(이 탭 안)은 상담 신청 화면에 출처 표시를 넘긴다 → 게시판이 주간 건수만 센다(신청 내용과 연결 안 함).
+    try { if (new URLSearchParams(location.search).get('utm_source') === 'naver_blog') sessionStorage.setItem('ff_src', 'naver_blog'); } catch (e) { /* 저장 불가 브라우저 */ }
+    document.addEventListener('click', (ev) => {
+      try {
+        if (location.pathname.startsWith('/go/')) return; // 이동 페이지는 자체 이벤트(go_*)로 센다 — 이중 계산 방지
+        const a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+        const href = a ? a.getAttribute('href') || '' : '';
+        const hit = kinds.find(([re]) => re.test(href));
+        if (!hit) return;
+        window.gtag('event', hit[1], { transport_type: 'beacon' });
+        if (hit[1] === 'contact_consult' && sessionStorage.getItem('ff_src') === 'naver_blog') {
+          const u = new URL(a.href);
+          u.searchParams.set('src', 'naver_blog');
+          a.href = u.toString();
+        }
+      } catch (e) { /* 통계 실패는 화면에 영향 없음 */ }
+    }, true);
   } catch (e) { /* 통계 실패는 화면에 영향 없음 */ }
 })();

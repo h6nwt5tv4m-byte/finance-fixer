@@ -1,6 +1,7 @@
 """Private consultation intake and the office's follow-up queue."""
 import secrets
 import time
+from datetime import datetime, timedelta, timezone
 
 from flask import abort, flash, redirect, render_template, request, session, url_for
 from itsdangerous import BadData, URLSafeTimedSerializer
@@ -9,6 +10,14 @@ from mail_protocol import address
 from storage import CONSULTATION_RETENTION, reserve, write
 
 TOPICS = ("기장·세무 신고", "세무 상담", "회계감사·검토", "기타 문의")
+SOURCES = ("naver_blog",)
+KST = timezone(timedelta(hours=9))
+
+
+def source_week(now):
+    """Monday (KST) of the week containing the Unix time."""
+    day = datetime.fromtimestamp(now, KST).date()
+    return (day - timedelta(days=day.weekday())).isoformat()
 STATES = ("접수", "회신", "상담", "수임", "종결")
 NOTICE = "2026-11-24"
 
@@ -23,7 +32,10 @@ def install(app, db, is_admin, network):
         def new_ticket():
             return forms.dumps([epoch, secrets.token_hex(16)])
         if request.method != "POST":
-            return render_template("consultation_form.html", topics=TOPICS, values={},
+            # Links from the blog may preselect a topic and mark the inflow channel; anything else is ignored.
+            preset = {k: v for k, v, allowed in (("topic", request.args.get("topic", ""), TOPICS),
+                                                 ("src", request.args.get("src", ""), SOURCES)) if v in allowed}
+            return render_template("consultation_form.html", topics=TOPICS, values=preset,
                                    token=new_ticket())
         values = request.form
         token = values.get("ticket", "")
@@ -77,6 +89,10 @@ def install(app, db, is_admin, network):
                     abort(429, description="잠시 후 다시 신청하거나 홈페이지의 전화·이메일로 문의해 주세요.")
                 conn.execute("""INSERT INTO consultations(id,email,topic,note,created,notice)
                                 VALUES (?,?,?,?,?,?)""", (inquiry_id, email, topic, note, now, NOTICE))
+                # Weekly counts per inflow channel, never stored with the inquiry itself.
+                source = values.get("src", "") if values.get("src", "") in SOURCES else "direct"
+                conn.execute("""INSERT INTO consultation_sources(week,source,n) VALUES (?,?,1)
+                                ON CONFLICT(week,source) DO UPDATE SET n=n+1""", (source_week(now), source))
         session["consultation_received"] = True
         return redirect(url_for("consultation_received"), code=303)
 

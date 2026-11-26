@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 import sqlite3
 import tempfile
+import time
 import unittest
 from app import ORIGIN, create_app
 from maintenance import backup
@@ -577,6 +578,33 @@ class BoardTest(unittest.TestCase):
             self.assertEqual(db.execute("SELECT COUNT(*) FROM consultations").fetchone()[0], 1)
             self.assertEqual(db.execute("SELECT COUNT(*) FROM events WHERE kind='consultation'").fetchone()[0], 1)
         self.assertFalse(self.sent)
+
+    def test_consultation_blog_link_preselects_topic_and_counts_source_once(self):
+        from maintenance import count_consultations
+        from consultation import source_week
+        c = self.guest
+        html = self.get(c, "/consultation?topic=회계감사·검토&src=naver_blog").get_data(as_text=True)
+        self.assertIn("<option selected>회계감사·검토</option>", html)
+        self.assertIn('name="src" value="naver_blog"', html)
+        odd = self.get(c, "/consultation?topic=없는 주제&src=<script>").get_data(as_text=True)
+        self.assertNotIn("selected>", odd)
+        self.assertNotIn('name="src"', odd)
+        self.assertNotIn("<script>", odd)
+        data = self.consultation_data(c, src="naver_blog")
+        bad = self.send(c, "/consultation", dict(data, consent=""))           # 오류로 다시 보여도 출처는 남는다
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn('name="src" value="naver_blog"', bad.get_data(as_text=True))
+        for _ in range(2):                                                  # 같은 신청서 재전송은 한 번만 센다
+            self.assertEqual(self.send(c, "/consultation", data).status_code, 303)
+        other = self.app.test_client()
+        self.assertEqual(self.send(other, "/consultation", self.consultation_data(other, email="b@example.com", src="evil")).status_code, 303)
+        week = source_week(time.time())
+        self.assertEqual(count_consultations(self.path, week, week), {"naver_blog": 1, "direct": 1})
+        self.assertEqual(count_consultations(self.path, "2000-01-03", "2000-01-03"), {})
+        with closing(connect(self.path)) as db:
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(consultations)")}
+        self.assertNotIn("source", columns)                                 # 출처는 상담 행에 저장하지 않는다
+        self.assertEqual((source_week(1795962600), source_week(1795966200)), ("2026-11-23", "2026-11-30"))   # KST 일요일 23:30 / 월요일 00:30
 
     def test_consultation_is_private_and_status_updates_keep_latest(self):
         c = self.guest
