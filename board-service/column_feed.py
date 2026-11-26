@@ -1,4 +1,4 @@
-"""Publish the author's new, public apartment columns from the FinanceFixer blog."""
+"""Publish the author's new, public columns from the FinanceFixer blog: apartment columns, and since 2026-11-26 every business-category post."""
 import argparse
 from contextlib import closing
 from datetime import datetime, timezone, timedelta
@@ -24,9 +24,20 @@ MANAGEMENT = re.compile(r"관리비|관리수수료|장기수선|장충금|수�
 SPECIFIC = re.compile(r"장기수선충당금|장충금|승강기유지비|수선유지비|공용관리비|개별사용료|위탁관리수수료|시설유지비|관리비[ ]?(고지서|회계감사비|잡비)")
 OTHER_BUILDINGS = re.compile(r"상가|상업용|오피스텔|사무실|매장|기숙사")
 KST = timezone(timedelta(hours=9))
+# 2026-11-26 22:44 owner decision: every new post in a business category goes to the board, automatic or hand-written.
+# Earlier posts are not backfilled; hobby posts never go.
+BUSINESS = {"관리비·생활정보", "회계감사·외부감사", "보조금·정산", "세금·신고", "경제"}
+WIDE_SINCE = datetime(2026, 11, 26, 22, 0, tzinfo=KST)
+PACE = 31   # seconds between two inserts in one run; the board allows one editorial post per 30 seconds
 
 
-def matches_topic(category, title, tags):
+def matches_topic(category, title, tags, published=None):
+    if apartment_topic(category, title, tags):
+        return True
+    return category in BUSINESS and published is not None and published >= WIDE_SINCE
+
+
+def apartment_topic(category, title, tags):
     if category not in {"관리비·생활정보", "회계감사·외부감사"}:
         return False
     # A comparison can cover apartments and shops. A shop-only article is outside this series.
@@ -50,12 +61,6 @@ def public_items(xml, since, now, excluded=None):
         match = re.fullmatch(re.escape(BLOG) + r"([0-9]+)(?:\?[^#]*)?", item.findtext("link", ""))
         if not match or item.findtext("author") != "financefixer":
             continue
-        if not matches_topic(category, title, item.findtext("tag", "")):
-            if excluded is not None:
-                excluded.add(match[1])
-            continue
-        if not 0 < len(title) <= 100:
-            continue
         try:
             date_text = item.findtext("pubDate", "").strip()
             if not re.search(r"(?:[+-](?:[01]\d|2[0-3])[0-5]\d|GMT|UTC)\Z", date_text, re.I):
@@ -64,6 +69,14 @@ def public_items(xml, since, now, excluded=None):
             if published.tzinfo is None:
                 raise ValueError("Date has no time zone")
         except (TypeError, ValueError, OverflowError):
+            published = None   # judged by the apartment rule alone, as before
+        if not matches_topic(category, title, item.findtext("tag", ""), published):
+            if excluded is not None:
+                excluded.add(match[1])
+            continue
+        if not 0 < len(title) <= 100:
+            continue
+        if published is None:
             print("Ignoring invalid RSS date for", match[1], flush=True)
             continue
         if since <= published <= now:
@@ -192,14 +205,18 @@ def main():
                                ("column-pending:" + log_no,
                                 json.dumps([published.astimezone(KST).isoformat(), title], ensure_ascii=False)))
         queue = db.execute("SELECT name,value FROM settings WHERE name GLOB 'column-pending:*' ORDER BY value").fetchall()
+        last = None
         for key, value in queue:
             log_no = key.removeprefix("column-pending:")
             published, title = json.loads(value)
             try:
                 html = fetch("https://m.blog.naver.com/financefixer/" + log_no)
                 body = board_body(html.decode("utf-8"), title, BLOG + log_no)
+                if last is not None and time.monotonic() - last < PACE:   # two posts in one run: wait out the board's 30-second limit
+                    time.sleep(PACE - (time.monotonic() - last))
                 inserted = publish(db, log_no, title, body, published[:10], int(time.time()))
                 if inserted:
+                    last = time.monotonic()
                     print("Published", BLOG + log_no, flush=True)
             except (requests.RequestException, ValueError) as exc:
                 failed.append(log_no)
