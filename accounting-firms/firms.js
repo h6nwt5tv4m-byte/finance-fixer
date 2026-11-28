@@ -64,12 +64,12 @@
   }
 
   async function load() {
+    search.value = new URLSearchParams(location.search).get('q') || search.value;
     count.textContent = '자료를 불러오는 중입니다.';
     try {
       const response = await fetch('firms.json');
       if (!response.ok) throw new Error('자료 조회 실패');
       firms = await response.json();
-      search.value = new URLSearchParams(location.search).get('q') || search.value;
       render();
       search.addEventListener('input', render);
       sort.addEventListener('change', render);

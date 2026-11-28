@@ -16,7 +16,7 @@
 .scope { border-top: 1px solid var(--line); padding: .85rem 0 0; color: var(--ink-soft); font-size: .9rem; }
 .directory-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin: 2.5rem 0 .9rem; }
 .firm-page h2 { font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.35; }
-.download, .method a, .firm-page tbody th a { text-decoration: underline; text-underline-offset: .23em; text-decoration-color: #909b8d; }
+.scope a, .download, .method a, .firm-page tbody th a { text-decoration: underline; text-underline-offset: .23em; text-decoration-color: #909b8d; }
 .download { font-size: .9rem; font-weight: 500; }
 .filters { display: flex; gap: .8rem; align-items: end; }
 .filters label { display: grid; gap: .3rem; font-size: .83rem; color: var(--ink-soft); font-weight: 500; }
