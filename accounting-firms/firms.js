@@ -64,7 +64,8 @@
   }
 
   async function load() {
-    search.value = new URLSearchParams(location.search).get('q') || search.value;
+    // 기본값만 정하면 스크립트가 늦게 도착해도 이미 입력하거나 지운 값이 유지된다.
+    search.defaultValue = new URLSearchParams(location.search).get('q') || '';
     count.textContent = '자료를 불러오는 중입니다.';
     try {
       const response = await fetch('firms.json');
