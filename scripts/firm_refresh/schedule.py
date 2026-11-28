@@ -114,7 +114,7 @@ def update():
                 # Reject upstream races. The next run computes from the new main, never force pushes.
                 git(checkout,"-c","credential.helper=","-c","credential.helper=!/opt/homebrew/bin/gh auth git-credential",
                     "push",ORIGIN,"HEAD:refs/heads/main")
-                ensure_published(checkout)
+            ensure_published(checkout)
             print(time.strftime("%F %T"), "공개 확인", "갱신" if changed else "변동 없음",
                   git(checkout,"rev-parse","--short","HEAD"),flush=True)
         finally:

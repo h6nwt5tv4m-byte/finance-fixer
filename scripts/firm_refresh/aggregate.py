@@ -53,18 +53,30 @@ class Firm:
         return result
 
 
+def reg_number(value):
+    compact = re.sub(r"\s+", "",value or "")
+    match = re.fullmatch(r"제(\d+)호",compact)
+    return f"제 {int(match[1])} 호" if match else compact
+
+
 def aggregate(releases, registry, filings, prior_members=(), prior_rows=()):
+    normalized = {reg_number(number):name for number,name in registry.items()}
+    require(len(normalized) == len(registry), "한공회 등록번호 중복")
+    registry = normalized
     current_numbers = set(registry)
-    registry = dict(registry)
     known_codes = {}
+    prior_owner = {}
     names_by_number = {}
     old_names = {r["code"]: list(r.get("aliases", ())) + [r["name"]] for r in prior_rows if "code" in r}
     for name, number, code, *history in prior_members:
+        number = reg_number(number)
         if number:
             registry.setdefault(number, name)
             names_by_number[number] = [name, *(history[0] if history else ())]
         if code:
             known_codes[code] = number
+            if number:
+                prior_owner[number] = code
             old_names.setdefault(code, []).append(name)
     members = {stem(name): (number, name) for number, name in registry.items()}
     require(len(members) == len(registry), "한공회 법인명이 겹칩니다")
@@ -85,6 +97,8 @@ def aggregate(releases, registry, filings, prior_members=(), prior_rows=()):
         matched = [k for k in names if k in members]
         require(len(matched) <= 1, "법인 상호 변경과 한공회 명부 확인 필요")
         number, name = members.pop(matched[0]) if matched else ("", reported_name)
+        require(not number or prior_owner.get(number,code) == code,
+                f"{name}의 동명 법인 등록번호와 DART 고유번호 재확인 필요")
         historical = bool(number and number not in current_numbers)
         if historical:
             name = reported_name

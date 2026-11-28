@@ -92,7 +92,7 @@ def dates(section):
 
 
 def width(attrs):
-    span = re.search(r'COLSPAN="(\d+)"', attrs, re.I)
+    span = re.search(r"""\bCOLSPAN\s*=\s*["'](\d+)["']""", attrs, re.I)
     return int(span[1]) if span else 1
 
 
@@ -104,7 +104,7 @@ def current_columns(table):
         if len(possible) == 1:
             index = possible[0]
         else:
-            semantic = [i for i, attr in enumerate(attrs) if 'ACODE="RVN_FY_TTL"' in attr]
+            semantic = [i for i, attr in enumerate(attrs) if re.search(r"""\bACODE\s*=\s*["']RVN_FY_TTL["']""",attr,re.I)]
             if len(semantic) == 1:
                 index = semantic[0]
             else:
@@ -137,28 +137,33 @@ def parse(xml, end_month):
         is_income = heading == "나.손익계산서"
         if is_income:
             statement_head = " ".join(" ".join(row) for row, _ in table[:6])
-        for row, attrs in table:
-            if not row:
-                continue
-            label = row[0].replace(" ", "")
-            if is_income:
-                wanted = re.fullmatch(r"[ⅠI1.]*?(?:영업수익|매출액)(?:\((?:주석?[^)]*|매출액)\))*", label)
-            else:
-                wanted = label in ("합계", "총계")
-            if wanted:
-                columns = current_columns(table)
-                pos = 0
-                current = []
-                for cell, attr in zip(row, attrs):
-                    if pos in columns:
-                        current.append(cell)
-                    pos += width(attr)
-                if not is_income:
-                    current = current[:1]  # The next segment column is the share of sales.
-                require(any(v.strip() for v in current), "공시 당기 금액 공란")
-                values = {v.replace(" ", "").replace(",", "") for v in current if v.strip() not in ("", "-")}
-                require(len(values) <= 1 and all(v.isdigit() for v in values), "공시 당기 금액 형식 확인 필요")
-                amounts[heading] = (int(next(iter(values), "0")), factor)
+        blocks = re.findall(r"<TABLE(?=[\s>])[^>]*>.*?</TABLE>",section,re.I | re.S)
+        for block in blocks or [section]:
+            local_table = list(table_rows(block))
+            for row, attrs in local_table:
+                if not row:
+                    continue
+                label = row[0].replace(" ", "")
+                if is_income:
+                    wanted = re.fullmatch(r"[ⅠI1.]*?(?:영업수익|매출액)(?:\((?:주석?[^)]*|매출액)\))*", label)
+                else:
+                    wanted = label in ("합계", "총계")
+                if wanted:
+                    columns = current_columns(local_table)
+                    pos = 0
+                    current = []
+                    for cell, attr in zip(row, attrs):
+                        if pos in columns:
+                            current.append(cell)
+                        pos += width(attr)
+                    if not is_income:
+                        current = current[:1]  # The next segment column is the share of sales.
+                    require(any(v.strip() for v in current), "공시 당기 금액 공란")
+                    values = {v.replace(" ", "").replace(",", "") for v in current if v.strip() not in ("", "-")}
+                    require(len(values) <= 1 and all(v.isdigit() for v in values), "공시 당기 금액 형식 확인 필요")
+                    amounts[heading] = (int(next(iter(values), "0")), factor)
+                    break
+            if heading in amounts:
                 break
     require(len(amounts) == 2, "공시 매출 표 누락")
     income, income_unit = amounts["나.손익계산서"]
