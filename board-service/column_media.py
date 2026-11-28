@@ -143,32 +143,43 @@ def clean_gif(raw):
 
 def prepare(figures):
     assets = []
-    seen = set()
+    stored_urls = set()
+    unusable = set()
     for order, fig in sorted(enumerate(figures), key=lambda pair: pair[1].priority):
-        if fig.source in seen:
+        if fig.source in stored_urls:
             continue
-        seen.add(fig.source)
         if fig.source == ROUNDING:
+            stored_urls.add(fig.source)
             raw = (Path(__file__).resolve().parent / "column-assets" / ROUNDING).read_bytes()
             with Image.open(BytesIO(raw)) as im:
                 asset = (raw, *im.size, "image/gif")
         else:
             transient = None
+            asset = None
             for url in (fig.source, *fig.alternatives):
+                if url in stored_urls:
+                    break
+                if url in unusable:
+                    continue
                 try:
                     raw = download(url)
                     if raw.startswith((b"GIF87a", b"GIF89a")):
-                        asset = clean_gif(raw)
+                        candidate = clean_gif(raw)
                     else:
-                        asset = (*convert(BytesIO(raw)), "image/jpeg")
+                        candidate = (*convert(BytesIO(raw)), "image/jpeg")
+                    if candidate[1:3] == (1, 1):
+                        raise Rejected("1픽셀 자리표시자")
+                    asset = candidate
+                    stored_urls.add(url)
                     break
                 except requests.RequestException as exc:
                     transient = exc
                 except (Rejected, ValueError, OSError, EOFError, Image.DecompressionBombError):
-                    continue
+                    unusable.add(url)
             else:
                 if transient is not None:
                     raise transient
+            if asset is None:
                 continue
         assets.append((order, fig, asset))
         if len(assets) >= MAX_FILES:

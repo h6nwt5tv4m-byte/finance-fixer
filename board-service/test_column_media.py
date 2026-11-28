@@ -67,6 +67,31 @@ class ColumnMediaTest(unittest.TestCase):
                 self.assertEqual(len(media.prepare(figures)), 1)
                 self.assertEqual([call.args[0] for call in get.call_args_list], [lazy, src])
 
+    def test_one_pixel_placeholder_uses_viewer_original(self):
+        blank = io.BytesIO()
+        Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(blank, "GIF")
+        original = self.url + "?large"
+        f = media.Figure(3, self.url, "원본", alternatives=(original,))
+        with patch.object(media, "download", side_effect=[blank.getvalue(), gif()]):
+            self.assertEqual(media.prepare([f])[0][1][1:3], (5, 6))
+        with patch.object(media, "download", return_value=blank.getvalue()):
+            self.assertEqual(media.prepare([f]), [])
+
+    def test_deduplicate_the_usable_url(self):
+        def fetch(url):
+            if "missing" in url:
+                raise media.Rejected("없음")
+            return gif()
+        def figure(primary, alternate):
+            return media.Figure(0, self.url + primary, "그림", alternatives=(self.url + alternate,))
+        with patch.object(media, "download", side_effect=fetch):
+            shared = [figure("missing1", "front"), figure("missing2", "front"), figure("back", "back")]
+            self.assertEqual([f for f, _ in media.prepare(shared)], [shared[0], shared[2]])
+            limited = [figure("missing", "a"), figure("a", "a"), figure("b", "b"), figure("c", "c")]
+            self.assertEqual([f for f, _ in media.prepare(limited)], [limited[0], limited[2], limited[3]])
+            separate = [figure("missing", "front"), figure("missing", "back")]
+            self.assertEqual([f for f, _ in media.prepare(separate)], separate)
+
     def test_redirect_and_viewer_only_group(self):
         for target, accepted in ((self.url + "?display", True), ("https://outside.example/i", False)):
             redirect = MagicMock(status_code=302, headers={"Location": target})
