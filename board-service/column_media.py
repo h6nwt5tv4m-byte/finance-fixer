@@ -39,6 +39,8 @@ def source_figures(block, offset):
     caption = block.select_one(".se-caption")
     caption = caption.get_text(" ", strip=True) if caption else ""
     for image in block.select("img.se-image-resource, video._gifmp4"):
+        if image.name == "img" and image.find_parent("video"):
+            continue
         # Mobile Naver plays GIFs as MP4. Its data-gif-url and image viewer still serve the GIF.
         animated = image.name == "video"
         keys = ("data-gif-url",) if animated else ("data-lazy-src", "src")
@@ -61,7 +63,8 @@ def source_figures(block, offset):
                 urls.append(original)
         if animated:
             urls = [u for u in urls if u not in (image.get("poster"), image.get("src"))
-                    and urlsplit(u).path.lower().endswith(".gif")
+                    and not unquote(urlsplit(u).path).lower().endswith(".mp4")
+                    and (u == image.get("data-gif-url") or unquote(urlsplit(u).path).lower().endswith(".gif"))
                     and not any(t.startswith("mp4") or "blur" in t for t in
                                 parse_qs(urlsplit(u).query).get("type", []))]
         if not urls:
@@ -70,7 +73,7 @@ def source_figures(block, offset):
         name = unquote(urlsplit(src).path.rsplit("/", 1)[-1]).lower()
         alt = (image.get("alt") or "").strip()
         label = alt or caption or "원문에 실린 자료 이미지"
-        priority = 1 if name.endswith(".gif") else 2
+        priority = 1 if animated or name.endswith(".gif") else 2
         if re.fullmatch(r"\d+_summary\.\w+", name):
             priority = 3
         elif re.fullmatch(r"\d+_thumb\.\w+", name):

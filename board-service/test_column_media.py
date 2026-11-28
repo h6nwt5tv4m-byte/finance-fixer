@@ -68,6 +68,12 @@ class ColumnMediaTest(unittest.TestCase):
         self.assertEqual([(f.offset, f.source, f.alternatives) for f in figures], [(0, self.url, (fallback,))])
         with patch.object(media, "download", side_effect=[media.Rejected("없음"), gif()]):
             self.assertEqual(media.prepare(figures)[0][1][-1], "image/gif")
+        opaque = "https://mblogthumb-phinf.pstatic.net/animated/12345"
+        alternative = video.replace(fallback, opaque).replace(self.url + '"}', opaque + '"}')
+        alternative = alternative.replace("</video>", f'<img class="se-image-resource" src="{self.url}?poster"></video>')
+        figures = []
+        feed.board_body(article(alternative), "제목", figures=figures)
+        self.assertEqual([(f.source, f.priority) for f in figures], [(opaque, 1)])
 
     def test_mobile_gif_ignores_video_and_poster_and_tries_animated_fallback(self):
         display = self.url + "?type=w800"
