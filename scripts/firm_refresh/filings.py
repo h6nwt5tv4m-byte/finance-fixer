@@ -27,7 +27,7 @@ def dart_get(session, endpoint, params):
         raise RuntimeError(f"DART {endpoint}: {type(exc).__name__}") from None
 
 
-def latest(session, key, today, withdrawn=None):
+def latest(session, key, today, withdrawn=None, corrections=None):
     begin = START
     selected = {}
     while begin <= today:
@@ -49,6 +49,8 @@ def latest(session, key, today, withdrawn=None):
                     if withdrawn is not None:
                         withdrawn.add((code, receipt))
                     continue
+                if corrections is not None and "정정" in item["report_nm"]:
+                    corrections.add(receipt)
                 end_month = "-".join(match.groups())
                 entry = (end_month, receipt, item["corp_name"])
                 if code not in selected or entry > selected[code]:
@@ -106,9 +108,10 @@ def current_columns(table):
             if len(semantic) == 1:
                 index = semantic[0]
             else:
-                numbered = [(int(n[1]), i) for i in possible
+                candidates = possible or [i for i in range(1,len(labels)) if labels[i].strip() not in ("","-")]
+                numbered = [(int(n[1]), i) for i in candidates
                             if (n := re.search(r"제\s*(\d+)", labels[i]))]
-                require(numbered and len(numbered) == len(possible) and
+                require(numbered and len(numbered) == len(candidates) and
                         len({n for n, _ in numbered}) == len(numbered), "공시 당기 머리글 판별 불가")
                 index = max(numbered)[1]
         start = sum(width(a) for a in attrs[:index])

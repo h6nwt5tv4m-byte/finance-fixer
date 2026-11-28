@@ -37,7 +37,7 @@ class PublicationMismatch(RuntimeError):
 
 def verify_publication(site):
     expected = {}
-    for name in publication_files(site):
+    for name in [*publication_files(site), "accounting-firms/firms.js"]:
         file = site / name
         route = file.relative_to(site / "accounting-firms").as_posix()
         expected["" if route == "index.html" else route] = hashlib.sha256(file.read_bytes()).digest()
@@ -68,18 +68,25 @@ def repair_pages(checkout):
     runs = json.loads(subprocess.check_output(api+[repo+"/actions/runs?head_sha="+head+"&event=dynamic&per_page=100"]))
     pages = next((r for r in runs["workflow_runs"] if r["path"] == "dynamic/pages/pages-build-deployment"), None)
     if pages and pages["status"] != "completed":
-        return
+        return False
     if pages and pages["conclusion"] in ("failure","cancelled","timed_out","action_required"):
         subprocess.run(api+["-X","POST",repo+f"/actions/runs/{pages['id']}/rerun"],check=True)
     else:
         subprocess.run(api+["-X","POST",repo+"/pages/builds"],check=True)
+    return True
 
 
 def ensure_published(checkout):
     try:
         verify_publication(checkout)
+        return
     except PublicationMismatch:
-        repair_pages(checkout)
+        started = repair_pages(checkout)
+    try:
+        verify_publication(checkout)
+    except PublicationMismatch:
+        if started or not repair_pages(checkout):
+            raise
         verify_publication(checkout)
 
 

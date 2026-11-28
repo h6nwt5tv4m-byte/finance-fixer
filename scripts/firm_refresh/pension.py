@@ -25,7 +25,7 @@ def require(condition, message):
 
 def month_index(month):
     year, number = map(int, month.split("-"))
-    require(1 <= number <= 12, "잘못된 기준월 " + month)
+    require(1 <= year <= 9999 and 1 <= number <= 12, "잘못된 기준월 " + month)
     return year * 12 + number
 
 
@@ -114,9 +114,12 @@ def get_release(session, cache, date, pk, max_age):
     return result
 
 
-def check_coverage(cache, releases, counts, fraction, error):
+def check_coverage(cache, releases, counts, fraction, error, baseline=None):
     minimum = max(1, median(counts) * fraction)
-    suspect = [r for r, count in zip(releases, counts) if count < minimum]
+    baseline = baseline or {}
+    previous_level = median(baseline.values()) if baseline else 0
+    suspect = [r for r, count in zip(releases, counts)
+               if count < max(minimum, baseline.get(r.get("month"),previous_level) * fraction)]
     for release in suspect:
         (cache / (release["date"] + ".json")).unlink(missing_ok=True)
     require(not suspect, error)

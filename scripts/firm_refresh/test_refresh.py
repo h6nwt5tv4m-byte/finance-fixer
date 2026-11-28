@@ -129,3 +129,30 @@ class RefreshTests(unittest.TestCase):
             build.validate_book(path,[firm.record()],releases)
         template = (Path(__file__).resolve().parents[2]/"accounting-firms/index.html").read_text()
         self.assertIn("<!--data:median-->미산출",build.render_page(template,"a"*16,releases,[firm.record()]))
+
+    def test_period_ordinals_and_identity_before_first_filing(self):
+        self.assertEqual(list(filings.current_columns([(["과 목","제8기","제10기","제9기"],[""]*4)])),[2])
+        docs = {"12345678":("새회계법인","receipt",{})}
+        prior = [("옛회계법인","제 1 호",None)]
+        rows = [["2026-10",n,"123456","1","서울 강남구","741202","","4","0","0"]
+                for n in ("옛회계법인","새회계법인 컨설팅본부(강남)")]
+        result = aggregate.aggregate([{"month":"2026-10","data":rows}],{"제 1 호":"새회계법인"},docs,prior)[0]
+        self.assertEqual((result.name,result.record()["personMonths"]),("새회계법인",8))
+        absent = aggregate.aggregate([],{},docs,[("옛회계법인","제 1 호","12345678")])[0]
+        self.assertEqual((absent.name,absent.aliases),("새회계법인",("옛회계법인",)))
+
+    def test_broad_source_loss_against_last_public_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            releases = [dict(date=f"2026{n:02}28",month=f"2026-{n:02}") for n in range(1,13)]
+            prior = {r["month"]:590000 for r in releases}
+            with self.assertRaisesRegex(ValueError,"급감"):
+                pension.check_coverage(Path(tmp),releases,[490000]*7+[590000]*5,.95,"급감",prior)
+        with self.assertRaises(ValueError):
+            pension.month_index("0000-10")
+
+    def test_ongoing_pages_run_that_fails_is_retried(self):
+        import schedule
+        with patch.object(schedule,"verify_publication",side_effect=[schedule.PublicationMismatch(),
+                          schedule.PublicationMismatch(),None]),patch.object(schedule,"repair_pages",side_effect=[False,True]) as repair:
+            schedule.ensure_published(Path("."))
+            self.assertEqual(repair.call_count,2)

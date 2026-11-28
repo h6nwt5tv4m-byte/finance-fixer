@@ -57,10 +57,12 @@ def aggregate(releases, registry, filings, prior_members=(), prior_rows=()):
     current_numbers = set(registry)
     registry = dict(registry)
     known_codes = {}
+    names_by_number = {}
     old_names = {r["code"]: list(r.get("aliases", ())) + [r["name"]] for r in prior_rows if "code" in r}
-    for name, number, code in prior_members:
+    for name, number, code, *history in prior_members:
         if number:
             registry.setdefault(number, name)
+            names_by_number[number] = [name, *(history[0] if history else ())]
         if code:
             known_codes[code] = number
             old_names.setdefault(code, []).append(name)
@@ -83,14 +85,21 @@ def aggregate(releases, registry, filings, prior_members=(), prior_rows=()):
         matched = [k for k in names if k in members]
         require(len(matched) <= 1, "법인 상호 변경과 한공회 명부 확인 필요")
         number, name = members.pop(matched[0]) if matched else ("", reported_name)
-        prior_names = tuple(sorted({n for n in old_names.get(code, ()) if stem(n) != stem(name)}))
-        firm = Firm(name, code, number, receipt, accounts, aliases=prior_names, historical=bool(number and number not in current_numbers))
+        historical = bool(number and number not in current_numbers)
+        if historical:
+            name = reported_name
+        linked_names = [*old_names.get(code, ()), *names_by_number.get(number, ())]
+        names.extend(stem(n) for n in linked_names)
+        prior_names = tuple(sorted({n for n in linked_names if stem(n) != stem(name)}))
+        firm = Firm(name, code, number, receipt, accounts, aliases=prior_names, historical=historical)
         entities.append(firm)
         for k in names:
             add_alias(k, firm)
     for k, (number, name) in members.items():
-        firm = Firm(name, number=number, historical=number not in current_numbers)
-        add_alias(k, firm)
+        old = tuple(sorted({n for n in names_by_number.get(number, ()) if stem(n) != k}))
+        firm = Firm(name, number=number, aliases=old, historical=number not in current_numbers)
+        for alias in (k, *(stem(n) for n in old)):
+            add_alias(alias, firm)
         entities.append(firm)
     prefixes = sorted(aliases, key=len, reverse=True)
     resolved = {}
@@ -102,7 +111,8 @@ def aggregate(releases, registry, filings, prior_members=(), prior_rows=()):
                 prefix = next((p for p in prefixes if name.startswith(p)), "")
                 suffix = name[len(prefix):]
                 branch = re.sub(r"\([^()]*\)$", "", suffix)
-                separate = re.search(r"근로복지기금|복지재단|세무법인|주식회사|협동조합|노동조합|노조|컨설팅(?!본부$)", suffix)
+                separate = re.search(r"근로복지기금|복지재단|세무법인|주식회사|협동조합|노동조합|노조", suffix)
+                separate = separate or ("컨설팅" in suffix and not branch.endswith("컨설팅본부"))
                 branch_name = re.search(r"(지점|분사무소|분사업소|본부|지사|센터|센타|분실|사무소|팀|점|지부|연구소)$", branch)
                 known = branch in {"", "강남", "강서", "부산", "부천", "서초", "종로", "호남"}
                 # Some public sites use a person or an English office name in parentheses or after a hyphen.

@@ -74,32 +74,45 @@ def validate_filings(previous, selected, withdrawn=()):
 
 def build(site, cache, key):
     previous = json.loads((site/"firms.json").read_text())
+    old_book = openpyxl.load_workbook(site/"accounting-firms.xlsx", read_only=True, data_only=True)
+    try:
+        prior_members = []
+        for row in list(old_book["명부 대조"].values)[1:]:
+            note = re.search(r"(?:^| · )종전 명칭: (.*?)(?: · |$)",row[5] or "")
+            prior_members.append((*row[:3], note[1].split(", ") if note else []))
+        source_rows = list(old_book["산식과 출처"].values)[20:32]
+        prior_total = {r[1]:r[2] for r in source_rows if isinstance(r[2],int)}
+        prior_sites = {r[1]:r[3] for r in source_rows if isinstance(r[3],int)}
+    finally:
+        old_book.close()
     releases = pension.collect(cache / "nps")
+    pension.check_coverage(cache/"nps",releases,[r["rows"] for r in releases],.95,"기존 공개 전국 사업장 수 대비 급감",prior_total)
     docs = cache / "dart"
     docs.mkdir(parents=True, exist_ok=True)
     today = dt.datetime.now(ZoneInfo("Asia/Seoul")).date()
     with requests.Session() as session:
         withdrawn = set()
-        selected = filings.latest(session, key, today, withdrawn)
+        corrections = set()
+        selected = filings.latest(session, key, today, withdrawn, corrections)
         validate_filings(previous, selected, withdrawn)
         registry = filings.registry(session)
+        prior_by_code = {r["code"]:r for r in previous if "code" in r}
         reports = {}
         for code,(end,receipt,name) in sorted(selected.items()):
             try:
                 accounts = filings.financial(session,key,docs,receipt,end)
             except (ValueError, KeyError, OSError) as exc:
                 raise ValueError(f"{name} 공시 {receipt}: {exc}") from exc
+            prior = prior_by_code.get(code)
+            if prior and (code,prior["receipt"]) not in withdrawn:
+                require(accounts["end"] >= prior["end"] or receipt in corrections,
+                        f"{name}의 결산 종료일이 기존 공개일보다 이릅니다")
             reports[code] = (name,receipt,accounts)
-    old_book = openpyxl.load_workbook(site/"accounting-firms.xlsx", read_only=True, data_only=True)
-    try:
-        prior_members = [tuple(row[:3]) for row in list(old_book["명부 대조"].values)[1:]]
-    finally:
-        old_book.close()
     entities = aggregate.aggregate(releases,registry,reports,prior_members,previous)
     rows = [f.record() for f in entities if f.code]
     require(len({r["name"] for r in rows}) == len(rows), "공시 상호 중복")
     counts = [sum(f.monthly.get(item["month"], [0,0,0,0])[3] for f in entities if f.code) for item in releases]
-    pension.check_coverage(cache / "nps", releases, counts, .8, "법인 연결 사업장 행 수 급감: 월자료 확인 필요")
+    pension.check_coverage(cache / "nps", releases, counts, .8, "법인 연결 사업장 행 수 급감: 월자료 확인 필요", prior_sites)
     records = "[\n" + ",\n".join(json.dumps(r,ensure_ascii=False,separators=(",",":")) for r in rows) + "\n]\n"
     with tempfile.TemporaryDirectory(dir=site.parent) as temp:
         stage = Path(temp)
