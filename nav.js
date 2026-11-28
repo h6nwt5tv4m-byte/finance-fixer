@@ -31,6 +31,18 @@ try {
   // 공통 메뉴를 쓰는 기존 페이지·서브도메인에도 학습 공간을 연결한다.
   // 자바스크립트가 꺼진 경우 '도구'가 가리키는 홈 목록에서 진입할 수 있다.
   const panel = wrap && wrap.querySelector('.drop');
+  if (panel && !panel.querySelector('a[href$="/accounting-firms/"]')) {
+    const link = document.createElement('a');
+    link.href = 'https://finance-fixer.net/accounting-firms/';
+    const label = document.createElement('b');
+    label.textContent = document.documentElement.lang === 'en' ? 'Accounting firms' : '회계법인 비교';
+    const description = document.createElement('span');
+    description.textContent = document.documentElement.lang === 'en' ? 'Revenue and pension enrollment at 270 firms (Korean)' : '270곳의 매출과 국민연금 가입 변동';
+    link.append(label, description);
+    const audit = panel.querySelector('a[href$="/public-audit/"]');
+    if (audit) audit.before(link);
+    else (panel.querySelector('.drop-inner') || panel).append(link);
+  }
   if (panel && !panel.querySelector('a[href="/bible/"], a[href="https://finance-fixer.net/bible/"]')) {
     const link = document.createElement('a');
     link.href = 'https://finance-fixer.net/bible/';
@@ -124,7 +136,7 @@ try {
     if (mainSite && new URL(a.href, location.href).hostname === host && p !== '/' && path.startsWith(p)) a.classList.add('active');
   });
   // 도구 하위 페이지와 도구 서브도메인(aptfee·gamsain·sangkwon·econ·jobs·jiwon)에서는 '도구'를 표시
-  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|g2b|hanja|db|bible|bookworm)\//.test(path))) btn.classList.add('active');
+  if (!onHome && (!mainSite || /^\/(oegam|rates|related-party|public-audit|accounting-firms|g2b|hanja|db|bible|bookworm)\//.test(path))) btn.classList.add('active');
   header.classList.add('stuck');
   if ('ResizeObserver' in window) new ResizeObserver(fit).observe(header);
   fit(); if (onHome) spy();
