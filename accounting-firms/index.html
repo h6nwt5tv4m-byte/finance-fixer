@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>회계법인 매출과 국민연금 가입 변동 | 재무해결사</title>
-  <meta name="description" content="전국 270개 회계법인의 DART 매출과 국민연금 가입자 수, 신규취득 및 상실 건수를 비교합니다.">
+  <meta name="description" content="전국 회계법인의 DART 매출과 국민연금 가입자 수, 신규취득 및 상실 건수를 비교합니다.">
   <link rel="canonical" href="https://finance-fixer.net/accounting-firms/">
   <meta property="og:title" content="회계법인 매출과 국민연금 가입 변동 | 재무해결사">
-  <meta property="og:description" content="전국 270개 회계법인의 DART 매출과 국민연금 가입자 수, 신규취득 및 상실 건수를 비교합니다.">
+  <meta property="og:description" content="전국 회계법인의 DART 매출과 국민연금 가입자 수, 신규취득 및 상실 건수를 비교합니다.">
   <meta property="og:url" content="https://finance-fixer.net/accounting-firms/">
   <meta property="og:image" content="https://finance-fixer.net/og-image.jpg">
   <meta property="og:type" content="website">
@@ -34,7 +34,7 @@
           <div class="drop-inner">
             <a href="https://aptfee.finance-fixer.net/"><b>아파트</b><span>감사보수·관리비를 동급 단지와 비교</span></a>
             <a href="https://gamsain.finance-fixer.net/"><b>감사인</b><span>비상장 외부감사를 누가 몇 곳 맡는지</span></a>
-            <a href="/accounting-firms/"><b>회계법인 비교</b><span>270곳의 매출과 국민연금 가입 변동</span></a>
+            <a href="/accounting-firms/"><b>회계법인 비교</b><span>법인별 매출과 국민연금 가입 변동</span></a>
             <a href="/public-audit/"><b>공공기관 감사</b><span>공공기관·지방공기업의 감사인·계약금액</span></a>
             <a href="/g2b/"><b>나라장터 소기업 수주분석</b><span>회계용역의 업체별 낙찰 비중과 사업 이력</span></a>
             <a href="https://sangkwon.finance-fixer.net/"><b>상권</b><span>서울 상권의 매출·점포·임대료</span></a>
@@ -57,16 +57,16 @@
       <a href="/#contact">문의</a>
     </nav>
   </header>
-<main id="main" class="firm-page">
+<main id="main" class="firm-page" data-version="23fa642616252a84" data-period-end="2026-10">
   <section aria-labelledby="title" class="intro">
-    <div><p class="period">국민연금 기준 기간 &nbsp; 2025.04 — 2026.03</p>
+    <div><p class="period">국민연금 기준 기간 &nbsp; <!--data:period-->2025.11 — 2026.10<!--/data--></p>
     <h1 id="title">회계법인 매출과<br>국민연금 가입 변동</h1>
-    <p class="lead">DART에 사업보고서를 제출한 회계법인 270곳의 매출과 국민연금 가입자의 변동을 법인별로 살펴봅니다.</p></div>
-    <div class="benchmark"><p>연간 상실 비율 중앙값</p><strong>23.3<span>%</span></strong><small>12개월 모두 확인된 253곳 기준</small></div>
+    <p class="lead">DART에 사업보고서를 제출한 회계법인 <!--data:count-->270<!--/data-->곳의 매출과 국민연금 가입자의 변동을 법인별로 살펴봅니다.</p></div>
+    <div class="benchmark"><p>연간 상실 비율 중앙값</p><strong><!--data:median-->24.1<!--/data--><span>%</span></strong><small>12개월 모두 확인된 <!--data:full-->265<!--/data-->곳 기준</small></div>
   </section>
   <p class="scope">상실에는 납부예외와 사업장 간 이동도 포함될 수 있습니다. 예를 들어 상실 비율 40%는 월평균 가입자 100명당 1년간 40건이 상실로 집계됐다는 뜻입니다. 개인별 퇴사 여부와 근속기간은 확인할 수 없습니다. <a href="#sources">자료와 계산 기준 ↓</a></p>
   <section aria-labelledby="directory">
-    <div class="directory-head"><h2 id="directory">법인별 조회</h2><a class="download" href="accounting-firms.xlsx" download>전체 엑셀 다운로드 ↓</a></div>
+    <div class="directory-head"><h2 id="directory">법인별 조회</h2><a class="download" href="snapshots/23fa642616252a84/accounting-firms.xlsx" download>전체 엑셀 다운로드 ↓</a></div>
     <div class="filters">
       <label>회계법인명<input id="search" type="search" placeholder="예: 삼일, 조은" autocomplete="off"></label>
       <label>정렬<select id="sort"><option value="name">가나다순</option><option value="revenue">매출 큰 순</option><option value="average">평균 가입자 많은 순</option><option value="loss">연간 상실 비율 높은 순</option></select></label>
@@ -81,12 +81,13 @@
   </section>
   <section class="method" aria-labelledby="sources">
     <h2 id="sources">자료와 계산 기준</h2>
-    <p><b>매출</b>은 2026년 3월에 가장 가까운 결산 사업보고서의 당기 영업수익입니다. 회계법인 자체의 공시 금액이며, 법인명을 누르면 원문을 볼 수 있습니다. 짧은 사업연도도 공시 금액 그대로 표시합니다.</p>
+    <p>매일 오전 9시 40분(한국시간)에 새 자료를 확인합니다. 국민연금은 가장 최근에 공개된 연속 12개월을 쓰고, 매출은 법인별 최신 결산을 표시합니다.</p>
+    <p><b>매출</b>은 법인별 최신 결산 사업보고서의 당기 영업수익입니다. 같은 결산에 정정공시가 있으면 최신 정정을 반영합니다. 회계법인 자체의 공시 금액이며, 법인명을 누르면 원문을 볼 수 있습니다. 짧은 사업연도도 공시 금액 그대로 표시합니다.</p>
     <p><b>연간 상실 비율</b>은 국민연금 상실 12개월 합계를 같은 기간 월평균 가입자 수로 나눈 값입니다. 공단은 당월에는 고지가 있었으나 다음 달에는 고지가 없는 경우를 상실로 집계합니다. 사업장 간 이동이나 한 사람의 반복 변동이 포함될 수 있습니다. 신규취득에는 납부재개도 포함됩니다.</p>
-    <p>사업장 이름과 공시 상호를 대조해 본점과 분사무소의 공개 기록을 합산했습니다. 한공회 명부와 대조한 대상 가운데 11곳은 기간 내 국민연금 기록을 확인할 수 없어 엑셀의 명부 대조 시트에 따로 표시했습니다. 표의 17곳은 일부 월만 확인되어 관측월의 평균과 누계만 표시합니다. 공개 기준 미만이거나 명칭을 연결할 수 없는 사업장은 빠질 수 있습니다.</p>
+    <p>사업장 이름과 공시 상호를 대조해 본점과 분사무소의 공개 기록을 합산했습니다. 공시 전인 법인도 한공회 명부에서 확인되면 엑셀의 명부 대조 시트에 표시합니다. 12개월 미만인 법인은 관측된 달만 합산하고, 기록이 없는 경우 미관측으로 표시합니다. 공개 기준 미만이거나 명칭을 연결할 수 없는 사업장은 빠질 수 있습니다.</p>
     <p><a href="https://www.data.go.kr/data/15083277/fileData.do">국민연금공단 월별 자료 ↗</a> · <a href="https://www.kicpa.or.kr/home/audtTaxAttrnGnrl/accCoReList.face">한국공인회계사회 법인 명부 ↗</a></p>
   </section>
 </main>
 <script src="/nav.js"></script>
-<script src="firms.js"></script>
+<script src="firms.js?v=rolling-2"></script>
 </body></html>

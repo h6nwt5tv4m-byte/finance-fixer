@@ -37,7 +37,7 @@ try {
     const label = document.createElement('b');
     label.textContent = document.documentElement.lang === 'en' ? 'Accounting firms' : '회계법인 비교';
     const description = document.createElement('span');
-    description.textContent = document.documentElement.lang === 'en' ? 'Revenue and pension enrollment at 270 firms (Korean)' : '270곳의 매출과 국민연금 가입 변동';
+    description.textContent = document.documentElement.lang === 'en' ? 'Revenue and pension enrollment by firm (Korean)' : '법인별 매출과 국민연금 가입 변동';
     link.append(label, description);
     const audit = panel.querySelector('a[href$="/public-audit/"]');
     if (audit) audit.before(link);

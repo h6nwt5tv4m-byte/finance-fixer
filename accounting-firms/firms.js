@@ -8,11 +8,11 @@
   const number = new Intl.NumberFormat('ko-KR', {maximumFractionDigits: 1});
   const names = new Intl.Collator('ko');
   const normalize = text => text.normalize('NFC').replace(/\s+/g, '').toLocaleLowerCase('ko');
-  const average = firm => firm.personMonths / firm.months;
-  const annualLoss = firm => firm.months === 12 ? firm.lost / average(firm) : null;
+  const average = firm => firm.months ? firm.personMonths / firm.months : null;
+  const annualLoss = firm => firm.months === 12 && firm.personMonths > 0 ? firm.lost / average(firm) : null;
   const descending = {
     revenue: firm => firm.revenue,
-    average,
+    average: firm => average(firm) ?? -1,
     loss: firm => annualLoss(firm) ?? -1
   };
   let firms = [];
@@ -42,9 +42,9 @@
     row.append(heading);
     const revenue = cell(row, '매출 (억원)', decimal.format(firm.revenue / 100000000));
     detail(revenue, firm.start + ' ~ ' + firm.end);
-    cell(row, '평균 가입자', number.format(average(firm)) + '명');
-    cell(row, '신규취득', number.format(firm.gained) + '건');
-    cell(row, '상실', number.format(firm.lost) + '건');
+    cell(row, '평균 가입자', firm.months ? number.format(average(firm)) + '명' : '미관측');
+    cell(row, '신규취득', firm.months ? number.format(firm.gained) + '건' : '미관측');
+    cell(row, '상실', firm.months ? number.format(firm.lost) + '건' : '미관측');
     const loss = annualLoss(firm);
     const ratio = cell(row, '연간 상실 비율', loss === null ? '미산출' : decimal.format(loss * 100) + '%');
     if (loss === null) detail(ratio, firm.months + '개월 관측');
@@ -68,7 +68,10 @@
     search.defaultValue = new URLSearchParams(location.search).get('q') || '';
     count.textContent = '자료를 불러오는 중입니다.';
     try {
-      const response = await fetch('firms.json');
+      const version = document.getElementById('main').dataset.version || 'ec3e8476c2879f73';
+      const snapshot = 'snapshots/' + encodeURIComponent(version) + '/';
+      document.querySelector('a[download]').href = snapshot + 'accounting-firms.xlsx';
+      const response = await fetch(snapshot + 'firms.json');
       if (!response.ok) throw new Error('자료 조회 실패');
       firms = await response.json();
       render();
