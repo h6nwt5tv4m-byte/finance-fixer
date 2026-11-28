@@ -149,8 +149,7 @@ def board_body(html, title, url=None, figures=None):
             kept.append(part)
         body = "\n\n".join(kept)
         if figures is not None:
-            figures.extend(f for f in candidates if f.offset < len(body) or
-                           (f.source == column_media.ROUNDING and f.offset == len(body)))
+            figures.extend(f for f in candidates if f.offset <= len(body))
         return body + end
     if figures is not None:
         figures.extend(candidates)
@@ -202,6 +201,8 @@ def publish(db, log_no, title, body, source_day, now, figures=()):
             try:
                 reserve_budget(db, "editorial", [len(asset[0]) for _, asset in assets], now)
             except PhotoBudget as exc:
+                if exc.status == 429:
+                    raise  # The rolling daily quota recovers; retry with the figures.
                 # The normal board limits apply. Keep the scheduled text and its public original.
                 print(f"Column {log_no}: image budget {exc.status}; publishing text with source link", flush=True)
                 assets = ()

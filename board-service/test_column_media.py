@@ -52,10 +52,20 @@ class ColumnMediaTest(unittest.TestCase):
             figures = []
             feed.board_body(article(html + para("설명")), "제목", figures=figures)
             fig = figures[0]
-            self.assertEqual((fig.source, fig.fallback), (shown, original) if ext == "png" else (original, shown))
+            self.assertEqual((fig.source, fig.alternatives), (shown, (original,)) if ext == "png" else (original, (shown,)))
             if ext == "gif":
                 with patch.object(media, "download", side_effect=[media.Rejected("원본 없음"), gif()]):
                     self.assertEqual(media.prepare(figures)[0][1][-1], "image/gif")
+
+    def test_display_src_survives_unavailable_lazy_url(self):
+        lazy, src = self.url + "?w1200", self.url + "?w800"
+        block = f'<div class="se-component se-image"><img class="se-image-resource" data-lazy-src="{lazy}" src="{src}"></div>'
+        figures = []
+        feed.board_body(article(block), "제목", figures=figures)
+        for error in (media.Rejected("없음"), requests.Timeout()):
+            with patch.object(media, "download", side_effect=[error, gif()]) as get:
+                self.assertEqual(len(media.prepare(figures)), 1)
+                self.assertEqual([call.args[0] for call in get.call_args_list], [lazy, src])
 
     def test_redirect_and_viewer_only_group(self):
         for target, accepted in ((self.url + "?display", True), ("https://outside.example/i", False)):
@@ -115,6 +125,27 @@ class ColumnMediaTest(unittest.TestCase):
                                "제목", figures=figures)
         self.assertEqual([f.source for f in figures], [media.ROUNDING])
         self.assertTrue(body[:figures[0].offset].endswith("0.0%"))
+
+    def test_photo_after_last_kept_paragraph_stays(self):
+        figures = []
+        feed.board_body(article(para("가"*3750) + picture(self.url) + para("나"*1000)),
+                        "제목", figures=figures)
+        self.assertEqual([f.offset for f in figures], [3750])
+
+    def test_daily_photo_quota_retries_with_media(self):
+        with tempfile.TemporaryDirectory() as d, patch.object(media, "download", return_value=gif()):
+            path = Path(d)/"db"
+            initialize(path)
+            db = connect(path)
+            db.executemany("INSERT INTO events VALUES('photo','editorial',?)", [(81000,)] * 15)
+            db.execute("INSERT INTO settings VALUES('column-pending:18','[]')")
+            f = media.Figure(2, self.url, "그림")
+            with self.assertRaises(feed.PhotoBudget):
+                feed.publish(db, "18", "제목", "본문", "2026-11-28", 89000, [f])
+            self.assertTrue(db.execute("SELECT 1 FROM settings WHERE name='column-pending:18'").fetchone())
+            self.assertTrue(feed.publish(db, "18", "제목", "본문", "2026-11-28", 190000, [f]))
+            self.assertEqual(db.execute("SELECT count(*) FROM column_figures").fetchone()[0], 1)
+            db.close()
 
     def test_media_and_dedup_commit_together(self):
         with tempfile.TemporaryDirectory() as d:

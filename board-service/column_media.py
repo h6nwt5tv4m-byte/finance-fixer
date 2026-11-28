@@ -22,7 +22,7 @@ class Figure:
     source: str
     label: str
     priority: int = 1
-    fallback: str = ""
+    alternatives: tuple[str, ...] = ()
 
 
 def hosted(url):
@@ -38,8 +38,8 @@ def source_figures(block, offset):
     caption = block.select_one(".se-caption")
     caption = caption.get_text(" ", strip=True) if caption else ""
     for image in block.select("img.se-image-resource"):
-        displayed = next((value for key in ("data-lazy-src", "src")
-                          if (value := image.get(key)) and hosted(value)), "")
+        urls = [value for key in ("data-lazy-src", "src")
+                if (value := image.get(key)) and hosted(value)]
         original = ""
         viewer = image.find_parent("a", attrs={"data-linkdata": True})
         if viewer:
@@ -50,12 +50,14 @@ def source_figures(block, offset):
             except (ValueError, AttributeError):
                 pass
         # A resized display may flatten GIFs. For static photos the rendered size generally works best.
-        if original and urlsplit(original).path.lower().endswith(".gif"):
-            src, fallback = original, displayed
-        else:
-            src, fallback = displayed or original, original
-        if not src:
+        if original:
+            if urlsplit(original).path.lower().endswith(".gif"):
+                urls.insert(0, original)
+            else:
+                urls.append(original)
+        if not urls:
             continue
+        src, *alternatives = dict.fromkeys(urls)
         name = unquote(urlsplit(src).path.rsplit("/", 1)[-1]).lower()
         alt = (image.get("alt") or "").strip()
         label = alt or caption or "원문에 실린 자료 이미지"
@@ -64,7 +66,7 @@ def source_figures(block, offset):
             priority = 3
         elif re.fullmatch(r"\d+_thumb\.\w+", name):
             priority = 4
-        figures.append(Figure(offset, src, label[:200], priority, fallback if fallback != src else ""))
+        figures.append(Figure(offset, src, label[:200], priority, tuple(alternatives)))
     return figures
 
 
@@ -151,9 +153,8 @@ def prepare(figures):
             with Image.open(BytesIO(raw)) as im:
                 asset = (raw, *im.size, "image/gif")
         else:
-            for url in (fig.source, fig.fallback):
-                if not url:
-                    continue
+            transient = None
+            for url in (fig.source, *fig.alternatives):
                 try:
                     raw = download(url)
                     if raw.startswith((b"GIF87a", b"GIF89a")):
@@ -161,11 +162,13 @@ def prepare(figures):
                     else:
                         asset = (*convert(BytesIO(raw)), "image/jpeg")
                     break
-                except requests.RequestException:
-                    raise
+                except requests.RequestException as exc:
+                    transient = exc
                 except (Rejected, ValueError, OSError, EOFError, Image.DecompressionBombError):
                     continue
             else:
+                if transient is not None:
+                    raise transient
                 continue
         assets.append((order, fig, asset))
         if len(assets) >= MAX_FILES:

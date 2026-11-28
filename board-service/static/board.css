@@ -163,3 +163,11 @@ footer a { color: var(--ink-faint); }
 .column-figure { margin: 1.25rem 0; }
 .column-figure img { display: block; max-width: 100%; height: auto; max-height: 75vh; width: auto; }
 .column-figure figcaption { margin-top: .4rem; color: var(--muted); font-size: .9rem; }
+
+.figure-view { position: relative; display: inline-block; max-width: 100%; vertical-align: top; }
+.figure-view > a { position: absolute; inset: 0; }
+.figure-view .still-zoom { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .figure-view .animated-zoom { display: none; }
+  .figure-view .still-zoom { display: block; }
+}

@@ -9,7 +9,11 @@
 {% set layout = namespace(offset=0) %}
 {% for ph in photos if ph.body_offset is not none %}
   {% if ph.body_offset > layout.offset %}<p class="bodytext">{{ p.body[layout.offset:ph.body_offset].strip('\n') }}</p>{% endif %}
-  <figure class="column-figure"><a href="{{ url_for('photo',iid=ph.id) }}"><picture>{% if ph.mime == 'image/gif' %}<source media="(prefers-reduced-motion: reduce)" srcset="{{ url_for('photo',iid=ph.id,still=1) }}">{% endif %}<img src="{{ url_for('photo',iid=ph.id) }}" width="{{ ph.width }}" height="{{ ph.height }}" loading="lazy" alt="{{ ph.label }}"></picture></a>{% if ph.label != '원문에 실린 자료 이미지' and ph.label not in p.body %}<figcaption>{{ ph.label }}</figcaption>{% endif %}</figure>
+  <figure class="column-figure"><span class="figure-view">
+    <picture>{% if ph.mime == 'image/gif' %}<source media="(prefers-reduced-motion: reduce)" srcset="{{ url_for('photo',iid=ph.id,still=1) }}">{% endif %}<img src="{{ url_for('photo',iid=ph.id) }}" width="{{ ph.width }}" height="{{ ph.height }}" loading="lazy" alt="{{ ph.label }}"></picture>
+    <a{% if ph.mime == 'image/gif' %} class="animated-zoom"{% endif %} href="{{ url_for('photo',iid=ph.id) }}" aria-label="{{ ph.label }} 크게 보기"></a>
+    {% if ph.mime == 'image/gif' %}<a class="still-zoom" href="{{ url_for('photo',iid=ph.id,still=1) }}" aria-label="{{ ph.label }} 정지 그림 크게 보기"></a>{% endif %}
+  </span>{% if ph.label != '원문에 실린 자료 이미지' and ph.label not in p.body %}<figcaption>{{ ph.label }}</figcaption>{% endif %}</figure>
   {% set layout.offset = ph.body_offset %}
 {% endfor %}
 {% if layout.offset < p.body|length %}<p class="bodytext">{{ p.body[layout.offset:].lstrip('\n') if layout.offset else p.body }}</p>{% endif %}
