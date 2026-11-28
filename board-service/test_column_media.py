@@ -95,6 +95,19 @@ class ColumnMediaTest(unittest.TestCase):
         with patch.object(media, "download", side_effect=[first.getvalue(), gif()]):
             assets = media.prepare([media.Figure(0, self.url, "사진"), *figures])
             self.assertEqual([asset[-1] for _, asset in assets], ["image/jpeg", "image/gif"])
+        opaque = "https://mblogthumb-phinf.pstatic.net/attachment/123"
+        figures = []
+        feed.board_body(markup(opaque, display), "제목", figures=figures)
+        self.assertIn(opaque, figures[0].alternatives)
+        with patch.object(media, "download", side_effect=[first.getvalue(), gif()]):
+            self.assertEqual(media.prepare(figures)[0][1][-1], "image/gif")
+        for responses in ([b"", b""], [media.AnimationLimit("프레임 상한"), first.getvalue()]):
+            with patch.object(media, "download", side_effect=responses):
+                self.assertEqual(media.prepare(figures, retry_flattened=True), [])
+        still_or_gif = media.Figure(0, self.url, "원문 사진", alternatives=(display,))
+        for alternate, expected in [(gif(), "image/gif"), (first.getvalue(), "image/jpeg")]:
+            with patch.object(media, "download", side_effect=[first.getvalue(), alternate]):
+                self.assertEqual(media.prepare([still_or_gif])[0][1][-1], expected)
 
     def test_gif_only_article_can_retry_a_flattened_download(self):
         flat = io.BytesIO()

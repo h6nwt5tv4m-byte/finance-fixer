@@ -16,6 +16,10 @@ CDN = {"mblogthumb-phinf.pstatic.net", "postfiles.pstatic.net", "blogfiles.pstat
 ROUNDING = "rounded-share.gif"
 
 
+class AnimationLimit(Rejected):
+    """This source exceeds a fixed board limit, even when its preview is available."""
+
+
 @dataclass(frozen=True)
 class Figure:
     offset: int
@@ -64,7 +68,6 @@ def source_figures(block, offset):
         if animated:
             urls = [u for u in urls if u not in (image.get("poster"), image.get("src"))
                     and not unquote(urlsplit(u).path).lower().endswith(".mp4")
-                    and (u == image.get("data-gif-url") or unquote(urlsplit(u).path).lower().endswith(".gif"))
                     and not any(t.startswith("mp4") or "blur" in t for t in
                                 parse_qs(urlsplit(u).query).get("type", []))]
         if not urls:
@@ -125,7 +128,7 @@ def clean_gif(raw):
     with Image.open(BytesIO(raw), formats=["GIF"]) as im:
         pixels = im.width * im.height
         if pixels > 4_000_000:
-            raise Rejected("GIF 해상도 초과")
+            raise AnimationLimit("GIF 해상도 초과")
         playback = {"loop": im.info["loop"]} if "loop" in im.info else {}
         frames, delays = [], []
         while True:
@@ -134,7 +137,7 @@ def clean_gif(raw):
             except EOFError:
                 break
             if len(frames) >= 96 or pixels * (len(frames) + 1) > 24_000_000:
-                raise Rejected("GIF 프레임 한도 초과")
+                raise AnimationLimit("GIF 프레임 한도 초과")
             rgba = im.convert("RGBA")
             rgba.thumbnail((960, 960))
             frame = Image.new("RGB", rgba.size, "white")
@@ -149,7 +152,7 @@ def clean_gif(raw):
         frames[0].save(out, "GIF", save_all=True, append_images=frames[1:], duration=delays, disposal=1, **playback)
         mime = "image/gif"
     if out.tell() > MAX_UPLOAD:
-        raise Rejected("GIF 변환 용량 초과")
+        raise AnimationLimit("GIF 변환 용량 초과")
     if mime == "image/gif":
         out.seek(0)
         with Image.open(out) as result:
@@ -165,6 +168,7 @@ def prepare(figures, retry_flattened=False):
     assets = []
     stored_urls = {}
     unusable = set()
+    limited = set()
     for order, fig in sorted(enumerate(figures), key=lambda pair: pair[1].priority):
         if fig.source in stored_urls and (not fig.animated or stored_urls[fig.source] == "image/gif"):
             continue
@@ -177,39 +181,48 @@ def prepare(figures, retry_flattened=False):
             transient = None
             flattened = False
             asset = None
-            for url in (fig.source, *fig.alternatives):
+            still = None
+            sources = (fig.source, *fig.alternatives)
+            prefer_gif = bool(fig.alternatives) and unquote(urlsplit(fig.source).path).lower().endswith(".gif")
+            for url in sources:
                 if url in stored_urls:
                     if fig.animated and stored_urls[url] != "image/gif":
                         flattened = True
                         continue
                     break
-                if url in unusable:
+                if url in unusable or url in limited:
                     continue
                 try:
                     raw = download(url)
                     if raw.startswith((b"GIF87a", b"GIF89a")):
                         candidate = clean_gif(raw)
-                    elif fig.animated:
-                        flattened = True
-                        continue
                     else:
                         candidate = (*convert(BytesIO(raw)), "image/jpeg")
+                    if candidate[1:3] == (1, 1):
+                        raise Rejected("1픽셀 자리표시자")
                     if fig.animated and candidate[3] != "image/gif":
                         flattened = True
                         continue
-                    if candidate[1:3] == (1, 1):
-                        raise Rejected("1픽셀 자리표시자")
+                    if prefer_gif and candidate[3] != "image/gif":
+                        if still is None:
+                            still = (url, candidate)
+                        continue
                     asset = candidate
                     stored_urls[url] = asset[3]
                     break
                 except requests.RequestException as exc:
                     transient = exc
+                except AnimationLimit:
+                    limited.add(url)
                 except (Rejected, ValueError, OSError, EOFError, Image.DecompressionBombError):
                     unusable.add(url)
             else:
-                if transient is not None:
+                if still is not None:
+                    url, asset = still
+                    stored_urls[url] = asset[3]
+                elif transient is not None:
                     raise transient
-                if flattened and retry_flattened:
+                elif flattened and retry_flattened and limited.isdisjoint(sources):
                     raise ValueError("원문 GIF가 정지 그림으로 응답하여 다음 회차에 다시 확인합니다.")
             if asset is None:
                 continue
