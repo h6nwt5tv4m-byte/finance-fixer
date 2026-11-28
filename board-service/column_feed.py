@@ -4,6 +4,9 @@ from contextlib import closing
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 import hashlib
+import secrets
+import column_media
+from photos import PhotoBudget, reserve_budget
 import json
 import re
 import time
@@ -88,7 +91,7 @@ def text_of(node):
     return node.get_text("", strip=False).replace("\u200b", "").strip()
 
 
-def board_body(html, title, url=None):
+def board_body(html, title, url=None, figures=None):
     doc = BeautifulSoup(html, "html.parser")
     meta = doc.select_one('meta[property="og:title"]')
     source = doc.select_one('meta[property="og:url"]')
@@ -103,20 +106,34 @@ def board_body(html, title, url=None):
     for br in main.select("br"):
         br.replace_with("\n")
     sections = []
+    candidates = []
+    length = 0
     for block in main.select(".se-component"):
-        if "se-table" in block.get("class", []):
+        is_table = "se-table" in block.get("class", [])
+        if figures is not None and ({"se-image", "se-imageGroup"} & set(block.get("class", []))):
+            candidates.extend(column_media.source_figures(block, length))
+        if is_table:
             if block.select_one('[rowspan]:not([rowspan="1"]), [colspan]:not([colspan="1"])'):
                 sections.append("이 표는 셀이 병합되어 있습니다. 아래 ‘관련 자료 보기’에서 원본 표를 확인해 주세요.")
+                length = len("\n\n".join(sections))
                 continue
             lines = [" | ".join(" ".join(text_of(cell).split()) for cell in row.find_all(["th", "td"], recursive=False))
                      for row in block.select("tr")]
         else:
             lines = [text_of(p) for p in block.select(".se-text-paragraph")]
-        if "se-table" in block.get("class", []):
+        table_rows = lines if is_table else []
+        if is_table:
             lines = ["\n".join(lines)]
         sections.extend(line for line in lines if line.strip())
+        length = len("\n\n".join(sections))
+        if figures is not None and table_rows:
+            example = column_media.rounding_example(table_rows, length)
+            if example:
+                candidates.append(example)
     if not sections:
         if main.select_one(".se-image img, .se-image-resource"):
+            if figures is not None:
+                figures.extend(candidates)
             return "사진으로 구성한 칼럼입니다. 아래 ‘관련 자료 보기’에서 사진과 함께 읽어 보세요."
         raise ValueError("No public article paragraphs")
     body = "\n\n".join(sections)
@@ -130,7 +147,13 @@ def board_body(html, title, url=None):
             if len("\n\n".join([*kept, part])) + len(end) > 4000:
                 break
             kept.append(part)
-        return "\n\n".join(kept) + end
+        body = "\n\n".join(kept)
+        if figures is not None:
+            figures.extend(f for f in candidates if f.offset < len(body) or
+                           (f.source == column_media.ROUNDING and f.offset == len(body)))
+        return body + end
+    if figures is not None:
+        figures.extend(candidates)
     return body
 
 
@@ -152,13 +175,17 @@ def manual_duplicate(db, url, title):
     return False
 
 
-def publish(db, log_no, title, body, source_day, now):
+def publish(db, log_no, title, body, source_day, now, figures=()):
     if not 0 < len(title) <= 100:
         raise ValueError("Title exceeds board limits")
     url = BLOG + log_no
     key = "public-blog:" + log_no
     pid = hashlib.sha256(key.encode()).hexdigest()[:24]
     existing = manual_duplicate(db, url, title)
+    assets = ()
+    if figures and not existing and not db.execute("SELECT 1 FROM seeded WHERE key IN (?,?)",
+                                                   (key, manual_key(log_no, title))).fetchone():
+        assets = column_media.prepare(figures)
     with write(db):
         db.execute("DELETE FROM settings WHERE name=?", ("column-pending:" + log_no,))
         if not db.execute("INSERT OR IGNORE INTO seeded(key) VALUES(?)", (key,)).rowcount:
@@ -171,6 +198,19 @@ def publish(db, log_no, title, body, source_day, now):
             raise ValueError("Board rate limit; retry on next run")
         db.execute("""INSERT INTO posts(id,owner,title,body,private,created,source_date,source_url)
                       VALUES(?,'editorial',?,?,0,?,?,?)""", (pid, title, body, now, source_day, url))
+        if assets:
+            try:
+                reserve_budget(db, "editorial", [len(asset[0]) for _, asset in assets], now)
+            except PhotoBudget as exc:
+                # The normal board limits apply. Keep the scheduled text and its public original.
+                print(f"Column {log_no}: image budget {exc.status}; publishing text with source link", flush=True)
+                assets = ()
+        for seq, (figure, (data, width, height, mime)) in enumerate(assets, 1):
+            iid = secrets.token_hex(16)
+            db.execute("INSERT INTO images(id,post,seq,width,height,size,created,data) VALUES(?,?,?,?,?,?,?,?)",
+                       (iid,pid,seq,width,height,len(data),now,data))
+            db.execute("INSERT INTO column_figures(image,body_offset,label,mime) VALUES(?,?,?,?)",
+                       (iid,figure.offset,figure.label,mime))
     return True
 
 
@@ -211,10 +251,11 @@ def main():
             published, title = json.loads(value)
             try:
                 html = fetch("https://m.blog.naver.com/financefixer/" + log_no)
-                body = board_body(html.decode("utf-8"), title, BLOG + log_no)
+                figures = []
+                body = board_body(html.decode("utf-8"), title, BLOG + log_no, figures)
                 if last is not None and time.monotonic() - last < PACE:   # two posts in one run: wait out the board's 30-second limit
                     time.sleep(PACE - (time.monotonic() - last))
-                inserted = publish(db, log_no, title, body, published[:10], int(time.time()))
+                inserted = publish(db, log_no, title, body, published[:10], int(time.time()), figures)
                 if inserted:
                     last = time.monotonic()
                     print("Published", BLOG + log_no, flush=True)

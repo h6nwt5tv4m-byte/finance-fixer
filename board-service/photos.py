@@ -9,6 +9,9 @@ from pillow_heif import register_heif_opener
 # Phones may send HEIC originals; libheif applies the stored rotation and reports orientation 1.
 register_heif_opener()
 
+PHOTO_ACCOUNT_DAY = 15
+PHOTO_TOTAL_DAY = 300
+PHOTO_STORAGE = 1024**3
 MAX_FILES = 3
 MAX_UPLOAD = 5 * 1024 * 1024
 MAX_EDGE = 2000
@@ -34,6 +37,34 @@ TOO_LARGE = "사진 해상도가 너무 큽니다. 크기를 줄여 다시 올�
 
 class Rejected(ValueError):
     pass
+
+
+class PhotoBudget(ValueError):
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
+
+
+def reserve_budget(db, uid, sizes, now, storage_limit=PHOTO_STORAGE):
+    """Called inside the same write transaction as the post and its images."""
+    if not sizes:
+        return
+    for bucket, maximum in ((uid, PHOTO_ACCOUNT_DAY), ("*", PHOTO_TOTAL_DAY)):
+        count = db.execute("SELECT COUNT(*) FROM events WHERE kind='photo' AND bucket=? AND at>?",
+                           (bucket, now-86400)).fetchone()[0]
+        if count + len(sizes) > maximum:
+            raise PhotoBudget(429, "오늘 올릴 수 있는 사진 수를 넘었습니다. 사진을 빼고 등록하거나 내일 다시 올려 주세요.")
+    stored = db.execute("SELECT COALESCE(SUM(size),0) FROM images").fetchone()[0]
+    if stored + sum(sizes) > storage_limit:
+        raise PhotoBudget(503, "사진 저장 공간이 부족합니다. 사진을 빼고 등록해 주세요.")
+    db.executemany("INSERT INTO events VALUES ('photo',?,?)", [(b, now) for b in (uid, "*") for _ in sizes])
+
+
+def gif_poster(data):
+    with Image.open(io.BytesIO(data), formats=["GIF"]) as image:
+        out = io.BytesIO()
+        image.convert("RGB").save(out, "JPEG", quality=QUALITY)
+        return out.getvalue()
 
 
 def chosen(files):

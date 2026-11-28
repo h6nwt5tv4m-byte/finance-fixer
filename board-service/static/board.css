@@ -159,3 +159,7 @@ footer a { color: var(--ink-faint); }
   .meta { width: 100%; margin-left: 0; gap: .8rem; }
   .posts li > a { padding: .75rem 0; }
 }
+
+.column-figure { margin: 1.25rem 0; }
+.column-figure img { display: block; max-width: 100%; height: auto; max-height: 75vh; width: auto; }
+.column-figure figcaption { margin-top: .4rem; color: var(--muted); font-size: .9rem; }

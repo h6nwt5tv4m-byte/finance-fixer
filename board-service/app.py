@@ -16,7 +16,7 @@ from werkzeug.exceptions import HTTPException
 from column_source import remember as remember_public_column
 from consultation import install as install_consultation
 from mail_protocol import DeliveryUncertain, address, deliver, mailbox_limit
-from photos import FORM_MEMORY, MAX_FILES, REQUEST_LIMIT, Rejected, chosen, convert
+from photos import FORM_MEMORY, MAX_FILES, REQUEST_LIMIT, PHOTO_STORAGE, PhotoBudget, Rejected, chosen, convert, gif_poster, reserve_budget
 from public_views import install as install_public_views
 from site_account import install as install_site_account, return_page
 from storage import VISIBLE, connect, expire, reserve, write
@@ -24,9 +24,6 @@ from storage import VISIBLE, connect, expire, reserve, write
 ORIGIN = "https://board.finance-fixer.net"
 PAGE_SIZE = 12
 AUTH_COOKIE = "__Host-board-auth"
-PHOTO_ACCOUNT_DAY = 15
-PHOTO_TOTAL_DAY = 300
-PHOTO_STORAGE = 1024**3
 
 class FormProblem(Exception):
     def __init__(self, status, message):
@@ -365,19 +362,6 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     # Decoding photos is CPU and memory heavy; one at a time per worker.
     photo_slot=BoundedSemaphore(1)
 
-    def reserve_photos(uid, photos, now):
-        """Called under the post write lock so the photo budget and the post commit together."""
-        if not photos:
-            return
-        used=lambda bucket: db().execute("SELECT COUNT(*) FROM events WHERE kind='photo' AND bucket=? AND at>?",
-                                         (bucket,now-86400)).fetchone()[0]
-        if used(uid)+len(photos)>PHOTO_ACCOUNT_DAY or used("*")+len(photos)>PHOTO_TOTAL_DAY:
-            raise FormProblem(429,"오늘 올릴 수 있는 사진 수를 넘었습니다. 사진을 빼고 등록하거나 내일 다시 올려 주세요.")
-        stored=db().execute("SELECT COALESCE(SUM(size),0) FROM images").fetchone()[0]
-        if stored+sum(len(data) for data,_,_ in photos)>PHOTO_STORAGE:
-            raise FormProblem(503,"사진 저장 공간이 부족합니다. 사진을 빼고 등록해 주세요.")
-        db().executemany("INSERT INTO events VALUES ('photo',?,?)",[(bucket,now) for bucket in (uid,"*") for _ in photos])
-
     @app.route("/write",methods=["GET","POST"])
     def compose():
         if request.method!="POST":
@@ -418,7 +402,10 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
             with authenticated_write() as uid:
                 quota(uid)
                 now=stamp()
-                reserve_photos(uid,photos,now)
+                try:
+                    reserve_budget(db(),uid,[len(data) for data,_,_ in photos],now,PHOTO_STORAGE)
+                except PhotoBudget as exc:
+                    raise FormProblem(exc.status,str(exc)) from exc
                 db().execute("INSERT INTO posts(id,owner,title,body,private,created) VALUES (?,?,?,?,?,?)",
                              (pid,uid,title,body,int(visibility=="private"),now))
                 db().executemany("INSERT INTO images(id,post,seq,width,height,size,created,data) VALUES (?,?,?,?,?,?,?,?)",
@@ -434,11 +421,13 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
     def photo(iid):
         uid=viewer()
         # The same visibility rule as the post: private posts for the writer and editors, hidden ones for editors.
-        row=db().execute(f"SELECT i.data FROM images i JOIN posts p ON p.id=i.post WHERE i.id=:iid AND {VISIBLE}",
+        row=db().execute(f"SELECT i.data,COALESCE(f.mime,'image/jpeg') AS mime FROM images i JOIN posts p ON p.id=i.post LEFT JOIN column_figures f ON f.image=i.id WHERE i.id=:iid AND {VISIBLE}",
                          dict(iid=iid,**args(uid))).fetchone()
         if not row:
             abort(404)
-        return Response(row["data"],mimetype="image/jpeg",headers={"Content-Disposition":"inline"})
+        if row["mime"] == "image/gif" and request.args.get("still") == "1":
+            return Response(gif_poster(row["data"]), mimetype="image/jpeg",headers={"Content-Disposition":"inline"})
+        return Response(row["data"],mimetype=row["mime"],headers={"Content-Disposition":"inline"})
 
     @app.get("/p/<pid>")
     def post(pid):
@@ -447,7 +436,7 @@ def create_app(key, database, admins, send_code=deliver, *, identity_key=None):
         replies=db().execute("""SELECT * FROM comments WHERE post=? AND (hidden=0 OR ?)
                               ORDER BY created,rowid""",(pid,editor(uid))).fetchall()
         blocked={r[0] for r in db().execute("SELECT owner FROM blocked")} if editor(uid) else set()
-        photos=db().execute("SELECT id,width,height FROM images WHERE post=? ORDER BY seq",(pid,)).fetchall()
+        photos=db().execute("SELECT i.id,i.width,i.height,f.body_offset,f.label,f.mime FROM images i LEFT JOIN column_figures f ON f.image=i.id WHERE i.post=? ORDER BY i.seq",(pid,)).fetchall()
         g.public_board_page = not (item["private"] or item["hidden"])
         return render_template("post.html",p=item,replies=replies,blocked=blocked,photos=photos,
                                pinned=pinned_post()==pid)

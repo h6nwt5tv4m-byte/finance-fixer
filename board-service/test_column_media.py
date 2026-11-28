@@ -1,0 +1,138 @@
+import io
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+from PIL import Image
+import requests
+
+import column_feed as feed
+import column_media as media
+from storage import connect, initialize
+
+
+def gif():
+    frames = [Image.new("RGB", (5, 6), color) for color in ("red", "blue")]
+    buf = io.BytesIO()
+    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=[80, 120], comment=b"private", loop=0)
+    return buf.getvalue()
+
+
+def article(contents):
+    return '<meta property="og:title" content="제목"><div class="se-main-container">' + contents + '</div>'
+
+
+def para(text):
+    return '<div class="se-component se-text"><p class="se-text-paragraph">' + text + '</p></div>'
+
+
+def picture(url):
+    return '<div class="se-component se-image"><img class="se-image-resource" src="' + url + '"></div>'
+
+
+class ColumnMediaTest(unittest.TestCase):
+    url = "https://mblogthumb-phinf.pstatic.net/x/photo.gif"
+
+    def test_placement_limit_and_unsupported_origins(self):
+        first = para("첫 문단") + picture(self.url) + picture("https://example.org/image") + para("다음 문단")
+        items = []
+        body = feed.board_body(article(first + para("끝" * 3990) + picture(self.url + "?3")), "제목", figures=items)
+        self.assertEqual([(i.offset, i.source) for i in items], [(len("첫 문단"), self.url)])
+        self.assertEqual(body[:4], "첫 문단")
+        self.assertIn("관련 자료 보기", body)
+        self.assertFalse(media.hosted("https://mblogthumb-phinf.pstatic.net.example.org/x"))
+
+    def test_normal_cdn_image_uses_displayed_url_and_gif_has_fallback(self):
+        for ext in ("png", "gif"):
+            original = f"https://mblogthumb-phinf.pstatic.net/path/figure.{ext}"
+            shown = original + "?type=w800"
+            html = f"""<div class="se-component se-image"><a data-linkdata='{{"src":"{original}"}}'>
+                <img class="se-image-resource" data-lazy-src="{shown}"></a></div>"""
+            figures = []
+            feed.board_body(article(html + para("설명")), "제목", figures=figures)
+            fig = figures[0]
+            self.assertEqual((fig.source, fig.fallback), (shown, original) if ext == "png" else (original, shown))
+            if ext == "gif":
+                with patch.object(media, "download", side_effect=[media.Rejected("원본 없음"), gif()]):
+                    self.assertEqual(media.prepare(figures)[0][1][-1], "image/gif")
+
+    def test_redirect_and_viewer_only_group(self):
+        for target, accepted in ((self.url + "?display", True), ("https://outside.example/i", False)):
+            redirect = MagicMock(status_code=302, headers={"Location": target})
+            ok = MagicMock(status_code=200)
+            ok.iter_content.return_value = [b"image"]
+            for response in (redirect, ok):
+                response.__enter__.return_value = response
+            with patch.object(media.requests, "get", side_effect=[redirect, ok]) as get:
+                if accepted:
+                    self.assertEqual(media.download(self.url), b"image")
+                else:
+                    with self.assertRaises(media.Rejected):
+                        media.download(self.url)
+                self.assertEqual(get.call_count, 2 if accepted else 1)
+        html = f"""<div class="se-component se-imageGroup"><a data-linkdata='{{"src":"{self.url}"}}'>
+            <img class="se-image-resource" src="data:image/gif,placeholder" alt="고지서 앞면"></a>
+            <img class="se-image-resource" src="{self.url}?back" alt="고지서 뒷면">
+            <div class="se-caption">고지서 비교</div></div>"""
+        figures = []
+        feed.board_body(article(html), "제목", figures=figures)
+        self.assertEqual([f.label for f in figures], ["고지서 앞면", "고지서 뒷면"])
+
+    def test_original_frame_delays(self):
+        buf = io.BytesIO()
+        frames = [Image.new("RGB", (3, 3), color) for color in ("red", "blue")]
+        frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=[20, 15000])
+        with Image.open(io.BytesIO(media.clean_gif(buf.getvalue())[0])) as im:
+            self.assertEqual(im.info["duration"], 20)
+            im.seek(1)
+            self.assertEqual(im.info["duration"], 15000)
+
+    def test_animation_and_priority(self):
+        a = media.Figure(0, self.url + "?thumb", "표지", 3)
+        b = media.Figure(7, self.url, "첫 그림")
+        c = media.Figure(7, self.url + "?two", "둘째 그림")
+        f = media.rounding_example(["의견 | 건수 | 비율", "부적정 | 7건 | 0.0%"], 15)
+        self.assertIn("7건", media.rounding_example(["의견 | 건수 | 비율","부적정 | 7 | 0.0%"],15).label)
+        self.assertIsNone(media.rounding_example(["의견 | 건수 | 비율","부적정 | 0건 | 0.0%"],15))
+        with patch.object(media, "download", return_value=gif()):
+            assets = media.prepare([a, b, c, f, b])
+        self.assertEqual([fig for fig, asset in assets], [b,c,f])
+        data, w, h, mime = assets[0][1]
+        with Image.open(io.BytesIO(data)) as im:
+            self.assertEqual((w, h, mime, im.n_frames), (5, 6, "image/gif", 2))
+            self.assertNotIn("comment", im.info)
+            self.assertEqual(im.info.get("loop"), 0)
+        with patch.object(media, "download", side_effect=requests.Timeout):
+            with self.assertRaises(requests.Timeout):
+                media.prepare([b])
+
+    def test_kept_table_at_excerpt_boundary_retains_its_figure(self):
+        table = ('<div class="se-component se-table"><table><tr><th>의견</th><th>건수</th><th>비율</th></tr>'
+                 '<tr><td>부적정</td><td>7 건</td><td>0.0%</td></tr></table></div>')
+        figures = []
+        body = feed.board_body(article(para("가"*3750) + table + para("나"*500) + picture(self.url)),
+                               "제목", figures=figures)
+        self.assertEqual([f.source for f in figures], [media.ROUNDING])
+        self.assertTrue(body[:figures[0].offset].endswith("0.0%"))
+
+    def test_media_and_dedup_commit_together(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/"db"
+            initialize(path)
+            db = connect(path)
+            f = media.Figure(0, self.url, "그림")
+            self.enterContext(patch.object(media, "download", return_value=gif()))
+            with patch.object(feed,"reserve_budget",side_effect=ValueError):
+                with self.assertRaises(ValueError):
+                    feed.publish(db, "9", "글", "본문", "2026-11-28", 1000, [f])
+            self.assertFalse(db.execute("select 1 from seeded where key='public-blog:9'").fetchone())
+            self.assertTrue(feed.publish(db, "9", "글", "본문", "2026-11-28", 1000, [f]))
+            with patch.object(media, "prepare", side_effect=AssertionError("중복 글의 이미지 다운로드")):
+                self.assertFalse(feed.publish(db, "9", "글", "본문", "2026-11-28", 1001, [f]))
+                db.execute("INSERT INTO seeded(key) VALUES(?)", (feed.manual_key("10", "수동"),))
+                self.assertFalse(feed.publish(db, "10", "수동", "본문", "2026-11-28", 1001, [f]))
+            self.assertEqual(db.execute("select count(*) from column_figures").fetchone()[0], 1)
+            db.execute("delete from posts where source_url=?", (feed.BLOG+"9",))
+            self.assertFalse(db.execute("select 1 from column_figures").fetchone())
+            db.close()
