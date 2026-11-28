@@ -1,5 +1,5 @@
 """Figures in the author's public Naver article. Only same-site copies are served by the board."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from io import BytesIO
 from pathlib import Path
 import json
@@ -61,7 +61,7 @@ def source_figures(block, offset):
                 pass
         # A resized display may flatten GIFs. For static photos the rendered size generally works best.
         if original:
-            if urlsplit(original).path.lower().endswith(".gif"):
+            if animated or urlsplit(original).path.lower().endswith(".gif"):
                 urls.insert(0, original)
             else:
                 urls.append(original)
@@ -123,7 +123,7 @@ def download(url):
     raise Rejected("원문 그림 주소를 확인할 수 없습니다.")
 
 
-def clean_gif(raw):
+def clean_gif(raw, require_motion=False):
     """Bound input and composed frame pixels; carry only image content and frame delays."""
     with Image.open(BytesIO(raw), formats=["GIF"]) as im:
         pixels = im.width * im.height
@@ -158,10 +158,29 @@ def clean_gif(raw):
         with Image.open(out) as result:
             animated = result.is_animated
         if not animated:
+            if require_motion:
+                raise AnimationLimit("GIF 축소 후 구분되는 프레임이 없습니다.")
             out = BytesIO()
             frames[0].save(out, "JPEG", quality=82)
             mime = "image/jpeg"
     return out.getvalue(), *frames[0].size, mime
+
+
+def group_animations(figures):
+    # Naver can repeat the same GIF with different display sizes in separate blocks.
+    grouped = []
+    positions = {}
+    for fig in figures:
+        if fig.animated and fig.source in positions:
+            index = positions[fig.source]
+            first = grouped[index]
+            alternatives = tuple(dict.fromkeys((*first.alternatives, *fig.alternatives)))
+            grouped[index] = replace(first, alternatives=alternatives)
+        else:
+            if fig.animated:
+                positions[fig.source] = len(grouped)
+            grouped.append(fig)
+    return grouped
 
 
 def prepare(figures, retry_flattened=False):
@@ -169,7 +188,7 @@ def prepare(figures, retry_flattened=False):
     stored_urls = {}
     unusable = set()
     limited = set()
-    for order, fig in sorted(enumerate(figures), key=lambda pair: pair[1].priority):
+    for order, fig in sorted(enumerate(group_animations(figures)), key=lambda pair: pair[1].priority):
         if fig.source in stored_urls and (not fig.animated or stored_urls[fig.source] == "image/gif"):
             continue
         if fig.source == ROUNDING:
@@ -195,7 +214,7 @@ def prepare(figures, retry_flattened=False):
                 try:
                     raw = download(url)
                     if raw.startswith((b"GIF87a", b"GIF89a")):
-                        candidate = clean_gif(raw)
+                        candidate = clean_gif(raw, require_motion=fig.animated)
                     else:
                         candidate = (*convert(BytesIO(raw)), "image/jpeg")
                     if candidate[1:3] == (1, 1):
@@ -220,7 +239,7 @@ def prepare(figures, retry_flattened=False):
                 if still is not None:
                     url, asset = still
                     stored_urls[url] = asset[3]
-                elif transient is not None:
+                elif transient is not None and (not flattened or retry_flattened):
                     raise transient
                 elif flattened and retry_flattened and limited.isdisjoint(sources):
                     raise ValueError("원문 GIF가 정지 그림으로 응답하여 다음 회차에 다시 확인합니다.")

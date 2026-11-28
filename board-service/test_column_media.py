@@ -98,7 +98,7 @@ class ColumnMediaTest(unittest.TestCase):
         opaque = "https://mblogthumb-phinf.pstatic.net/attachment/123"
         figures = []
         feed.board_body(markup(opaque, display), "제목", figures=figures)
-        self.assertIn(opaque, figures[0].alternatives)
+        self.assertEqual(figures[0].source, opaque)
         with patch.object(media, "download", side_effect=[first.getvalue(), gif()]):
             self.assertEqual(media.prepare(figures)[0][1][-1], "image/gif")
         for responses in ([b"", b""], [media.AnimationLimit("프레임 상한"), first.getvalue()]):
