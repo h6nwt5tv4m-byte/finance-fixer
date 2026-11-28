@@ -57,6 +57,58 @@ class ColumnMediaTest(unittest.TestCase):
                 with patch.object(media, "download", side_effect=[media.Rejected("원본 없음"), gif()]):
                     self.assertEqual(media.prepare(figures)[0][1][-1], "image/gif")
 
+    def test_mobile_gif_video_reads_the_animated_image(self):
+        fallback = self.url + "?type=w800"
+        video = f"""<div class="se-component se-image"><a data-linkdata='{{"src":"{self.url}"}}'>
+            <video class="_gifmp4" src="https://mblogvideo-phinf.pstatic.net/movie.mp4"
+             poster="{self.url}?type=w80_blur" data-gif-url="{fallback}" loop></video></a></div>"""
+        figures = []
+        body = feed.board_body(article(video), "제목", figures=figures)
+        self.assertIn("사진", body)
+        self.assertEqual([(f.offset, f.source, f.alternatives) for f in figures], [(0, self.url, (fallback,))])
+        with patch.object(media, "download", side_effect=[media.Rejected("없음"), gif()]):
+            self.assertEqual(media.prepare(figures)[0][1][-1], "image/gif")
+
+    def test_mobile_gif_ignores_video_and_poster_and_tries_animated_fallback(self):
+        display = self.url + "?type=w800"
+        poster = self.url + "?type=w80_blur"
+        video = self.url.replace("photo.gif", "clip.mp4")
+        first = io.BytesIO()
+        Image.new("RGB", (12, 16)).save(first, "JPEG")
+        def markup(original, fallback):
+            return article(f"""<div class="se-component se-image"><a data-linkdata='{{"src":"{original}"}}'>
+                <video class="_gifmp4" src="{video}" poster="{poster}" data-gif-url="{fallback}"></video></a></div>""")
+        for bad in (video, poster):
+            with self.assertRaises(ValueError):
+                feed.board_body(markup(bad, "https://example.org/foreign.gif"), "제목", figures=[])
+        figures = []
+        feed.board_body(markup(self.url, display), "제목", figures=figures)
+        with patch.object(media, "download", side_effect=[first.getvalue(), gif()]) as download:
+            self.assertEqual(media.prepare(figures)[0][1][-1], "image/gif")
+            self.assertEqual([c.args[0] for c in download.call_args_list], [self.url, display])
+        with patch.object(media, "download", side_effect=[first.getvalue(), gif()]):
+            assets = media.prepare([media.Figure(0, self.url, "사진"), *figures])
+            self.assertEqual([asset[-1] for _, asset in assets], ["image/jpeg", "image/gif"])
+
+    def test_gif_only_article_can_retry_a_flattened_download(self):
+        flat = io.BytesIO()
+        Image.new("RGB", (12, 16)).save(flat, "GIF")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "db"
+            initialize(path)
+            db = connect(path)
+            args = (db, "11", "움직이는 그림", feed.IMAGE_ONLY, "2026-11-28", 89000,
+                    [media.Figure(0, self.url, "그림", animated=True)])
+            with patch.object(media, "download", return_value=flat.getvalue()), self.assertRaises(ValueError):
+                feed.publish(*args)
+            with patch.object(media, "download", return_value=flat.getvalue()), self.assertRaises(ValueError):
+                feed.publish(db, "11", "그림", "설명이 있는 GIF", *args[4:])
+            self.assertFalse(db.execute("SELECT 1 FROM seeded WHERE key='public-blog:11'").fetchone())
+            with patch.object(media, "download", return_value=gif()):
+                self.assertTrue(feed.publish(*args))
+            self.assertEqual(db.execute("SELECT mime FROM column_figures").fetchone()[0], "image/gif")
+            db.close()
+
     def test_display_src_survives_unavailable_lazy_url(self):
         lazy, src = self.url + "?w1200", self.url + "?w800"
         block = f'<div class="se-component se-image"><img class="se-image-resource" data-lazy-src="{lazy}" src="{src}"></div>'

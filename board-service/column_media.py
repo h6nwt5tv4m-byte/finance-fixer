@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import Path
 import json
 import re
-from urllib.parse import unquote, urljoin, urlsplit
+from urllib.parse import parse_qs, unquote, urljoin, urlsplit
 
 import requests
 from PIL import Image
@@ -23,6 +23,7 @@ class Figure:
     label: str
     priority: int = 1
     alternatives: tuple[str, ...] = ()
+    animated: bool = False
 
 
 def hosted(url):
@@ -37,8 +38,11 @@ def source_figures(block, offset):
     figures = []
     caption = block.select_one(".se-caption")
     caption = caption.get_text(" ", strip=True) if caption else ""
-    for image in block.select("img.se-image-resource"):
-        urls = [value for key in ("data-lazy-src", "src")
+    for image in block.select("img.se-image-resource, video._gifmp4"):
+        # Mobile Naver plays GIFs as MP4. Its data-gif-url and image viewer still serve the GIF.
+        animated = image.name == "video"
+        keys = ("data-gif-url",) if animated else ("data-lazy-src", "src")
+        urls = [value for key in keys
                 if (value := image.get(key)) and hosted(value)]
         original = ""
         viewer = image.find_parent("a", attrs={"data-linkdata": True})
@@ -55,6 +59,11 @@ def source_figures(block, offset):
                 urls.insert(0, original)
             else:
                 urls.append(original)
+        if animated:
+            urls = [u for u in urls if u not in (image.get("poster"), image.get("src"))
+                    and urlsplit(u).path.lower().endswith(".gif")
+                    and not any(t.startswith("mp4") or "blur" in t for t in
+                                parse_qs(urlsplit(u).query).get("type", []))]
         if not urls:
             continue
         src, *alternatives = dict.fromkeys(urls)
@@ -66,7 +75,7 @@ def source_figures(block, offset):
             priority = 3
         elif re.fullmatch(r"\d+_thumb\.\w+", name):
             priority = 4
-        figures.append(Figure(offset, src, label[:200], priority, tuple(alternatives)))
+        figures.append(Figure(offset, src, label[:200], priority, tuple(alternatives), animated))
     return figures
 
 
@@ -138,26 +147,38 @@ def clean_gif(raw):
         mime = "image/gif"
     if out.tell() > MAX_UPLOAD:
         raise Rejected("GIF 변환 용량 초과")
+    if mime == "image/gif":
+        out.seek(0)
+        with Image.open(out) as result:
+            animated = result.is_animated
+        if not animated:
+            out = BytesIO()
+            frames[0].save(out, "JPEG", quality=82)
+            mime = "image/jpeg"
     return out.getvalue(), *frames[0].size, mime
 
 
-def prepare(figures):
+def prepare(figures, retry_flattened=False):
     assets = []
-    stored_urls = set()
+    stored_urls = {}
     unusable = set()
     for order, fig in sorted(enumerate(figures), key=lambda pair: pair[1].priority):
-        if fig.source in stored_urls:
+        if fig.source in stored_urls and (not fig.animated or stored_urls[fig.source] == "image/gif"):
             continue
         if fig.source == ROUNDING:
-            stored_urls.add(fig.source)
+            stored_urls[fig.source] = "image/gif"
             raw = (Path(__file__).resolve().parent / "column-assets" / ROUNDING).read_bytes()
             with Image.open(BytesIO(raw)) as im:
                 asset = (raw, *im.size, "image/gif")
         else:
             transient = None
+            flattened = False
             asset = None
             for url in (fig.source, *fig.alternatives):
                 if url in stored_urls:
+                    if fig.animated and stored_urls[url] != "image/gif":
+                        flattened = True
+                        continue
                     break
                 if url in unusable:
                     continue
@@ -165,12 +186,18 @@ def prepare(figures):
                     raw = download(url)
                     if raw.startswith((b"GIF87a", b"GIF89a")):
                         candidate = clean_gif(raw)
+                    elif fig.animated:
+                        flattened = True
+                        continue
                     else:
                         candidate = (*convert(BytesIO(raw)), "image/jpeg")
+                    if fig.animated and candidate[3] != "image/gif":
+                        flattened = True
+                        continue
                     if candidate[1:3] == (1, 1):
                         raise Rejected("1픽셀 자리표시자")
                     asset = candidate
-                    stored_urls.add(url)
+                    stored_urls[url] = asset[3]
                     break
                 except requests.RequestException as exc:
                     transient = exc
@@ -179,6 +206,8 @@ def prepare(figures):
             else:
                 if transient is not None:
                     raise transient
+                if flattened and retry_flattened:
+                    raise ValueError("원문 GIF가 정지 그림으로 응답하여 다음 회차에 다시 확인합니다.")
             if asset is None:
                 continue
         assets.append((order, fig, asset))

@@ -32,6 +32,7 @@ KST = timezone(timedelta(hours=9))
 BUSINESS = {"관리비·생활정보", "회계감사·외부감사", "보조금·정산", "세금·신고", "경제"}
 WIDE_SINCE = datetime(2026, 11, 26, 22, 0, tzinfo=KST)
 PACE = 31   # seconds between two inserts in one run; the board allows one editorial post per 30 seconds
+IMAGE_ONLY = "사진으로 구성한 칼럼입니다. 아래 ‘관련 자료 보기’에서 사진과 함께 읽어 보세요."
 
 
 def matches_topic(category, title, tags, published=None):
@@ -110,7 +111,7 @@ def board_body(html, title, url=None, figures=None):
     length = 0
     for block in main.select(".se-component"):
         is_table = "se-table" in block.get("class", [])
-        if figures is not None and ({"se-image", "se-imageGroup"} & set(block.get("class", []))):
+        if {"se-image", "se-imageGroup"} & set(block.get("class", [])):
             candidates.extend(column_media.source_figures(block, length))
         if is_table:
             if block.select_one('[rowspan]:not([rowspan="1"]), [colspan]:not([colspan="1"])'):
@@ -131,10 +132,10 @@ def board_body(html, title, url=None, figures=None):
             if example:
                 candidates.append(example)
     if not sections:
-        if main.select_one(".se-image img, .se-image-resource"):
+        if candidates or main.select_one(".se-image img, .se-image-resource"):
             if figures is not None:
                 figures.extend(candidates)
-            return "사진으로 구성한 칼럼입니다. 아래 ‘관련 자료 보기’에서 사진과 함께 읽어 보세요."
+            return IMAGE_ONLY
         raise ValueError("No public article paragraphs")
     body = "\n\n".join(sections)
     if len(body) > 4000:
@@ -184,7 +185,10 @@ def publish(db, log_no, title, body, source_day, now, figures=()):
     assets = ()
     if figures and not existing and not db.execute("SELECT 1 FROM seeded WHERE key IN (?,?)",
                                                    (key, manual_key(log_no, title))).fetchone():
-        assets = column_media.prepare(figures)
+        # Naver can publish the poster before it serves the animation. Retry through the
+        # following local day, then use the existing fallback to the public original.
+        retry_until = datetime.fromisoformat(source_day).replace(tzinfo=KST) + timedelta(days=2)
+        assets = column_media.prepare(figures, retry_flattened=now < retry_until.timestamp())
     with write(db):
         db.execute("DELETE FROM settings WHERE name=?", ("column-pending:" + log_no,))
         if not db.execute("INSERT OR IGNORE INTO seeded(key) VALUES(?)", (key,)).rowcount:
